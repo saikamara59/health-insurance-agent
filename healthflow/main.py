@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from healthflow.api.routes import router
+
 app = FastAPI(
     title="HealthFlow",
     description="AI-powered Medicare Advantage plan comparison service",
@@ -15,10 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+app.include_router(router)
 
 
 if __name__ == "__main__":
