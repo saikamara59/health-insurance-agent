@@ -49,6 +49,19 @@ curl -X POST http://localhost:8000/estimate \
   }'
 ```
 
+### POST /translate
+
+Answer a question about a pasted Summary of Benefits document in plain English.
+
+```bash
+curl -X POST http://localhost:8000/translate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_text": "INPATIENT HOSPITAL CARE\nYou pay $250 copay per day for days 1-5.\n\nEMERGENCY CARE\nEmergency room: $90 copay (waived if admitted)",
+    "question": "How much does an ER visit cost?"
+  }'
+```
+
 ### GET /plans/{zip_code}
 
 List available plans for a zip code.
