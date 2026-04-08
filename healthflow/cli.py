@@ -221,5 +221,75 @@ def calculate(session_id: str, zip_code: str, income: str, doctor_visits: int, p
     click.echo()
 
 
+@cli.command()
+@click.option(
+    "--denial-text",
+    default="",
+    help="Pasted denial letter text (prompted if not provided)",
+)
+@click.option("--context", default="", help="Optional additional context")
+def appeal(denial_text: str, context: str):
+    """Generate an appeal letter from a denial letter."""
+    if not denial_text:
+        denial_text = click.prompt(
+            "Paste your denial letter text (end with Enter on an empty line)",
+            default="",
+            prompt_suffix="\n> ",
+        )
+        if not denial_text.strip():
+            click.echo("Error: Denial text cannot be empty.")
+            sys.exit(1)
+
+    payload: dict = {
+        "denial_text": denial_text,
+        "additional_context": context,
+    }
+
+    try:
+        response = httpx.post(f"{BASE_URL}/appeal", json=payload, timeout=60.0)
+        response.raise_for_status()
+    except httpx.ConnectError:
+        click.echo("Error: Cannot connect to HealthFlow API. Is the server running?")
+        click.echo("Start it with: python -m healthflow.main")
+        sys.exit(1)
+    except httpx.HTTPStatusError as e:
+        click.echo(f"Error: {e.response.json().get('detail', str(e))}")
+        sys.exit(1)
+
+    data = response.json()
+
+    click.echo("\n" + "=" * 60)
+    click.echo("  HEALTHFLOW — Claims Denial Appeal")
+    click.echo("=" * 60)
+
+    analysis = data["denial_analysis"]
+    click.echo("\n--- Denial Analysis ---")
+    click.echo(f"  Denial Code:     {analysis.get('denial_reason_code', 'N/A') or 'N/A'}")
+    click.echo(f"  Denial Reason:   {analysis.get('denial_reason', 'N/A')}")
+    click.echo(f"  Treatment:       {analysis.get('treatment_denied', 'N/A')}")
+    click.echo(f"  Policy Section:  {analysis.get('policy_section_cited', 'N/A') or 'N/A'}")
+    click.echo(f"  Appeal Deadline: {analysis.get('appeal_deadline', 'N/A') or 'N/A'}")
+    click.echo(f"  Denial Date:     {analysis.get('denial_date', 'N/A') or 'N/A'}")
+
+    argument = data["coverage_argument"]
+    click.echo("\n--- Coverage Argument ---")
+    click.echo(f"  CMS Rule: {argument.get('cms_rule', 'N/A')}")
+    click.echo("  Appeal Grounds:")
+    for ground in argument.get("common_appeal_grounds", []):
+        click.echo(f"    - {ground}")
+    click.echo("  Precedents:")
+    for precedent in argument.get("success_precedents", []):
+        click.echo(f"    - {precedent}")
+
+    click.echo("\n" + "-" * 60)
+    click.echo("\nAPPEAL LETTER:\n")
+    click.echo(data["appeal_letter"])
+
+    click.echo("\n" + "-" * 60)
+    click.echo(f"\n{data['disclaimer']}")
+    click.echo(f"\nSession ID: {data['session_id']}")
+    click.echo()
+
+
 if __name__ == "__main__":
     cli()
