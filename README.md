@@ -97,6 +97,19 @@ curl -X POST http://localhost:8000/calculate \
   }'
 ```
 
+### POST /appeal
+
+Parse a denial letter and generate a formal appeal letter template.
+
+```bash
+curl -X POST http://localhost:8000/appeal \
+  -H "Content-Type: application/json" \
+  -d '{
+    "denial_text": "Patient: John Smith\nMember ID: ABC123\nYour claim for MRI of lumbar spine has been denied.\nDenial code: CO-50. The service is not deemed medically necessary.\nYou have 60 days to file an appeal.",
+    "additional_context": "Patient has documented history of chronic lower back pain."
+  }'
+```
+
 ### GET /plans/{zip_code}
 
 List available plans for a zip code.
@@ -129,6 +142,9 @@ python -m healthflow.cli estimate --plan-id H3312-034 --item Metformin --type me
 
 # Annual cost calculation
 python -m healthflow.cli calculate --zip-code 10001 --income low --doctor-visits 12 --prescriptions "Metformin:12,Ozempic:12" --procedures "MRI:2"
+
+# Generate appeal letter
+python -m healthflow.cli appeal --denial-text "Your claim for MRI has been denied. Denial code: CO-50."
 ```
 
 ## Supported Zip Codes
@@ -162,3 +178,8 @@ HTTP Request → FastAPI → Harness (validate/filter/log) → Tools (fetch/pars
 - **Plan Parser**: Ranks and scores plans based on income-weighted criteria
 - **Cost Estimator**: ~30 medications and ~20 procedures with realistic pricing
 - **Comparison Agent**: Generates plain-English recommendations via Claude
+- **PHI Redactor**: Regex-based PHI stripping before any LLM call
+- **Denial Parser**: Extracts denial codes, treatments, deadlines from letters
+- **Denial Code DB**: Curated database of ~25 CARC/RARC codes with CMS rules
+- **Appeal Writer**: Generates formal appeal letter templates
+- **Appeal Agent**: Orchestrates denial parsing, code lookup, and Claude refinement
