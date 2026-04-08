@@ -78,3 +78,39 @@ class EstimateResponse(BaseModel):
     estimated_cost: float
     cost_details: CostDetails
     disclaimer: str
+
+
+class DocumentSection(BaseModel):
+    title: str
+    content: str
+
+
+class TranslateRequest(BaseModel):
+    document_text: str = Field(..., description="Pasted Summary of Benefits text")
+    question: str = Field(..., description="Specific question about the document")
+
+    @field_validator("document_text")
+    @classmethod
+    def validate_document_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Document text cannot be empty")
+        if len(v) > 50_000:
+            raise ValueError("Document text must be at most 50,000 characters")
+        return v
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Question cannot be empty")
+        if len(v) > 500:
+            raise ValueError("Question must be at most 500 characters")
+        return v
+
+
+class TranslateResponse(BaseModel):
+    session_id: str
+    question: str
+    answer: str
+    relevant_sections: list[str]
+    disclaimer: str
