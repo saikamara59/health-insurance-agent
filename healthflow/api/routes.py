@@ -3,10 +3,13 @@ import uuid
 from fastapi import APIRouter, HTTPException, Path
 
 from healthflow.agents.comparison_agent import ComparisonAgent
+from healthflow.agents.cost_calculator_agent import CostCalculatorAgent
 from healthflow.agents.harness import Harness
 from healthflow.agents.translation_agent import TranslationAgent
 from healthflow.memory.session import InMemoryStore
 from healthflow.models.schemas import (
+    CalculateRequest,
+    CalculateResponse,
     CompareRequest,
     CompareResponse,
     CostDetails,
@@ -33,6 +36,12 @@ document_parser = DocumentParser()
 DISCLAIMER = (
     "This is a plan comparison tool, not medical advice. "
     "Consult a licensed healthcare professional for medical decisions."
+)
+
+ESTIMATE_DISCLAIMER = (
+    "These are estimates based on typical plan costs and your expected usage. "
+    "Actual costs may vary based on provider network, specific services, and plan terms. "
+    "This is not medical advice."
 )
 
 
@@ -174,3 +183,43 @@ def translate_coverage(request: TranslateRequest):
         relevant_sections=section_titles,
         disclaimer=DISCLAIMER,
     )
+
+
+@router.post("/calculate", response_model=CalculateResponse)
+def calculate_costs(request: CalculateRequest):
+    if request.session_id:
+        session_data = session_store.load(request.session_id)
+        if session_data is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        plan_ids = session_data.get("plan_ids", [])
+        zip_code = session_data.get("zip_code", "10001")
+        raw_plans = fetcher.fetch_plans(zip_code)
+        raw_plans = [p for p in raw_plans if p["plan_id"] in plan_ids] or raw_plans
+        income_level = session_data.get("income_level", "medium")
+    else:
+        raw_plans = fetcher.fetch_plans(request.zip_code)
+        income_level = request.income_level
+
+    ranked_plans = parser.parse_and_rank(raw_plans, income_level)
+
+    harness.audit.log("tool_called", {"tool": "cost_calculator", "plans": len(ranked_plans)})
+
+    agent = CostCalculatorAgent()
+    results, raw_recommendation = agent.calculate(ranked_plans, request.usage)
+
+    recommendation = harness.filter_output(raw_recommendation)
+
+    session_id = request.session_id or str(uuid.uuid4())
+    session_store.save(session_id, {
+        "zip_code": request.zip_code or (session_data.get("zip_code") if request.session_id else None),
+        "income_level": income_level,
+        "plan_ids": [r.plan_id for r in results],
+        "calculation": True,
+    })
+
+    return CalculateResponse.model_validate({
+        "session_id": session_id,
+        "plans": [r.model_dump() for r in results],
+        "recommendation": recommendation,
+        "disclaimer": ESTIMATE_DISCLAIMER,
+    })
