@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Path
 
 from healthflow.agents.comparison_agent import ComparisonAgent
 from healthflow.agents.harness import Harness
+from healthflow.agents.translation_agent import TranslationAgent
 from healthflow.memory.session import InMemoryStore
 from healthflow.models.schemas import (
     CompareRequest,
@@ -12,9 +13,12 @@ from healthflow.models.schemas import (
     EstimateRequest,
     EstimateResponse,
     PlanSummary,
+    TranslateRequest,
+    TranslateResponse,
 )
 from healthflow.tools.cms_fetcher import MockCMSFetcher
 from healthflow.tools.cost_estimator import CostEstimator
+from healthflow.tools.document_parser import DocumentParser
 from healthflow.tools.plan_parser import PlanParser
 
 router = APIRouter()
@@ -24,6 +28,7 @@ parser = PlanParser()
 estimator = CostEstimator()
 harness = Harness()
 session_store = InMemoryStore()
+document_parser = DocumentParser()
 
 DISCLAIMER = (
     "This is a plan comparison tool, not medical advice. "
@@ -137,5 +142,35 @@ def estimate_cost(request: EstimateRequest):
         item_type=result["item_type"],
         estimated_cost=result["estimated_cost"],
         cost_details=CostDetails(**result["cost_details"]),
+        disclaimer=DISCLAIMER,
+    )
+
+
+@router.post("/translate", response_model=TranslateResponse)
+def translate_coverage(request: TranslateRequest):
+    harness.audit.log("tool_called", {"tool": "document_parser", "doc_length": len(request.document_text)})
+
+    sections = document_parser.parse(request.document_text)
+    relevant = document_parser.find_relevant_sections(sections, request.question)
+
+    agent = TranslationAgent()
+    raw_answer, section_titles = agent.translate(
+        sections=relevant,
+        question=request.question,
+    )
+
+    answer = harness.filter_output(raw_answer)
+
+    session_id = str(uuid.uuid4())
+    session_store.save(session_id, {
+        "question": request.question,
+        "section_titles": section_titles,
+    })
+
+    return TranslateResponse(
+        session_id=session_id,
+        question=request.question,
+        answer=answer,
+        relevant_sections=section_titles,
         disclaimer=DISCLAIMER,
     )
