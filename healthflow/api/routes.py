@@ -2,17 +2,22 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Path
 
+from healthflow.agents.appeal_agent import AppealAgent
 from healthflow.agents.comparison_agent import ComparisonAgent
 from healthflow.agents.cost_calculator_agent import CostCalculatorAgent
 from healthflow.agents.harness import Harness
 from healthflow.agents.translation_agent import TranslationAgent
 from healthflow.memory.session import InMemoryStore
 from healthflow.models.schemas import (
+    AppealRequest,
+    AppealResponse,
     CalculateRequest,
     CalculateResponse,
     CompareRequest,
     CompareResponse,
     CostDetails,
+    CoverageArgument,
+    DenialAnalysis,
     EstimateRequest,
     EstimateResponse,
     PlanSummary,
@@ -41,6 +46,13 @@ DISCLAIMER = (
 ESTIMATE_DISCLAIMER = (
     "These are estimates based on typical plan costs and your expected usage. "
     "Actual costs may vary based on provider network, specific services, and plan terms. "
+    "This is not medical advice."
+)
+
+APPEAL_DISCLAIMER = (
+    "This appeal letter template is for educational and informational purposes only. "
+    "It does not constitute legal advice and does not guarantee appeal success. "
+    "Consult a healthcare advocate or attorney for formal appeals. "
     "This is not medical advice."
 )
 
@@ -223,3 +235,35 @@ def calculate_costs(request: CalculateRequest):
         "recommendation": recommendation,
         "disclaimer": ESTIMATE_DISCLAIMER,
     })
+
+
+@router.post("/appeal", response_model=AppealResponse)
+def generate_appeal(request: AppealRequest):
+    harness.audit.log("tool_called", {
+        "tool": "appeal_agent",
+        "denial_length": len(request.denial_text),
+    })
+
+    agent = AppealAgent()
+    analysis, argument, appeal_letter, raw_recommendation = agent.process_appeal(
+        request.denial_text,
+        request.additional_context,
+    )
+
+    # Filter Claude's recommendation through the harness
+    filtered_recommendation = harness.filter_output(raw_recommendation)
+
+    session_id = str(uuid.uuid4())
+    session_store.save(session_id, {
+        "type": "appeal",
+        "denial_code": analysis.denial_reason_code,
+        "treatment_denied": analysis.treatment_denied,
+    })
+
+    return AppealResponse(
+        session_id=session_id,
+        denial_analysis=analysis,
+        coverage_argument=argument,
+        appeal_letter=appeal_letter,
+        disclaimer=APPEAL_DISCLAIMER,
+    )
