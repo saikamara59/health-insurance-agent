@@ -62,6 +62,41 @@ curl -X POST http://localhost:8000/translate \
   }'
 ```
 
+### POST /calculate
+
+Calculate estimated annual out-of-pocket costs based on your expected healthcare usage.
+
+```bash
+curl -X POST http://localhost:8000/calculate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "zip_code": "10001",
+    "income_level": "low",
+    "usage": {
+      "doctor_visits_per_year": 12,
+      "prescriptions": [
+        {"name": "Metformin", "fills_per_year": 12},
+        {"name": "Ozempic", "fills_per_year": 12}
+      ],
+      "procedures": [
+        {"name": "MRI", "count": 2},
+        {"name": "Blood work", "count": 4}
+      ]
+    }
+  }'
+```
+
+You can also pass a `session_id` from a prior `/compare` call to reuse the same plans:
+
+```bash
+curl -X POST http://localhost:8000/calculate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "your-session-id-here",
+    "usage": {"doctor_visits_per_year": 12}
+  }'
+```
+
 ### GET /plans/{zip_code}
 
 List available plans for a zip code.
@@ -91,6 +126,9 @@ python -m healthflow.cli compare --zip-code 10001 --age 65 --income low --medica
 
 # Cost estimate
 python -m healthflow.cli estimate --plan-id H3312-034 --item Metformin --type medication
+
+# Annual cost calculation
+python -m healthflow.cli calculate --zip-code 10001 --income low --doctor-visits 12 --prescriptions "Metformin:12,Ozempic:12" --procedures "MRI:2"
 ```
 
 ## Supported Zip Codes
