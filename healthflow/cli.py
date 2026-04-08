@@ -115,5 +115,111 @@ def estimate(plan_id: str, item: str, item_type: str):
     click.echo(f"\n{data['disclaimer']}")
 
 
+@cli.command()
+@click.option("--session-id", default="", help="Session ID from a prior /compare call")
+@click.option("--zip-code", default="", help="5-digit US zip code")
+@click.option(
+    "--income",
+    default="",
+    type=click.Choice(["low", "medium", "high", ""], case_sensitive=False),
+    help="Income level",
+)
+@click.option("--doctor-visits", prompt="Doctor visits per year", type=int, help="Expected doctor visits per year")
+@click.option("--prescriptions", default="", help="Comma-separated name:fills pairs (e.g., Metformin:12,Ozempic:12)")
+@click.option("--procedures", default="", help="Comma-separated name:count pairs (e.g., MRI:2,Blood work:4)")
+def calculate(session_id: str, zip_code: str, income: str, doctor_visits: int, prescriptions: str, procedures: str):
+    """Calculate estimated annual out-of-pocket costs."""
+    payload: dict = {
+        "usage": {
+            "doctor_visits_per_year": doctor_visits,
+            "prescriptions": [],
+            "procedures": [],
+        }
+    }
+
+    if session_id:
+        payload["session_id"] = session_id
+    elif zip_code:
+        payload["zip_code"] = zip_code
+        payload["income_level"] = income or "medium"
+    else:
+        click.echo("Error: Provide --session-id or --zip-code")
+        sys.exit(1)
+
+    for item in prescriptions.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = item.rsplit(":", 1)
+        if len(parts) == 2:
+            payload["usage"]["prescriptions"].append(
+                {"name": parts[0].strip(), "fills_per_year": int(parts[1])}
+            )
+        else:
+            payload["usage"]["prescriptions"].append(
+                {"name": parts[0].strip(), "fills_per_year": 12}
+            )
+
+    for item in procedures.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = item.rsplit(":", 1)
+        if len(parts) == 2:
+            payload["usage"]["procedures"].append(
+                {"name": parts[0].strip(), "count": int(parts[1])}
+            )
+        else:
+            payload["usage"]["procedures"].append(
+                {"name": parts[0].strip(), "count": 1}
+            )
+
+    try:
+        response = httpx.post(f"{BASE_URL}/calculate", json=payload, timeout=30.0)
+        response.raise_for_status()
+    except httpx.ConnectError:
+        click.echo("Error: Cannot connect to HealthFlow API. Is the server running?")
+        sys.exit(1)
+    except httpx.HTTPStatusError as e:
+        click.echo(f"Error: {e.response.json().get('detail', str(e))}")
+        sys.exit(1)
+
+    data = response.json()
+
+    click.echo("\n" + "=" * 60)
+    click.echo("  HEALTHFLOW — Annual Cost Calculator")
+    click.echo("=" * 60)
+
+    for i, plan in enumerate(data["plans"], 1):
+        b = plan["breakdown"]
+        click.echo(f"\n--- #{i}: {plan['plan_name']} ---")
+        click.echo(f"  Annual Premium:    ${plan['annual_premium']:>10,.2f}")
+        click.echo(f"  Annual Care Cost:  ${plan['annual_care_cost']:>10,.2f}")
+        click.echo(f"  TOTAL ANNUAL COST: ${plan['total_annual_cost']:>10,.2f}")
+        click.echo(f"  ---")
+        click.echo(f"  Doctor Visits:     ${b['doctor_visit_costs']:>10,.2f}")
+        click.echo(f"  Prescriptions:     ${b['prescription_costs']:>10,.2f}")
+        click.echo(f"  Procedures:        ${b['procedure_costs']:>10,.2f}")
+        if b["oop_cap_applied"]:
+            click.echo(f"  ** OOP Max cap applied — saved ${b['total_before_oop_cap'] - b['final_care_cost']:,.2f}")
+
+        if plan["prescription_details"]:
+            click.echo("  Rx Breakdown:")
+            for rx in plan["prescription_details"]:
+                click.echo(f"    - {rx['name']}: ${rx['cost_per_fill']:.2f}/fill x {int(rx['annual_cost'] / rx['cost_per_fill'])} = ${rx['annual_cost']:.2f}/yr")
+
+        if plan["procedure_details"]:
+            click.echo("  Procedure Breakdown:")
+            for proc in plan["procedure_details"]:
+                click.echo(f"    - {proc['name']}: ${proc['cost_per_visit']:.2f} x {int(proc['annual_cost'] / proc['cost_per_visit'])} = ${proc['annual_cost']:.2f}/yr")
+
+    click.echo("\n" + "-" * 60)
+    click.echo("\nRECOMMENDATION:\n")
+    click.echo(data["recommendation"])
+    click.echo(f"\n{data['disclaimer']}")
+    click.echo(f"\nSession ID: {data['session_id']}")
+    click.echo()
+
+
 if __name__ == "__main__":
     cli()
