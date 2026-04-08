@@ -206,3 +206,49 @@ class CalculateResponse(BaseModel):
     plans: list[PlanCostResult]
     recommendation: str
     disclaimer: str
+
+
+class AppealRequest(BaseModel):
+    denial_text: str = Field(..., description="Pasted denial letter text")
+    additional_context: str = Field(
+        default="", description="Optional additional context from the user"
+    )
+
+    @field_validator("denial_text")
+    @classmethod
+    def validate_denial_text(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Denial text cannot be empty")
+        if len(v) > 50_000:
+            raise ValueError("Denial text must be at most 50,000 characters")
+        return v
+
+    @field_validator("additional_context")
+    @classmethod
+    def validate_additional_context(cls, v: str) -> str:
+        if len(v) > 1_000:
+            raise ValueError("Additional context must be at most 1,000 characters")
+        return v
+
+
+class DenialAnalysis(BaseModel):
+    denial_reason_code: str | None
+    denial_reason: str
+    treatment_denied: str
+    policy_section_cited: str | None
+    appeal_deadline: str | None
+    denial_date: str | None
+
+
+class CoverageArgument(BaseModel):
+    cms_rule: str
+    common_appeal_grounds: list[str]
+    success_precedents: list[str]
+
+
+class AppealResponse(BaseModel):
+    session_id: str
+    denial_analysis: DenialAnalysis
+    coverage_argument: CoverageArgument
+    appeal_letter: str
+    disclaimer: str
