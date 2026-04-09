@@ -321,3 +321,114 @@ class VerifyResponse(BaseModel):
     plans: list[PlanNetworkResult]
     recommendation: str
     disclaimer: str
+
+
+# ── Phase 6A: Auth & Client Schemas ──────────────────────────────────────────
+
+
+class BrokerCreate(BaseModel):
+    email: str = Field(..., description="Broker email address")
+    password: str = Field(..., min_length=8, description="Password (min 8 chars)")
+    full_name: str = Field(..., description="Broker full name")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        import re
+        pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid email address")
+        return v
+
+
+class BrokerResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., description="Broker email")
+    password: str = Field(..., description="Broker password")
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class ClientCreate(BaseModel):
+    full_name: str = Field(..., description="Client full name")
+    zip_code: str = Field(..., description="5-digit US zip code")
+    age: int = Field(..., ge=18, le=120, description="Age between 18 and 120")
+    income_level: str = Field(..., description="Income level: low, medium, or high")
+    doctors: list[dict] = Field(
+        default_factory=list, description="List of doctor objects with name and npi"
+    )
+    prescriptions: list[str] = Field(
+        default_factory=list, description="List of prescription names"
+    )
+    procedures: list[str] = Field(
+        default_factory=list, description="List of procedure names"
+    )
+
+    @field_validator("zip_code")
+    @classmethod
+    def validate_zip_code(cls, v: str) -> str:
+        if len(v) != 5 or not v.isdigit():
+            raise ValueError("Zip code must be exactly 5 digits")
+        return v
+
+    @field_validator("income_level")
+    @classmethod
+    def validate_income_level(cls, v: str) -> str:
+        allowed = {"low", "medium", "high"}
+        if v not in allowed:
+            raise ValueError(f"Income level must be one of: {', '.join(sorted(allowed))}")
+        return v
+
+
+class ClientResponse(BaseModel):
+    id: str
+    broker_id: str
+    full_name: str
+    zip_code: str
+    age: int
+    income_level: str
+    doctors: list[dict]
+    prescriptions: list[str]
+    procedures: list[str]
+    created_at: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class ClientUpdate(BaseModel):
+    full_name: str | None = None
+    zip_code: str | None = None
+    age: int | None = Field(default=None, ge=18, le=120)
+    income_level: str | None = None
+    doctors: list[dict] | None = None
+    prescriptions: list[str] | None = None
+    procedures: list[str] | None = None
+
+    @field_validator("zip_code")
+    @classmethod
+    def validate_zip_code(cls, v: str | None) -> str | None:
+        if v is not None and (len(v) != 5 or not v.isdigit()):
+            raise ValueError("Zip code must be exactly 5 digits")
+        return v
+
+    @field_validator("income_level")
+    @classmethod
+    def validate_income_level(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"low", "medium", "high"}:
+            raise ValueError(f"Income level must be one of: high, low, medium")
+        return v
