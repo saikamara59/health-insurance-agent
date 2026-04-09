@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from healthflow.api.routes import router
 from healthflow.auth.router import auth_router
+from healthflow.api.client_router import client_router
 
 app = FastAPI(
     title="HealthFlow",
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(auth_router)
+app.include_router(client_router)
 
 
 if __name__ == "__main__":
