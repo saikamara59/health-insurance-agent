@@ -291,5 +291,102 @@ def appeal(denial_text: str, context: str):
     click.echo()
 
 
+@cli.command()
+@click.option("--session-id", default="", help="Session ID from a prior /compare call")
+@click.option("--zip-code", default="", help="5-digit US zip code")
+@click.option(
+    "--income",
+    default="",
+    type=click.Choice(["low", "medium", "high", ""], case_sensitive=False),
+    help="Income level",
+)
+@click.option("--providers", default="", help="Comma-separated name:npi pairs (e.g., 'Dr. Sarah Chen:1234567890,Dr. Kim')")
+@click.option("--prescriptions", default="", help="Comma-separated drug names (e.g., 'Metformin,Lisinopril')")
+def verify(session_id: str, zip_code: str, income: str, providers: str, prescriptions: str):
+    """Verify provider network status and drug formulary coverage."""
+    payload: dict = {
+        "providers": [],
+        "prescriptions": [],
+    }
+
+    if session_id:
+        payload["session_id"] = session_id
+    elif zip_code:
+        payload["zip_code"] = zip_code
+        payload["income_level"] = income or "medium"
+    else:
+        click.echo("Error: Provide --session-id or --zip-code")
+        sys.exit(1)
+
+    for item in providers.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = item.rsplit(":", 1)
+        if len(parts) == 2 and parts[1].strip().isdigit():
+            payload["providers"].append(
+                {"name": parts[0].strip(), "npi": parts[1].strip()}
+            )
+        else:
+            payload["providers"].append({"name": item})
+
+    for item in prescriptions.split(","):
+        item = item.strip()
+        if item:
+            payload["prescriptions"].append(item)
+
+    try:
+        response = httpx.post(f"{BASE_URL}/verify", json=payload, timeout=30.0)
+        response.raise_for_status()
+    except httpx.ConnectError:
+        click.echo("Error: Cannot connect to HealthFlow API. Is the server running?")
+        click.echo("Start it with: python -m healthflow.main")
+        sys.exit(1)
+    except httpx.HTTPStatusError as e:
+        click.echo(f"Error: {e.response.json().get('detail', str(e))}")
+        sys.exit(1)
+
+    data = response.json()
+
+    click.echo("\n" + "=" * 60)
+    click.echo("  HEALTHFLOW — Network Verification")
+    click.echo("=" * 60)
+
+    for i, plan in enumerate(data["plans"], 1):
+        click.echo(f"\n--- Plan {i}: {plan['plan_name']} ({plan['plan_id']}) ---")
+
+        if plan.get("provider_results"):
+            click.echo("  Providers:")
+            for prov in plan["provider_results"]:
+                status = "IN-NETWORK" if prov["in_network"] else "OUT-OF-NETWORK"
+                verified = "Verified" if prov["npi_verified"] else "Not Verified"
+                click.echo(f"    - {prov['name']}: {status} (NPI: {verified})")
+                if prov.get("specialty"):
+                    click.echo(f"      Specialty: {prov['specialty']}")
+                if prov.get("warning"):
+                    click.echo(f"      Warning: {prov['warning']}")
+
+        if plan.get("formulary_results"):
+            click.echo("  Prescriptions:")
+            for drug in plan["formulary_results"]:
+                status = "ON FORMULARY" if drug["on_formulary"] else "NOT ON FORMULARY"
+                click.echo(f"    - {drug['drug_name']}: {status}")
+                if drug.get("tier"):
+                    click.echo(f"      Tier: {drug['tier']}")
+                if drug.get("copay") is not None:
+                    click.echo(f"      Copay: ${drug['copay']:.2f}/mo")
+                if drug.get("prior_auth_required"):
+                    click.echo("      Prior Authorization: Required")
+                if drug.get("warning"):
+                    click.echo(f"      Warning: {drug['warning']}")
+
+    click.echo("\n" + "-" * 60)
+    click.echo("\nRECOMMENDATION:\n")
+    click.echo(data["recommendation"])
+    click.echo(f"\n{data['disclaimer']}")
+    click.echo(f"\nSession ID: {data['session_id']}")
+    click.echo()
+
+
 if __name__ == "__main__":
     cli()
