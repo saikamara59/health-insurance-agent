@@ -252,3 +252,72 @@ class AppealResponse(BaseModel):
     coverage_argument: CoverageArgument
     appeal_letter: str
     disclaimer: str
+
+
+class ProviderInput(BaseModel):
+    name: str
+    npi: str | None = None
+
+
+class VerifyRequest(BaseModel):
+    session_id: str | None = None
+    zip_code: str | None = None
+    income_level: str | None = None
+    providers: list[ProviderInput] = Field(default_factory=list, max_length=10)
+    prescriptions: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("zip_code")
+    @classmethod
+    def validate_zip_code(cls, v: str | None) -> str | None:
+        if v is not None and (len(v) != 5 or not v.isdigit()):
+            raise ValueError("Zip code must be exactly 5 digits")
+        return v
+
+    @field_validator("income_level")
+    @classmethod
+    def validate_income_level(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"low", "medium", "high"}:
+            raise ValueError("Income level must be one of: high, low, medium")
+        return v
+
+    def model_post_init(self, __context: object) -> None:
+        if self.session_id is None and self.zip_code is None:
+            raise ValueError(
+                "Either session_id or zip_code must be provided"
+            )
+        if self.session_id is None and self.income_level is None:
+            raise ValueError(
+                "income_level is required when using zip_code instead of session_id"
+            )
+
+
+class ProviderResult(BaseModel):
+    name: str
+    npi: str | None
+    npi_verified: bool
+    specialty: str | None
+    in_network: bool
+    warning: str | None
+
+
+class FormularyResult(BaseModel):
+    drug_name: str
+    on_formulary: bool
+    tier: str | None
+    copay: float | None
+    prior_auth_required: bool
+    warning: str | None
+
+
+class PlanNetworkResult(BaseModel):
+    plan_name: str
+    plan_id: str
+    provider_results: list[ProviderResult]
+    formulary_results: list[FormularyResult]
+
+
+class VerifyResponse(BaseModel):
+    session_id: str
+    plans: list[PlanNetworkResult]
+    recommendation: str
+    disclaimer: str
