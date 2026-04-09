@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login | HealthFlow Brokerage Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#bfc7d2",
+                        "error": "#ba1a1a",
+                        "primary": "#006194",
+                        "inverse-on-surface": "#eff1f3",
+                        "tertiary-fixed": "#cde5ff",
+                        "on-surface": "#191c1e",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#287ab3",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#001d31",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#93ccff",
+                        "on-surface-variant": "#3f4850",
+                        "surface-dim": "#d8dadc",
+                        "on-secondary-fixed-variant": "#005049",
+                        "on-secondary-fixed": "#00201d",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-tint": "#006398",
+                        "surface": "#f7f9fb",
+                        "on-tertiary-fixed-variant": "#004b74",
+                        "primary-container": "#007bb9",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#cce5ff",
+                        "outline": "#707881",
+                        "surface-container": "#eceef0",
+                        "surface-variant": "#e0e3e5",
+                        "secondary-container": "#86f2e4",
+                        "inverse-surface": "#2d3133",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#006195",
+                        "on-tertiary-fixed": "#001d32",
+                        "surface-container-low": "#f2f4f6",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#6bd8cb",
+                        "tertiary-fixed-dim": "#94ccff",
+                        "background": "#f7f9fb",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#004b73",
+                        "on-background": "#191c1e",
+                        "secondary-fixed": "#89f5e7",
+                        "on-tertiary-container": "#fdfcff",
+                        "on-primary-container": "#fdfcff",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#006f66",
+                        "inverse-primary": "#93ccff",
+                        "surface-container-high": "#e6e8ea",
+                        "secondary": "#006a61"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex items-center justify-center p-4">
+<main class="w-full max-w-[1200px] grid grid-cols-1 md:grid-cols-2 bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<section class="hidden md:flex flex-col justify-between p-12 bg-primary relative overflow-hidden">
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 20% 30%, #ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-12">
+<div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-md">
+<span class="material-symbols-outlined text-white">health_and_safety</span>
+</div>
+<span class="font-headline text-2xl font-extrabold text-white tracking-tight">HealthFlow</span>
+</div>
+<h1 class="font-headline text-5xl font-extrabold text-white leading-tight mb-6">
+Precision Analytics for <br/>
+<span class="text-secondary-fixed">Healthcare Brokers.</span>
+</h1>
+<p class="text-primary-fixed text-lg max-w-md leading-relaxed">
+Access your comprehensive dashboard to manage clients, compare policies, and streamline your brokerage workflow with clinical accuracy.
+</p>
+</div>
+<div class="relative z-10">
+<div class="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/10">
+<div class="flex items-center gap-4 mb-4">
+<div class="flex -space-x-2">
+<img class="w-10 h-10 rounded-full border-2 border-primary" alt="professional female doctor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxf_tp_kDtwBqV0CwMFH9Un3IPNDvh8i0qFJVZY3odjR8A-mpHkpggcDoC47_xy_RJev1uXdvxjKzk-JfpyBFWw8NQug9zL78YMKBbau0X2xuAdXR2lBz_iP_UfsD_12Z0v-y5LV0ncdeG2q2DyMZI4DGjNPVFVPCf_2xIbrZoQxM88h1U1gdoYYoweTQLrJmcRwMLa5XL4Tc3_7m-K2MXy71kg245RQW5jMgpSuUaOE1-9DkaON97WOe3z5wQfzZQOeyGMSJx5V8"/>
+<img class="w-10 h-10 rounded-full border-2 border-primary" alt="male healthcare professional" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGSDN9sdtlesQJWtaklIbdphfH2srkDn315mftwV8y7Muj6dehHVlgPYfqhiGGblIgy5eXx4s8JWmEtAqstc9QuBY1XRr6heuueK6eGqduemRkZQFrrP4pgLrwFguAd2DVUv3Qe_pfFn0_bOInkU4xKRmAV4agqMskkQlfLjvmhRiVnOMfvCUtqaMnVC5XZa10lZPYv-eP930X6XMQjMyXZwCuryiUPwt8QXWiSBWyf6h-L8jh6_8b2vcTwF0Y-g65oIGFSS4qeU8"/>
+<img class="w-10 h-10 rounded-full border-2 border-primary" alt="professional male doctor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMqoN_zi4aAoyIU9Q_byjnec5KP5IlJ7RMoWPxUx2-4TPDnFvltdi5DTNqPBTmue1k4xyWfcT5BIoVx_QvoSlm1iYqnvqBWEYdAoTQ70mlfOFcDwSLCshEClpXIh5fDuq4OnGHs1VpLkBIAsixZ2F3vLs1McXuqJoaahS4m4CHWYTHYs90kJqhbVP-n4-JEnF--ZQN50UpgHSP6zgeHjOQMCoOcELZDN9L6DY6pMbHfkwJa5jevF7k4drbn3Crx5k_ImYPp7s65_Y"/>
+</div>
+<span class="text-white text-sm font-medium">Trusted by 2,000+ top-tier brokers</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-secondary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-secondary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-secondary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-secondary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-primary-fixed text-xs ml-2">5.0 average user rating</span>
+</div>
+</div>
+</div>
+<div class="absolute -right-20 bottom-0 w-[80%] h-[60%] opacity-20 pointer-events-none">
+<img class="w-full h-full object-cover rounded-tl-[100px]" alt="abstract medical lab equipment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPAQ0yoL-aBmkG9zzU-qMvFG8hIflLLtxTh2G3nliSj7nu98SH9CpsnYS5dedrIJ7nelczkyg3MzTFTte1CLHSSPl1lh8wYIKOS6lwHhZrQJw0U7bfvfn9XHQvwG7KbM5vyyWvL5w4IgWHlev0pzukD69IRMjCjYysDtn-l0JntyORQip4EXqSWar0rAX9KEUlInQq2KQmAkpBfQ7eC_OvGZ6Rhf5cpudvO6VDY6h2_Xs8W7AZRzVA86wgyt3mhuEnQo78r-8x4kw"/>
+</div>
+</section>
+<section class="flex flex-col justify-center p-8 md:p-16 lg:p-24 bg-surface-container-lowest">
+<div class="w-full max-w-sm mx-auto">
+<div class="md:hidden flex items-center gap-2 mb-10">
+<span class="material-symbols-outlined text-primary text-3xl">health_and_safety</span>
+<span class="font-headline text-xl font-extrabold text-primary">HealthFlow</span>
+</div>
+<div class="mb-10">
+<h2 class="font-headline text-3xl font-bold text-on-surface mb-2">Welcome Back</h2>
+<p class="text-on-surface-variant text-sm">Please enter your credentials to access your portal.</p>
+</div>
+<form class="space-y-6">
+<div>
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2" for="email">Email Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">mail</span>
+<input class="w-full pl-12 pr-4 py-3.5 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline" id="email" name="email" placeholder="broker@healthflow.com" type="email"/>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="password">Password</label>
+<a class="text-xs font-medium text-primary hover:text-primary-container transition-colors" href="#">Forgot password?</a>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">lock</span>
+<input class="w-full pl-12 pr-12 py-3.5 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline" id="password" name="password" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors" type="button">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex items-center">
+<input class="w-4 h-4 text-primary bg-surface-container-highest border-none rounded focus:ring-primary focus:ring-offset-0" id="remember" name="remember" type="checkbox"/>
+<label class="ml-3 text-sm text-on-surface-variant" for="remember">Remember me for 30 days</label>
+</div>
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary font-semibold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" type="submit">
+Sign In
+<span class="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">arrow_forward</span>
+</button>
+</form>
+<div class="mt-10 pt-10 border-t border-surface-container text-center">
+<p class="text-sm text-on-surface-variant">Don't have a broker account yet?</p>
+<a class="inline-block mt-4 text-sm font-bold text-primary px-6 py-2 rounded-full border border-primary/20 hover:bg-primary/5 transition-all" href="#">Create a Broker Account</a>
+</div>
+<div class="mt-12 flex justify-center gap-6">
+<div class="flex items-center gap-2 opacity-40">
+<span class="material-symbols-outlined text-[10px]">lock_outline</span>
+<span class="text-[10px] font-bold uppercase tracking-[0.2em]">SSL Secure</span>
+</div>
+<div class="flex items-center gap-2 opacity-40">
+<span class="material-symbols-outlined text-[10px]">verified_user</span>
+<span class="text-[10px] font-bold uppercase tracking-[0.2em]">HIPAA Compliant</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="fixed bottom-6 w-full text-center pointer-events-none">
+<p class="text-[10px] font-medium text-on-surface-variant/40 uppercase tracking-[0.3em]">
+&copy; 2024 HealthFlow Brokerage Technologies. All Rights Reserved.
+</p>
+</footer>
+</body></html>
