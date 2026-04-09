@@ -196,6 +196,76 @@ python -m healthflow.cli verify \
 
 Other zip codes return a randomized selection of plans.
 
+## Authentication
+
+HealthFlow uses JWT-based authentication. All client endpoints require a valid access token.
+
+Set the following environment variables before starting the server:
+
+- `JWT_SECRET` — Secret key for signing JWT tokens (required in production)
+- `DATABASE_URL` — PostgreSQL connection string (e.g. `postgresql+asyncpg://user:pass@localhost/healthflow`)
+
+### Auth Endpoints
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| POST | /auth/register | Create a broker account | No |
+| POST | /auth/login | Get access + refresh tokens | No |
+| POST | /auth/refresh | Refresh an access token | Refresh token |
+
+### Client Endpoints
+
+| Method | Path | Description | Auth Required |
+|--------|------|-------------|---------------|
+| POST | /clients | Create a client profile | Yes |
+| GET | /clients | List broker's clients | Yes |
+| GET | /clients/{id} | Get client details | Yes |
+| PUT | /clients/{id} | Update client profile | Yes |
+| DELETE | /clients/{id} | Delete client | Yes |
+
+### Example Usage
+
+```bash
+# Register a broker account
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "broker@example.com", "password": "securepass123", "full_name": "Test Broker"}'
+
+# Login — returns access_token and refresh_token
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "broker@example.com", "password": "securepass123"}'
+
+# Refresh an expired access token
+curl -X POST http://localhost:8000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "<refresh_token>"}'
+
+# Create a client profile (use the access_token from login response)
+curl -X POST http://localhost:8000/clients \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"full_name": "Jane Doe", "zip_code": "10001", "age": 45, "income_level": "medium", "doctors": [], "prescriptions": [], "procedures": []}'
+
+# List all clients for the authenticated broker
+curl http://localhost:8000/clients \
+  -H "Authorization: Bearer <access_token>"
+
+# Get a specific client
+curl http://localhost:8000/clients/<client_id> \
+  -H "Authorization: Bearer <access_token>"
+
+# Update a client
+curl -X PUT http://localhost:8000/clients/<client_id> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"age": 46, "prescriptions": ["Metformin", "Lisinopril", "Atorvastatin"]}'
+
+# Delete a client
+curl -X DELETE http://localhost:8000/clients/<client_id> \
+  -H "Authorization: Bearer <access_token>"
+```
+
 ## Running Tests
 
 ```bash
