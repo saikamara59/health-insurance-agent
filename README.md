@@ -110,6 +110,36 @@ curl -X POST http://localhost:8000/appeal \
   }'
 ```
 
+### POST /verify
+
+Check provider network status and drug formulary coverage per plan.
+
+```bash
+curl -X POST http://localhost:8000/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "zip_code": "10001",
+    "income_level": "low",
+    "providers": [
+      {"name": "Dr. Sarah Chen", "npi": "1234567890"},
+      {"name": "Dr. Emily Thompson"}
+    ],
+    "prescriptions": ["Metformin", "Lisinopril", "Humira"]
+  }'
+```
+
+Or use a session from a prior `/compare` call:
+
+```bash
+curl -X POST http://localhost:8000/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "your-session-id",
+    "providers": [{"name": "Dr. Sarah Chen", "npi": "1234567890"}],
+    "prescriptions": ["Metformin"]
+  }'
+```
+
 ### GET /plans/{zip_code}
 
 List available plans for a zip code.
@@ -145,6 +175,19 @@ python -m healthflow.cli calculate --zip-code 10001 --income low --doctor-visits
 
 # Generate appeal letter
 python -m healthflow.cli appeal --denial-text "Your claim for MRI has been denied. Denial code: CO-50."
+
+# Verify provider network and formulary coverage
+python -m healthflow.cli verify \
+  --zip-code 10001 \
+  --income low \
+  --providers "Dr. Sarah Chen:1234567890,Dr. Emily Thompson" \
+  --prescriptions "Metformin,Lisinopril,Humira"
+
+# Verify with a session from a prior compare
+python -m healthflow.cli verify \
+  --session-id your-session-id \
+  --providers "Dr. Sarah Chen:1234567890" \
+  --prescriptions "Metformin"
 ```
 
 ## Supported Zip Codes
