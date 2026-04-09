@@ -6,6 +6,7 @@ from healthflow.agents.appeal_agent import AppealAgent
 from healthflow.agents.comparison_agent import ComparisonAgent
 from healthflow.agents.cost_calculator_agent import CostCalculatorAgent
 from healthflow.agents.harness import Harness
+from healthflow.agents.network_agent import NetworkAgent
 from healthflow.agents.translation_agent import TranslationAgent
 from healthflow.memory.session import InMemoryStore
 from healthflow.models.schemas import (
@@ -21,8 +22,11 @@ from healthflow.models.schemas import (
     EstimateRequest,
     EstimateResponse,
     PlanSummary,
+    ProviderInput,
     TranslateRequest,
     TranslateResponse,
+    VerifyRequest,
+    VerifyResponse,
 )
 from healthflow.tools.cms_fetcher import MockCMSFetcher
 from healthflow.tools.cost_estimator import CostEstimator
@@ -54,6 +58,13 @@ APPEAL_DISCLAIMER = (
     "It does not constitute legal advice and does not guarantee appeal success. "
     "Consult a healthcare advocate or attorney for formal appeals. "
     "This is not medical advice."
+)
+
+VERIFY_DISCLAIMER = (
+    "Network status and formulary coverage are based on publicly available data "
+    "and may not reflect current plan contracts. Provider networks and drug "
+    "formularies can change. Verify directly with your plan before making "
+    "decisions. This is not medical advice."
 )
 
 
@@ -266,4 +277,50 @@ def generate_appeal(request: AppealRequest):
         coverage_argument=argument,
         appeal_letter=appeal_letter,
         disclaimer=APPEAL_DISCLAIMER,
+    )
+
+
+@router.post("/verify", response_model=VerifyResponse)
+def verify_network(request: VerifyRequest):
+    if request.session_id:
+        session_data = session_store.load(request.session_id)
+        if session_data is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        plan_ids = session_data.get("plan_ids", [])
+        zip_code = session_data.get("zip_code", "10001")
+        raw_plans = fetcher.fetch_plans(zip_code)
+        raw_plans = [p for p in raw_plans if p["plan_id"] in plan_ids] or raw_plans
+        income_level = session_data.get("income_level", "medium")
+    else:
+        raw_plans = fetcher.fetch_plans(request.zip_code)
+        income_level = request.income_level
+
+    ranked_plans = parser.parse_and_rank(raw_plans, income_level)
+
+    harness.audit.log("tool_called", {
+        "tool": "network_agent",
+        "providers": len(request.providers),
+        "prescriptions": len(request.prescriptions),
+    })
+
+    agent = NetworkAgent()
+    results, raw_recommendation = agent.verify(
+        ranked_plans, request.providers, request.prescriptions
+    )
+
+    recommendation = harness.filter_output(raw_recommendation)
+
+    session_id = request.session_id or str(uuid.uuid4())
+    session_store.save(session_id, {
+        "zip_code": request.zip_code or (session_data.get("zip_code") if request.session_id else None),
+        "income_level": income_level,
+        "plan_ids": [r.plan_id for r in results],
+        "verification": True,
+    })
+
+    return VerifyResponse(
+        session_id=session_id,
+        plans=results,
+        recommendation=recommendation,
+        disclaimer=VERIFY_DISCLAIMER,
     )
