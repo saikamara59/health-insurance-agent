@@ -266,6 +266,30 @@ curl -X DELETE http://localhost:8000/clients/<client_id> \
   -H "Authorization: Bearer <access_token>"
 ```
 
+## Frontend
+
+A React single-page application for health insurance brokers to manage client portfolios and run plan analyses.
+
+### How to run
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+The frontend is available at http://localhost:5173.
+
+Requires the FastAPI backend running at http://localhost:8000.
+
+### Pages
+
+| Page | Path | Description |
+|------|------|-------------|
+| Login | /login | Broker authentication (register / sign in) |
+| Client Portfolio | / | List all clients, add new clients |
+| Client Profile | /clients/:id | View and edit client details, run plan analysis |
+
+---
+
 ## Running Tests
 
 ```bash
