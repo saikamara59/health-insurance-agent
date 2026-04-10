@@ -6,12 +6,12 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen bg-surface">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
+      <main className="flex-1 md:ml-64 min-h-screen">
         <TopBar />
-        <main className="flex-1 p-8 overflow-auto">
+        <div className="pt-24 pb-12 px-6 md:px-10 max-w-7xl mx-auto">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

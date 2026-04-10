@@ -1,66 +1,64 @@
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
-  { icon: 'dashboard', label: 'Dashboard', path: '/' },
-  { icon: 'group', label: 'Clients', path: '/clients' },
-  { icon: 'history', label: 'Comparison History', path: '#' },
-  { icon: 'settings', label: 'Settings', path: '#' },
-]
-
-const footerItems = [
-  { icon: 'support_agent', label: 'Support' },
-  { icon: 'account_circle', label: 'Account' },
+  { path: '/', icon: 'dashboard', label: 'Dashboard' },
+  { path: '/clients', icon: 'group', label: 'Client Portfolios' },
+  { path: '/insurers', icon: 'security', label: 'Insurers' },
+  { path: '/analytics', icon: 'analytics', label: 'Analytics' },
+  { path: '/settings', icon: 'settings', label: 'Settings' },
 ]
 
 export default function Sidebar() {
+  const { logout } = useAuth()
+
   return (
-    <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant flex flex-col min-h-screen">
-      {/* Logo */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-          <span className="material-symbols-outlined text-on-primary text-xl">health_and_safety</span>
-        </div>
-        <div>
-          <span className="font-headline text-xl font-extrabold text-on-surface tracking-tight block">HealthFlow</span>
-          <span className="text-xs text-on-surface-variant">Brokerage Portal</span>
-        </div>
+    <aside className="h-screen w-64 fixed left-0 top-0 bg-slate-50 flex-col py-8 font-headline text-sm tracking-wide z-40 hidden md:flex">
+      <div className="px-6 mb-10">
+        <h1 className="text-lg font-extrabold text-blue-950">Clinical Curator</h1>
+        <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Institutional Access</p>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 mt-4">
-        <ul className="space-y-1">
-          {navItems.map((item) => (
-            <li key={item.label}>
-              <NavLink
-                to={item.path}
-                end={item.path === '/'}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    isActive && item.path !== '#'
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`
-                }
-              >
-                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+      <nav className="flex-1 space-y-4 px-4">
+        {navItems.map(({ path, icon, label }) => (
+          <NavLink
+            key={path}
+            to={path}
+            end={path === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                isActive
+                  ? 'bg-blue-100/50 text-blue-900 font-semibold'
+                  : 'text-slate-600 hover:bg-slate-100 hover:translate-x-1'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined">{icon}</span>
+            {label}
+          </NavLink>
+        ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-4 pb-6 space-y-1">
-        {footerItems.map((item) => (
+      <div className="px-6 mt-auto">
+        <NavLink
+          to="/clients"
+          className="block w-full py-3 bg-primary text-on-primary rounded-lg font-semibold shadow-sm shadow-primary/20 hover:opacity-90 transition-opacity text-center"
+        >
+          New Application
+        </NavLink>
+        <div className="mt-6 space-y-2">
+          <a className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors text-xs" href="#">
+            <span className="material-symbols-outlined text-lg">help</span>
+            Support
+          </a>
           <button
-            key={item.label}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-on-surface-variant hover:bg-surface-container-high w-full text-left transition-colors"
+            onClick={logout}
+            className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-error transition-colors text-xs w-full"
           >
-            <span className="material-symbols-outlined text-xl">{item.icon}</span>
-            {item.label}
+            <span className="material-symbols-outlined text-lg">logout</span>
+            Sign Out
           </button>
-        ))}
+        </div>
       </div>
     </aside>
   )
