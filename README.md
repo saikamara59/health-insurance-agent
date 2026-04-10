@@ -1,193 +1,100 @@
 # HealthFlow
 
-AI-powered Medicare Advantage plan comparison service. Compares plans by premium, deductible, out-of-pocket max, star rating, and estimates costs for your specific medications and procedures. Powered by Claude for plain-English recommendations.
+AI-powered health insurance brokerage platform. Brokers manage client portfolios, compare Medicare Advantage plans, estimate costs, verify provider networks, translate coverage documents, and generate claims appeal letters — all powered by Claude.
 
 ## Quick Start
 
+### 1. Backend
+
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Set your Anthropic API key
 export ANTHROPIC_API_KEY=your-key-here
-
-# Start the API server
 python -m healthflow.main
 ```
 
-The API runs at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+API runs at http://localhost:8000 with interactive docs at http://localhost:8000/docs.
 
-## API Endpoints
-
-### POST /compare
-
-Compare Medicare Advantage plans with personalized cost estimates.
+### 2. Frontend
 
 ```bash
-curl -X POST http://localhost:8000/compare \
-  -H "Content-Type: application/json" \
-  -d '{
-    "zip_code": "10001",
-    "age": 65,
-    "income_level": "low",
-    "medications": ["Metformin", "Lisinopril"],
-    "procedures": ["Annual physical", "Blood work"]
-  }'
+cd frontend
+npm install
+npm run dev
 ```
 
-### POST /estimate
+Dashboard at http://localhost:5173.
 
-Get cost estimate for a specific medication or procedure under a plan.
+### 3. Seed Demo Data
 
 ```bash
-curl -X POST http://localhost:8000/estimate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "plan_id": "H3312-034",
-    "item_name": "Metformin",
-    "item_type": "medication"
-  }'
+python seed.py
 ```
 
-### POST /translate
+Login: `demo@healthflow.com` / `healthflow123`
 
-Answer a question about a pasted Summary of Benefits document in plain English.
+Creates a broker account with 4 sample clients pre-loaded with doctors, prescriptions, and procedures.
 
-```bash
-curl -X POST http://localhost:8000/translate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "document_text": "INPATIENT HOSPITAL CARE\nYou pay $250 copay per day for days 1-5.\n\nEMERGENCY CARE\nEmergency room: $90 copay (waived if admitted)",
-    "question": "How much does an ER visit cost?"
-  }'
-```
+## Features
 
-### POST /calculate
+| Feature | Endpoint | Description |
+|---------|----------|-------------|
+| Plan Comparison | `POST /compare` | Compare up to 5 Medicare plans by premium, deductible, OOP max, star rating |
+| Cost Estimation | `POST /estimate` | Get copay/tier for a specific medication or procedure |
+| Coverage Translation | `POST /translate` | Paste a Summary of Benefits, ask a question in plain English |
+| Annual Cost Calculator | `POST /calculate` | Estimate total annual out-of-pocket based on your healthcare usage |
+| Claims Appeal | `POST /appeal` | Parse denial letters, generate formal appeal letter templates |
+| Network Verification | `POST /verify` | Check if your doctors are in-network and drugs on formulary (real NPPES API) |
+| Plan Lookup | `GET /plans/{zip}` | List available plans for a zip code |
 
-Calculate estimated annual out-of-pocket costs based on your expected healthcare usage.
+## Authentication
 
-```bash
-curl -X POST http://localhost:8000/calculate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "zip_code": "10001",
-    "income_level": "low",
-    "usage": {
-      "doctor_visits_per_year": 12,
-      "prescriptions": [
-        {"name": "Metformin", "fills_per_year": 12},
-        {"name": "Ozempic", "fills_per_year": 12}
-      ],
-      "procedures": [
-        {"name": "MRI", "count": 2},
-        {"name": "Blood work", "count": 4}
-      ]
-    }
-  }'
-```
+JWT-based auth with role-based access control. Brokers see only their own clients.
 
-You can also pass a `session_id` from a prior `/compare` call to reuse the same plans:
+| Endpoint | Description |
+|----------|-------------|
+| `POST /auth/register` | Create broker account |
+| `POST /auth/login` | Get access + refresh tokens |
+| `POST /auth/refresh` | Refresh expired access token |
 
-```bash
-curl -X POST http://localhost:8000/calculate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "your-session-id-here",
-    "usage": {"doctor_visits_per_year": 12}
-  }'
-```
+## Client Management
 
-### POST /appeal
+All client endpoints require a valid JWT token (`Authorization: Bearer <token>`).
 
-Parse a denial letter and generate a formal appeal letter template.
+| Endpoint | Description |
+|----------|-------------|
+| `POST /clients` | Create client profile |
+| `GET /clients` | List broker's clients |
+| `GET /clients/{id}` | Get client details |
+| `PUT /clients/{id}` | Update client |
+| `DELETE /clients/{id}` | Delete client |
+
+Client profiles store: name, zip code, age, income level, doctors (with NPIs), prescriptions, and procedures.
+
+## Frontend Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Login | `/login` | Broker sign-in and registration |
+| Client Portfolio | `/` | Client list with filters, pagination, summary stats |
+| Client Profile | `/clients/:id` | Client detail with analysis workflow (all 5 AI features), profile editing |
+
+## CLI
 
 ```bash
-curl -X POST http://localhost:8000/appeal \
-  -H "Content-Type: application/json" \
-  -d '{
-    "denial_text": "Patient: John Smith\nMember ID: ABC123\nYour claim for MRI of lumbar spine has been denied.\nDenial code: CO-50. The service is not deemed medically necessary.\nYou have 60 days to file an appeal.",
-    "additional_context": "Patient has documented history of chronic lower back pain."
-  }'
-```
-
-### POST /verify
-
-Check provider network status and drug formulary coverage per plan.
-
-```bash
-curl -X POST http://localhost:8000/verify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "zip_code": "10001",
-    "income_level": "low",
-    "providers": [
-      {"name": "Dr. Sarah Chen", "npi": "1234567890"},
-      {"name": "Dr. Emily Thompson"}
-    ],
-    "prescriptions": ["Metformin", "Lisinopril", "Humira"]
-  }'
-```
-
-Or use a session from a prior `/compare` call:
-
-```bash
-curl -X POST http://localhost:8000/verify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "your-session-id",
-    "providers": [{"name": "Dr. Sarah Chen", "npi": "1234567890"}],
-    "prescriptions": ["Metformin"]
-  }'
-```
-
-### GET /plans/{zip_code}
-
-List available plans for a zip code.
-
-```bash
-curl http://localhost:8000/plans/10001
-```
-
-### GET /health
-
-Health check.
-
-```bash
-curl http://localhost:8000/health
-```
-
-## CLI Usage
-
-Start the API server first, then use the CLI:
-
-```bash
-# Interactive comparison
-python -m healthflow.cli compare
-
-# With arguments
-python -m healthflow.cli compare --zip-code 10001 --age 65 --income low --medications "Metformin,Lisinopril"
+# Plan comparison
+python -m healthflow.cli compare --zip-code 10001 --age 65 --income low
 
 # Cost estimate
 python -m healthflow.cli estimate --plan-id H3312-034 --item Metformin --type medication
 
-# Annual cost calculation
-python -m healthflow.cli calculate --zip-code 10001 --income low --doctor-visits 12 --prescriptions "Metformin:12,Ozempic:12" --procedures "MRI:2"
+# Annual cost calculator
+python -m healthflow.cli calculate --zip-code 10001 --income low --doctor-visits 12 --prescriptions "Metformin:12"
 
-# Generate appeal letter
-python -m healthflow.cli appeal --denial-text "Your claim for MRI has been denied. Denial code: CO-50."
+# Claims appeal
+python -m healthflow.cli appeal --denial-text "Your claim for MRI denied. Code: CO-50."
 
-# Verify provider network and formulary coverage
-python -m healthflow.cli verify \
-  --zip-code 10001 \
-  --income low \
-  --providers "Dr. Sarah Chen:1234567890,Dr. Emily Thompson" \
-  --prescriptions "Metformin,Lisinopril,Humira"
-
-# Verify with a session from a prior compare
-python -m healthflow.cli verify \
-  --session-id your-session-id \
-  --providers "Dr. Sarah Chen:1234567890" \
-  --prescriptions "Metformin"
+# Network verification
+python -m healthflow.cli verify --zip-code 10001 --income low --providers "Dr. Chen:1234567890" --prescriptions "Metformin"
 ```
 
 ## Supported Zip Codes
@@ -196,99 +103,34 @@ python -m healthflow.cli verify \
 
 Other zip codes return a randomized selection of plans.
 
-## Authentication
+## Architecture
 
-HealthFlow uses JWT-based authentication. All client endpoints require a valid access token.
-
-Set the following environment variables before starting the server:
-
-- `JWT_SECRET` — Secret key for signing JWT tokens (required in production)
-- `DATABASE_URL` — PostgreSQL connection string (e.g. `postgresql+asyncpg://user:pass@localhost/healthflow`)
-
-### Auth Endpoints
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| POST | /auth/register | Create a broker account | No |
-| POST | /auth/login | Get access + refresh tokens | No |
-| POST | /auth/refresh | Refresh an access token | Refresh token |
-
-### Client Endpoints
-
-| Method | Path | Description | Auth Required |
-|--------|------|-------------|---------------|
-| POST | /clients | Create a client profile | Yes |
-| GET | /clients | List broker's clients | Yes |
-| GET | /clients/{id} | Get client details | Yes |
-| PUT | /clients/{id} | Update client profile | Yes |
-| DELETE | /clients/{id} | Delete client | Yes |
-
-### Example Usage
-
-```bash
-# Register a broker account
-curl -X POST http://localhost:8000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email": "broker@example.com", "password": "securepass123", "full_name": "Test Broker"}'
-
-# Login — returns access_token and refresh_token
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "broker@example.com", "password": "securepass123"}'
-
-# Refresh an expired access token
-curl -X POST http://localhost:8000/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token": "<refresh_token>"}'
-
-# Create a client profile (use the access_token from login response)
-curl -X POST http://localhost:8000/clients \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{"full_name": "Jane Doe", "zip_code": "10001", "age": 45, "income_level": "medium", "doctors": [], "prescriptions": [], "procedures": []}'
-
-# List all clients for the authenticated broker
-curl http://localhost:8000/clients \
-  -H "Authorization: Bearer <access_token>"
-
-# Get a specific client
-curl http://localhost:8000/clients/<client_id> \
-  -H "Authorization: Bearer <access_token>"
-
-# Update a client
-curl -X PUT http://localhost:8000/clients/<client_id> \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{"age": 46, "prescriptions": ["Metformin", "Lisinopril", "Atorvastatin"]}'
-
-# Delete a client
-curl -X DELETE http://localhost:8000/clients/<client_id> \
-  -H "Authorization: Bearer <access_token>"
+```
+Client (React) → FastAPI → Harness (validate/filter/log) → Tools + Agents → Claude → Response
 ```
 
-## Frontend
+### Backend Layers
 
-A React single-page application for health insurance brokers to manage client portfolios and run plan analyses.
+- **Harness** — Input validation, medical advice output filtering, PHI redaction, audit logging
+- **Tools** — CMS fetcher (20 curated plans), plan parser, cost estimator (30 drugs, 20 procedures), cost modeler, document parser, denial parser, denial codes DB (25 CARC/RARC codes), appeal writer, PHI redactor, NPI client (real NPPES API), provider network (40 providers), formulary checker, provider cache (24h TTL)
+- **Agents** — Comparison, translation, cost calculator, appeal, network verification — all powered by Claude
+- **Database** — SQLAlchemy 2.0 async ORM, SQLite default (PostgreSQL via `DATABASE_URL` env var)
+- **Auth** — JWT access/refresh tokens, bcrypt passwords, role-based access
 
-### How to run
+### Frontend
 
-```bash
-cd frontend && npm install && npm run dev
-```
+- React 18 + Vite + Tailwind CSS
+- Material Design 3 color system (from Stitch designs)
+- JWT auth with protected routes
 
-The frontend is available at http://localhost:5173.
+## Environment Variables
 
-Requires the FastAPI backend running at http://localhost:8000.
-
-### Pages
-
-| Page | Path | Description |
-|------|------|-------------|
-| Login | /login | Broker authentication (register / sign in) |
-| Client Portfolio | / | List all clients, add new clients |
-| Client Profile | /clients/:id | View and edit client details, run plan analysis |
-
----
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | (required) | Claude API key |
+| `DATABASE_URL` | `sqlite+aiosqlite:///healthflow.db` | Database connection string |
+| `JWT_SECRET` | dev default | JWT signing secret (change in production) |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection (optional) |
 
 ## Running Tests
 
@@ -296,27 +138,12 @@ Requires the FastAPI backend running at http://localhost:8000.
 pytest healthflow/tests/ -v
 ```
 
+329 tests covering all backend features, auth, and client CRUD.
+
 ## Tech Stack
 
-- **FastAPI** — REST API framework
-- **Claude API** (claude-sonnet-4-6) — AI-powered plan recommendations
-- **Pydantic** — Request/response validation
-- **Redis** — Optional session persistence (in-memory default)
-- **Click** — CLI interface
+**Backend:** Python, FastAPI, SQLAlchemy 2.0, Pydantic, Anthropic SDK, Click, pytest
 
-## Architecture
+**Frontend:** React 18, Vite, Tailwind CSS, React Router v6
 
-```
-HTTP Request → FastAPI → Harness (validate/filter/log) → Tools (fetch/parse/estimate) → Agent (Claude) → Response
-```
-
-- **Harness**: Validates inputs, filters medical advice from outputs, logs all decisions
-- **CMS Fetcher**: Curated dataset of ~20 realistic Medicare Advantage plans
-- **Plan Parser**: Ranks and scores plans based on income-weighted criteria
-- **Cost Estimator**: ~30 medications and ~20 procedures with realistic pricing
-- **Comparison Agent**: Generates plain-English recommendations via Claude
-- **PHI Redactor**: Regex-based PHI stripping before any LLM call
-- **Denial Parser**: Extracts denial codes, treatments, deadlines from letters
-- **Denial Code DB**: Curated database of ~25 CARC/RARC codes with CMS rules
-- **Appeal Writer**: Generates formal appeal letter templates
-- **Appeal Agent**: Orchestrates denial parsing, code lookup, and Claude refinement
+**Infrastructure:** SQLite/PostgreSQL, Redis (optional), NPPES API (real)
