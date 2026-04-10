@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/healthflow",
+    "sqlite+aiosqlite:///healthflow.db",
 )
 
 engine = create_async_engine(DATABASE_URL, echo=False)
