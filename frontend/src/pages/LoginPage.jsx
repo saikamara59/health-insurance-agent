@@ -24,7 +24,6 @@ export default function LoginPage() {
     if (isRegisterMode) {
       result = await register(email, password, fullName)
       if (result.success) {
-        // After registration, auto-login
         result = await login(email, password)
       }
     } else {
@@ -41,222 +40,177 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-surface text-on-surface min-h-screen flex items-center justify-center p-4">
-      <main className="w-full max-w-[1200px] grid grid-cols-1 md:grid-cols-2 bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
-        {/* Left Hero Panel */}
-        <section className="hidden md:flex flex-col justify-between p-12 bg-primary relative overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-10 pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(circle at 20% 30%, #ffffff 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-            }}
-          ></div>
+    <main className="relative min-h-screen flex items-stretch bg-surface font-body text-on-surface overflow-hidden">
+      {/* Left Hero Panel — Full bleed image with gradient overlay */}
+      <div className="hidden lg:flex lg:w-7/12 relative overflow-hidden items-end p-20">
+        <div className="absolute inset-0 z-0">
+          <img
+            className="w-full h-full object-cover"
+            alt="Modern clinical research laboratory with soft blue ambient lighting"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuD225ctF3FHD6AVLvzEyrb5yp0zvYv-YLH7SuMFTzxiBvP0JUOQjy-hOWLDBfLf52WR3GCPH_6f2eVNAprPK1Gt1MoL4-29BXCxmPCDadtJHsK8kKwjP9ej7DAC5cPAuWcbhzbNBBhjqLxDpqSnzP8pW-3hiewkm965x0DrTyi4pXql9xOvib_9WzaVlU7QeIMKBelVhBOvtqGQtytul5S50AHViU--CQe_HLOnstl1CWRimZGb-RD502KLYdnC-CvR5AFJHw66-og"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/20 to-transparent"></div>
+        </div>
 
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-12">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-md">
-                <span className="material-symbols-outlined text-white">health_and_safety</span>
-              </div>
-              <span className="font-headline text-2xl font-extrabold text-white tracking-tight">HealthFlow</span>
+        <div className="relative z-10 max-w-xl">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+              <span className="material-symbols-outlined text-primary text-3xl">medical_services</span>
             </div>
+            <span className="font-headline text-3xl font-extrabold tracking-tighter text-white">HealthFlow</span>
+          </div>
 
-            <h1 className="font-headline text-5xl font-extrabold text-white leading-tight mb-6">
-              Precision Analytics for <br />
-              <span className="text-secondary-fixed">Healthcare Brokers.</span>
-            </h1>
+          <h1 className="font-headline text-5xl font-bold text-white leading-tight mb-6 tracking-tight">
+            Advancing precision medicine with editorial clarity.
+          </h1>
 
-            <p className="text-primary-fixed text-lg max-w-md leading-relaxed">
-              Access your comprehensive dashboard to manage clients, compare policies, and streamline your brokerage workflow with clinical accuracy.
+          <p className="text-white/80 text-xl font-light leading-relaxed mb-8">
+            Access the institutional HealthFlow gateway for clinical curation, patient management, and diagnostic oversight.
+          </p>
+
+          <div className="flex gap-4 items-center text-white/90 text-sm tracking-widest font-label">
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-xs">verified_user</span> INSTITUTIONAL GRADE
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-xs">encrypted</span> END-TO-END SECURE
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Form Panel */}
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-8 bg-surface-container-lowest">
+        <div className="w-full max-w-md space-y-12">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center gap-3 mb-12">
+            <span className="font-headline text-2xl font-extrabold tracking-tighter text-primary">HealthFlow</span>
+          </div>
+
+          {/* Heading */}
+          <div className="space-y-4">
+            <h2 className="font-headline text-4xl font-bold text-primary tracking-tight">
+              {isRegisterMode ? 'Create Account' : 'Sign In'}
+            </h2>
+            <p className="text-on-surface-variant font-body">
+              {isRegisterMode
+                ? 'Set up your broker account to get started.'
+                : 'Welcome to HealthFlow Institutional Access.'}
             </p>
           </div>
 
-          <div className="relative z-10">
-            <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/10">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex -space-x-2">
-                  <img
-                    className="w-10 h-10 rounded-full border-2 border-primary"
-                    alt="professional female doctor"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxf_tp_kDtwBqV0CwMFH9Un3IPNDvh8i0qFJVZY3odjR8A-mpHkpggcDoC47_xy_RJev1uXdvxjKzk-JfpyBFWw8NQug9zL78YMKBbau0X2xuAdXR2lBz_iP_UfsD_12Z0v-y5LV0ncdeG2q2DyMZI4DGjNPVFVPCf_2xIbrZoQxM88h1U1gdoYYoweTQLrJmcRwMLa5XL4Tc3_7m-K2MXy71kg245RQW5jMgpSuUaOE1-9DkaON97WOe3z5wQfzZQOeyGMSJx5V8"
-                  />
-                  <img
-                    className="w-10 h-10 rounded-full border-2 border-primary"
-                    alt="male healthcare professional"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGSDN9sdtlesQJWtaklIbdphfH2srkDn315mftwV8y7Muj6dehHVlgPYfqhiGGblIgy5eXx4s8JWmEtAqstc9QuBY1XRr6heuueK6eGqduemRkZQFrrP4pgLrwFguAd2DVUv3Qe_pfFn0_bOInkU4xKRmAV4agqMskkQlfLjvmhRiVnOMfvCUtqaMnVC5XZa10lZPYv-eP930X6XMQjMyXZwCuryiUPwt8QXWiSBWyf6h-L8jh6_8b2vcTwF0Y-g65oIGFSS4qeU8"
-                  />
-                  <img
-                    className="w-10 h-10 rounded-full border-2 border-primary"
-                    alt="professional male doctor"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMqoN_zi4aAoyIU9Q_byjnec5KP5IlJ7RMoWPxUx2-4TPDnFvltdi5DTNqPBTmue1k4xyWfcT5BIoVx_QvoSlm1iYqnvqBWEYdAoTQ70mlfOFcDwSLCshEClpXIh5fDuq4OnGHs1VpLkBIAsixZ2F3vLs1McXuqJoaahS4m4CHWYTHYs90kJqhbVP-n4-JEnF--ZQN50UpgHSP6zgeHjOQMCoOcELZDN9L6DY6pMbHfkwJa5jevF7k4drbn3Crx5k_ImYPp7s65_Y"
-                  />
-                </div>
-                <span className="text-white text-sm font-medium">Trusted by 2,000+ top-tier brokers</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <span
-                    key={i}
-                    className="material-symbols-outlined text-secondary-fixed text-sm"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    star
-                  </span>
-                ))}
-                <span className="text-primary-fixed text-xs ml-2">5.0 average user rating</span>
-              </div>
+          {/* Error */}
+          {error && (
+            <div className="p-4 bg-error-container rounded-xl">
+              <p className="text-sm text-on-error-container">{error}</p>
             </div>
-          </div>
+          )}
 
-          <div className="absolute -right-20 bottom-0 w-[80%] h-[60%] opacity-20 pointer-events-none">
-            <img
-              className="w-full h-full object-cover rounded-tl-[100px]"
-              alt="abstract medical lab equipment"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPAQ0yoL-aBmkG9zzU-qMvFG8hIflLLtxTh2G3nliSj7nu98SH9CpsnYS5dedrIJ7nelczkyg3MzTFTte1CLHSSPl1lh8wYIKOS6lwHhZrQJw0U7bfvfn9XHQvwG7KbM5vyyWvL5w4IgWHlev0pzukD69IRMjCjYysDtn-l0JntyORQip4EXqSWar0rAX9KEUlInQq2KQmAkpBfQ7eC_OvGZ6Rhf5cpudvO6VDY6h2_Xs8W7AZRzVA86wgyt3mhuEnQo78r-8x4kw"
-            />
-          </div>
-        </section>
-
-        {/* Right Form Panel */}
-        <section className="flex flex-col justify-center p-8 md:p-16 lg:p-24 bg-surface-container-lowest">
-          <div className="w-full max-w-sm mx-auto">
-            {/* Mobile logo */}
-            <div className="md:hidden flex items-center gap-2 mb-10">
-              <span className="material-symbols-outlined text-primary text-3xl">health_and_safety</span>
-              <span className="font-headline text-xl font-extrabold text-primary">HealthFlow</span>
-            </div>
-
-            {/* Heading */}
-            <div className="mb-10">
-              <h2 className="font-headline text-3xl font-bold text-on-surface mb-2">
-                {isRegisterMode ? 'Create Account' : 'Welcome Back'}
-              </h2>
-              <p className="text-on-surface-variant text-sm">
-                {isRegisterMode
-                  ? 'Set up your broker account to get started.'
-                  : 'Please enter your credentials to access your portal.'}
-              </p>
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="mb-6 p-4 bg-error-container rounded-xl">
-                <p className="text-sm text-on-error-container">{error}</p>
-              </div>
-            )}
-
-            {/* Form */}
-            <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* Form */}
+          <form className="space-y-8" onSubmit={handleSubmit}>
+            <div className="space-y-6">
               {isRegisterMode && (
-                <div>
+                <div className="relative group">
                   <label
-                    className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2"
+                    className="block text-xs font-label uppercase tracking-[0.05em] text-on-surface-variant mb-2 ml-1"
                     htmlFor="fullName"
                   >
                     Full Name
                   </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">
-                      person
-                    </span>
+                  <div className="relative flex items-center">
                     <input
-                      className="w-full pl-12 pr-4 py-3.5 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline"
+                      className="w-full bg-surface-container-low border-none border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg px-4 py-4 font-body transition-all group-hover:bg-surface-container placeholder:text-outline/50"
                       id="fullName"
-                      name="fullName"
-                      placeholder="Jane Smith"
+                      placeholder="Dr. Sarah Vance"
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
                     />
+                    <span className="material-symbols-outlined absolute right-4 text-outline group-hover:text-primary transition-colors">
+                      person
+                    </span>
                   </div>
                 </div>
               )}
 
-              <div>
+              <div className="relative group">
                 <label
-                  className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2"
+                  className="block text-xs font-label uppercase tracking-[0.05em] text-on-surface-variant mb-2 ml-1"
                   htmlFor="email"
                 >
-                  Email Address
+                  Work Email
                 </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">
-                    mail
-                  </span>
+                <div className="relative flex items-center">
                   <input
-                    className="w-full pl-12 pr-4 py-3.5 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline"
+                    className="w-full bg-surface-container-low border-none border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg px-4 py-4 font-body transition-all group-hover:bg-surface-container placeholder:text-outline/50"
                     id="email"
-                    name="email"
-                    placeholder="broker@healthflow.com"
+                    placeholder="dr.smith@healthflow.com"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
+                  <span className="material-symbols-outlined absolute right-4 text-outline group-hover:text-primary transition-colors">
+                    alternate_email
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-2">
+              <div className="relative group">
+                <div className="flex justify-between items-end mb-2 ml-1">
                   <label
-                    className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider"
+                    className="block text-xs font-label uppercase tracking-[0.05em] text-on-surface-variant"
                     htmlFor="password"
                   >
-                    Password
+                    Credentials
                   </label>
                   {!isRegisterMode && (
-                    <a className="text-xs font-medium text-primary hover:text-primary-container transition-colors" href="#">
-                      Forgot password?
+                    <a className="text-xs font-medium text-secondary hover:text-primary transition-colors" href="#">
+                      Recover Password
                     </a>
                   )}
                 </div>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-lg">
-                    lock
-                  </span>
+                <div className="relative flex items-center">
                   <input
-                    className="w-full pl-12 pr-12 py-3.5 bg-surface-container-highest rounded-xl border-none focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline"
+                    className="w-full bg-surface-container-low border-none border-b-2 border-transparent focus:border-primary focus:ring-0 rounded-lg px-4 py-4 font-body transition-all group-hover:bg-surface-container placeholder:text-outline/50"
                     id="password"
-                    name="password"
-                    placeholder="••••••••"
+                    placeholder="••••••••••••"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={8}
                   />
-                  <button
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors"
-                    type="button"
+                  <span
+                    className="material-symbols-outlined absolute right-4 text-outline group-hover:text-primary transition-colors cursor-pointer"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    <span className="material-symbols-outlined text-lg">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {!isRegisterMode && (
-                <div className="flex items-center">
-                  <input
-                    className="w-4 h-4 text-primary bg-surface-container-highest border-none rounded focus:ring-primary focus:ring-offset-0"
-                    id="remember"
-                    name="remember"
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  <label className="ml-3 text-sm text-on-surface-variant" htmlFor="remember">
-                    Remember me for 30 days
-                  </label>
-                </div>
-              )}
+            {/* Remember checkbox */}
+            <div className="flex items-center gap-3">
+              <input
+                className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary/20"
+                id="remember"
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <label className="text-sm text-on-surface-variant font-medium cursor-pointer" htmlFor="remember">
+                Remember this workstation for 30 days
+              </label>
+            </div>
 
+            {/* Submit */}
+            <div className="space-y-4">
               <button
-                className="w-full bg-primary hover:bg-primary-container text-on-primary font-semibold py-4 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary py-4 rounded-xl font-bold text-lg shadow-xl shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 type="submit"
                 disabled={loading}
               >
@@ -264,51 +218,45 @@ export default function LoginPage() {
                   'Processing...'
                 ) : (
                   <>
-                    {isRegisterMode ? 'Create Account' : 'Sign In'}
-                    <span className="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">
-                      arrow_forward
-                    </span>
+                    {isRegisterMode ? 'Create Account' : 'Authenticate'}
+                    <span className="material-symbols-outlined text-xl">login</span>
                   </>
                 )}
               </button>
-            </form>
+            </div>
+          </form>
 
-            {/* Toggle register/login */}
-            <div className="mt-10 pt-10 border-t border-surface-container text-center">
-              <p className="text-sm text-on-surface-variant">
-                {isRegisterMode ? 'Already have an account?' : "Don't have a broker account yet?"}
-              </p>
+          {/* Toggle register/login */}
+          <div className="pt-8 text-center">
+            <p className="text-sm text-on-surface-variant">
+              {isRegisterMode ? 'Already have an account? ' : 'New institutional client? '}
               <button
-                className="inline-block mt-4 text-sm font-bold text-primary px-6 py-2 rounded-full border border-primary/20 hover:bg-primary/5 transition-all"
+                className="text-secondary font-bold hover:underline"
                 onClick={() => {
                   setIsRegisterMode(!isRegisterMode)
                   setError('')
                 }}
               >
-                {isRegisterMode ? 'Sign In Instead' : 'Create a Broker Account'}
+                {isRegisterMode ? 'Sign in' : 'Request access'}
               </button>
-            </div>
-
-            {/* Security badges */}
-            <div className="mt-12 flex justify-center gap-6">
-              <div className="flex items-center gap-2 opacity-40">
-                <span className="material-symbols-outlined text-[10px]">lock_outline</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em]">SSL Secure</span>
-              </div>
-              <div className="flex items-center gap-2 opacity-40">
-                <span className="material-symbols-outlined text-[10px]">verified_user</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em]">HIPAA Compliant</span>
-              </div>
-            </div>
+            </p>
           </div>
-        </section>
-      </main>
 
-      <footer className="fixed bottom-6 w-full text-center pointer-events-none">
-        <p className="text-[10px] font-medium text-on-surface-variant/40 uppercase tracking-[0.3em]">
-          &copy; 2024 HealthFlow Brokerage Technologies. All Rights Reserved.
-        </p>
-      </footer>
-    </div>
+          {/* Footer links */}
+          <div className="pt-12 flex flex-wrap gap-x-6 gap-y-2 opacity-50">
+            <a className="text-[10px] font-label uppercase tracking-widest hover:opacity-100" href="#">Privacy Protocol</a>
+            <a className="text-[10px] font-label uppercase tracking-widest hover:opacity-100" href="#">Security Terms</a>
+            <a className="text-[10px] font-label uppercase tracking-widest hover:opacity-100" href="#">Help Desk</a>
+            <span className="text-[10px] font-label uppercase tracking-widest ml-auto">V.2.4.0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Network status indicator */}
+      <div className="fixed bottom-12 right-12 flex items-center gap-4 bg-white/85 backdrop-blur-[16px] p-3 rounded-full border border-white/20 shadow-2xl z-50">
+        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+        <span className="text-xs font-medium text-primary tracking-wide pr-2">HealthFlow Network: Active</span>
+      </div>
+    </main>
   )
 }
