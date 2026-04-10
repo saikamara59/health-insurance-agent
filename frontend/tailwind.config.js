@@ -56,6 +56,7 @@ export default {
         "inverse-primary": "#a8c8ff",
       },
       fontFamily: {
+        logo: ["Saira Stencil One", "sans-serif"],
         headline: ["Manrope", "sans-serif"],
         body: ["Inter", "sans-serif"],
         label: ["Inter", "sans-serif"],

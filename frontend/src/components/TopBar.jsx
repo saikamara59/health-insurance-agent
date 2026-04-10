@@ -6,7 +6,7 @@ export default function TopBar() {
   return (
     <header className="fixed top-0 right-0 left-0 md:left-64 z-30 h-16 bg-white/70 backdrop-blur-[12px] shadow-sm shadow-blue-900/5 px-6 flex justify-between items-center font-headline tracking-tight">
       <div className="flex items-center gap-4">
-        <h2 className="text-xl font-bold tracking-tighter text-blue-900">HealthFlow</h2>
+        <h2 className="text-xl font-logo tracking-tighter text-blue-900">HealthFlow</h2>
       </div>
 
       <div className="flex items-center gap-6">

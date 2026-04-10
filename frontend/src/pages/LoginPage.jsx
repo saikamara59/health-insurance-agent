@@ -57,7 +57,7 @@ export default function LoginPage() {
             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
               <span className="material-symbols-outlined text-primary text-3xl">medical_services</span>
             </div>
-            <span className="font-headline text-3xl font-extrabold tracking-tighter text-white">HealthFlow</span>
+            <span className="font-logo text-3xl tracking-tighter text-white">HealthFlow</span>
           </div>
 
           <h1 className="font-headline text-5xl font-bold text-white leading-tight mb-6 tracking-tight">
@@ -85,7 +85,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-12">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-12">
-            <span className="font-headline text-2xl font-extrabold tracking-tighter text-primary">HealthFlow</span>
+            <span className="font-logo text-2xl tracking-tighter text-primary">HealthFlow</span>
           </div>
 
           {/* Heading */}
