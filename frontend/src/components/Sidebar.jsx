@@ -47,10 +47,10 @@ export default function Sidebar() {
           New Application
         </NavLink>
         <div className="mt-6 space-y-2">
-          <a className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors text-xs" href="#">
+          <NavLink to="/support" className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors text-xs">
             <span className="material-symbols-outlined text-lg">help</span>
             Support
-          </a>
+          </NavLink>
           <button
             onClick={logout}
             className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-error transition-colors text-xs w-full"
