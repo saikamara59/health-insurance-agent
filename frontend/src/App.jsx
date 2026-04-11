@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ClientListPage from './pages/ClientListPage'
 import ClientProfilePage from './pages/ClientProfilePage'
+import AddClientPage from './pages/AddClientPage'
 import SettingsPage from './pages/SettingsPage'
 import LeadsPage from './pages/LeadsPage'
 import SupportPage from './pages/SupportPage'
@@ -27,6 +28,7 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientListPage />} />
+            <Route path="clients/new" element={<AddClientPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
             <Route path="leads" element={<LeadsPage />} />
             <Route path="activity" element={<ActivityPage />} />

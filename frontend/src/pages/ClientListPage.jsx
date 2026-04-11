@@ -109,7 +109,7 @@ export default function ClientListPage() {
             Export Records
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => navigate('/clients/new')}
             className="px-6 py-2.5 rounded-lg font-semibold bg-primary text-white shadow-xl shadow-primary/10 hover:shadow-primary/20 transition-all flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-lg">person_add</span>

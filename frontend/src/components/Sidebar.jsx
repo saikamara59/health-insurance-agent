@@ -41,7 +41,7 @@ export default function Sidebar() {
 
       <div className="px-6 mt-auto">
         <NavLink
-          to="/clients"
+          to="/clients/new"
           className="block w-full py-3 bg-primary text-on-primary rounded-lg font-semibold shadow-sm shadow-primary/20 hover:opacity-90 transition-opacity text-center"
         >
           New Application
