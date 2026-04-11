@@ -1,43 +1,41 @@
 const API_BASE_URL = ''
 
-let _token = null
-let _refreshToken = null
-
 export function setToken(token) {
-  _token = token
+  sessionStorage.setItem('hf_token', token)
 }
 
 export function getToken() {
-  return _token
+  return sessionStorage.getItem('hf_token')
 }
 
 export function setRefreshToken(token) {
-  _refreshToken = token
+  sessionStorage.setItem('hf_refresh', token)
 }
 
 export function getRefreshToken() {
-  return _refreshToken
+  return sessionStorage.getItem('hf_refresh')
 }
 
 export function clearTokens() {
-  _token = null
-  _refreshToken = null
+  sessionStorage.removeItem('hf_token')
+  sessionStorage.removeItem('hf_refresh')
 }
 
 async function refreshAccessToken() {
-  if (!_refreshToken) return false
+  const refresh = getRefreshToken()
+  if (!refresh) return false
 
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: _refreshToken }),
+      body: JSON.stringify({ refresh_token: refresh }),
     })
 
     if (!res.ok) return false
 
     const data = await res.json()
-    _token = data.access_token
+    setToken(data.access_token)
     return true
   } catch {
     return false
@@ -46,9 +44,10 @@ async function refreshAccessToken() {
 
 async function request(method, path, body = null) {
   const headers = { 'Content-Type': 'application/json' }
+  const token = getToken()
 
-  if (_token) {
-    headers['Authorization'] = `Bearer ${_token}`
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
   }
 
   const config = { method, headers }
@@ -59,10 +58,10 @@ async function request(method, path, body = null) {
   let res = await fetch(`${API_BASE_URL}${path}`, config)
 
   // On 401, attempt token refresh and retry once
-  if (res.status === 401 && _refreshToken) {
+  if (res.status === 401 && getRefreshToken()) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
-      headers['Authorization'] = `Bearer ${_token}`
+      headers['Authorization'] = `Bearer ${getToken()}`
       res = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: config.body })
     }
   }

@@ -13,9 +13,29 @@ function decodeTokenPayload(token) {
   }
 }
 
+function getInitialAuth() {
+  const token = getToken()
+  if (!token) return { user: null, isAuthenticated: false }
+
+  const payload = decodeTokenPayload(token)
+  if (!payload) return { user: null, isAuthenticated: false }
+
+  // Check if token is expired
+  if (payload.exp && payload.exp * 1000 < Date.now()) {
+    clearTokens()
+    return { user: null, isAuthenticated: false }
+  }
+
+  return {
+    user: { id: payload.sub, role: payload.role, email: payload.email || '' },
+    isAuthenticated: true,
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const initial = getInitialAuth()
+  const [user, setUser] = useState(initial.user)
+  const [isAuthenticated, setIsAuthenticated] = useState(initial.isAuthenticated)
 
   const login = useCallback(async (email, password) => {
     try {

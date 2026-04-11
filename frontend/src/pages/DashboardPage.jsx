@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
@@ -14,6 +15,7 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false))
   }, [])
 
+  const navigate = useNavigate()
   const displayName = user?.full_name || user?.email?.split('@')[0] || 'Doctor'
 
   return (
@@ -37,7 +39,7 @@ export default function DashboardPage() {
             Export Report
           </button>
           <button
-            onClick={() => window.location.href = '/clients'}
+            onClick={() => navigate('/clients')}
             className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold text-sm shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all"
           >
             Launch Analysis
@@ -98,7 +100,7 @@ export default function DashboardPage() {
                 )}
               </div>
               <button
-                onClick={() => window.location.href = '/clients'}
+                onClick={() => navigate('/clients')}
                 className="text-sm font-medium bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors"
               >
                 View Ecosystem
@@ -115,7 +117,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <h4 className="text-xl font-display font-bold text-primary">Recent Clinical Activity</h4>
-            <a href="/activity" className="text-secondary text-sm font-semibold hover:underline">View All Activities</a>
+            <button onClick={() => navigate('/activity')} className="text-secondary text-sm font-semibold hover:underline">View All Activities</button>
           </div>
 
           <div className="space-y-4">
@@ -216,7 +218,7 @@ export default function DashboardPage() {
               "Recent data shifts suggest a 14% increase in respiratory specialty claims within the Northeast corridor. Consider adjusting portfolio weightings."
             </p>
             <button
-              onClick={() => window.location.href = '/clients'}
+              onClick={() => navigate('/clients')}
               className="w-full py-3 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-all"
             >
               Run Simulations
