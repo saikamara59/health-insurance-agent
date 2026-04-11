@@ -39,7 +39,11 @@ export default function ClientListPage() {
   const [page, setPage] = useState(1)
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newClient, setNewClient] = useState({ full_name: '', zip_code: '', age: '', income_level: 'medium' })
+  const [newClient, setNewClient] = useState({ full_name: '', zip_code: '', age: '', income_level: 'medium', prescriptions: [], doctors: [], procedures: [] })
+  const [rxInput, setRxInput] = useState('')
+  const [docName, setDocName] = useState('')
+  const [docNpi, setDocNpi] = useState('')
+  const [procInput, setProcInput] = useState('')
   const [addError, setAddError] = useState('')
   const [addLoading, setAddLoading] = useState(false)
 
@@ -70,9 +74,13 @@ export default function ClientListPage() {
         zip_code: newClient.zip_code,
         age: parseInt(newClient.age, 10),
         income_level: newClient.income_level,
+        prescriptions: newClient.prescriptions,
+        doctors: newClient.doctors,
+        procedures: newClient.procedures,
       })
       setShowAddModal(false)
-      setNewClient({ full_name: '', zip_code: '', age: '', income_level: 'medium' })
+      setNewClient({ full_name: '', zip_code: '', age: '', income_level: 'medium', prescriptions: [], doctors: [], procedures: [] })
+      setRxInput(''); setDocName(''); setDocNpi(''); setProcInput('')
       await loadClients()
     } catch (err) { setAddError(err.message) }
     finally { setAddLoading(false) }
@@ -355,57 +363,214 @@ export default function ClientListPage() {
       {/* Add Client Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
               <h2 className="font-headline text-xl font-bold text-blue-950">Add New Client</h2>
               <button onClick={() => { setShowAddModal(false); setAddError('') }} className="p-2 rounded-lg hover:bg-slate-50">
                 <span className="material-symbols-outlined text-slate-400">close</span>
               </button>
             </div>
-            <form className="p-8 space-y-5" onSubmit={handleAddClient}>
+            <form className="p-8 space-y-6" onSubmit={handleAddClient}>
               {addError && (
                 <div className="p-4 bg-error-container rounded-xl">
                   <p className="text-sm text-on-error-container">{addError}</p>
                 </div>
               )}
+
+              {/* Basic Info */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
-                <input
-                  type="text" placeholder="John Doe" required
-                  className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  value={newClient.full_name} onChange={(e) => setNewClient({ ...newClient, full_name: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Zip Code</label>
-                  <input
-                    type="text" placeholder="90210" required maxLength={5} pattern="\d{5}"
-                    className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
-                    value={newClient.zip_code} onChange={(e) => setNewClient({ ...newClient, zip_code: e.target.value })}
-                  />
+                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">person</span> Basic Information
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
+                    <input type="text" placeholder="John Doe" required
+                      className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      value={newClient.full_name} onChange={(e) => setNewClient({ ...newClient, full_name: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Zip Code</label>
+                      <input type="text" placeholder="90210" required maxLength={5} pattern="\d{5}"
+                        className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                        value={newClient.zip_code} onChange={(e) => setNewClient({ ...newClient, zip_code: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Age</label>
+                      <input type="number" placeholder="35" required min={18} max={120}
+                        className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                        value={newClient.age} onChange={(e) => setNewClient({ ...newClient, age: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Income</label>
+                      <select className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                        value={newClient.income_level} onChange={(e) => setNewClient({ ...newClient, income_level: e.target.value })}>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Age</label>
-                  <input
-                    type="number" placeholder="35" required min={18} max={120}
-                    className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
-                    value={newClient.age} onChange={(e) => setNewClient({ ...newClient, age: e.target.value })}
-                  />
-                </div>
               </div>
+
+              <hr className="border-slate-100" />
+
+              {/* Prescriptions */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Income Level</label>
-                <select
-                  className="w-full px-4 py-3 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
-                  value={newClient.income_level} onChange={(e) => setNewClient({ ...newClient, income_level: e.target.value })}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">medication</span> Prescriptions
+                </h3>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" placeholder="e.g. Metformin, Lisinopril..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                    value={rxInput} onChange={(e) => setRxInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (rxInput.trim()) {
+                          setNewClient({ ...newClient, prescriptions: [...newClient.prescriptions, rxInput.trim()] })
+                          setRxInput('')
+                        }
+                      }
+                    }} />
+                  <button type="button" onClick={() => {
+                    if (rxInput.trim()) {
+                      setNewClient({ ...newClient, prescriptions: [...newClient.prescriptions, rxInput.trim()] })
+                      setRxInput('')
+                    }
+                  }} className="px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-container transition-colors">
+                    Add
+                  </button>
+                </div>
+                {newClient.prescriptions.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {newClient.prescriptions.map((rx, i) => (
+                      <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary-fixed/30 text-on-secondary-container rounded-full text-xs font-bold">
+                        <span className="material-symbols-outlined text-xs">medication</span>
+                        {rx}
+                        <button type="button" onClick={() => setNewClient({ ...newClient, prescriptions: newClient.prescriptions.filter((_, j) => j !== i) })}
+                          className="ml-1 hover:text-error transition-colors">
+                          <span className="material-symbols-outlined text-xs">close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {newClient.prescriptions.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">No prescriptions added. Type a name and press Enter or click Add.</p>
+                )}
               </div>
-              <div className="flex gap-3 pt-4">
+
+              <hr className="border-slate-100" />
+
+              {/* Preferred Doctors */}
+              <div>
+                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">stethoscope</span> Preferred Doctors
+                </h3>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" placeholder="Doctor name"
+                    className="flex-1 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                    value={docName} onChange={(e) => setDocName(e.target.value)} />
+                  <input type="text" placeholder="NPI (optional)"
+                    className="w-36 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                    value={docNpi} onChange={(e) => setDocNpi(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (docName.trim()) {
+                          setNewClient({ ...newClient, doctors: [...newClient.doctors, { name: docName.trim(), npi: docNpi.trim() || null }] })
+                          setDocName(''); setDocNpi('')
+                        }
+                      }
+                    }} />
+                  <button type="button" onClick={() => {
+                    if (docName.trim()) {
+                      setNewClient({ ...newClient, doctors: [...newClient.doctors, { name: docName.trim(), npi: docNpi.trim() || null }] })
+                      setDocName(''); setDocNpi('')
+                    }
+                  }} className="px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-container transition-colors">
+                    Add
+                  </button>
+                </div>
+                {newClient.doctors.length > 0 && (
+                  <div className="space-y-2">
+                    {newClient.doctors.map((doc, i) => (
+                      <div key={i} className="flex items-center justify-between px-4 py-2.5 bg-surface-container-low rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-primary text-sm">person</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-on-surface">{doc.name}</p>
+                            {doc.npi && <p className="text-[10px] text-slate-400">NPI: {doc.npi}</p>}
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => setNewClient({ ...newClient, doctors: newClient.doctors.filter((_, j) => j !== i) })}
+                          className="p-1 hover:text-error transition-colors text-slate-400">
+                          <span className="material-symbols-outlined text-sm">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {newClient.doctors.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">No doctors added. Enter a name and optional NPI.</p>
+                )}
+              </div>
+
+              <hr className="border-slate-100" />
+
+              {/* Procedures */}
+              <div>
+                <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">medical_services</span> Expected Procedures
+                </h3>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" placeholder="e.g. MRI, Blood work, Annual physical..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 rounded-lg border border-slate-100 text-sm focus:ring-2 focus:ring-primary/20"
+                    value={procInput} onChange={(e) => setProcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (procInput.trim()) {
+                          setNewClient({ ...newClient, procedures: [...newClient.procedures, procInput.trim()] })
+                          setProcInput('')
+                        }
+                      }
+                    }} />
+                  <button type="button" onClick={() => {
+                    if (procInput.trim()) {
+                      setNewClient({ ...newClient, procedures: [...newClient.procedures, procInput.trim()] })
+                      setProcInput('')
+                    }
+                  }} className="px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-container transition-colors">
+                    Add
+                  </button>
+                </div>
+                {newClient.procedures.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {newClient.procedures.map((proc, i) => (
+                      <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-full text-xs font-bold">
+                        <span className="material-symbols-outlined text-xs">medical_services</span>
+                        {proc}
+                        <button type="button" onClick={() => setNewClient({ ...newClient, procedures: newClient.procedures.filter((_, j) => j !== i) })}
+                          className="ml-1 hover:text-error transition-colors">
+                          <span className="material-symbols-outlined text-xs">close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {newClient.procedures.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">No procedures added. Type a name and press Enter or click Add.</p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => { setShowAddModal(false); setAddError('') }}
                   className="flex-1 py-3 rounded-lg border border-slate-200 text-slate-600 font-medium text-sm hover:bg-slate-50 transition-colors">
                   Cancel
