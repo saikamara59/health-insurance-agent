@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ClientListPage from './pages/ClientListPage'
 import ClientProfilePage from './pages/ClientProfilePage'
+import SettingsPage from './pages/SettingsPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientListPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </AuthProvider>
