@@ -9,6 +9,7 @@ import ClientProfilePage from './pages/ClientProfilePage'
 import SettingsPage from './pages/SettingsPage'
 import LeadsPage from './pages/LeadsPage'
 import SupportPage from './pages/SupportPage'
+import ActivityPage from './pages/ActivityPage'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="clients" element={<ClientListPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
             <Route path="leads" element={<LeadsPage />} />
+            <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="support" element={<SupportPage />} />
           </Route>

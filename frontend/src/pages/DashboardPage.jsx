@@ -115,7 +115,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <h4 className="text-xl font-display font-bold text-primary">Recent Clinical Activity</h4>
-            <button className="text-secondary text-sm font-semibold hover:underline">View All Activities</button>
+            <a href="/activity" className="text-secondary text-sm font-semibold hover:underline">View All Activities</a>
           </div>
 
           <div className="space-y-4">
