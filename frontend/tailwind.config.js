@@ -57,6 +57,7 @@ export default {
       },
       fontFamily: {
         logo: ["Saira Stencil One", "sans-serif"],
+        display: ["Merriweather", "serif"],
         headline: ["Manrope", "sans-serif"],
         body: ["Inter", "sans-serif"],
         label: ["Inter", "sans-serif"],

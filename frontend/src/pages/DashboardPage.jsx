@@ -24,7 +24,7 @@ export default function DashboardPage() {
           <span className="text-primary font-label text-xs tracking-[0.2em] font-semibold uppercase block mb-2">
             Institutional Dashboard
           </span>
-          <h1 className="text-4xl md:text-5xl font-headline font-extrabold text-primary tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-display font-bold text-primary tracking-tight">
             Welcome, {displayName}
           </h1>
           <p className="text-on-surface-variant mt-3 max-w-lg leading-relaxed">
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         {/* Activity Feed */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
-            <h4 className="text-xl font-headline font-bold text-primary">Recent Clinical Activity</h4>
+            <h4 className="text-xl font-display font-bold text-primary">Recent Clinical Activity</h4>
             <button className="text-secondary text-sm font-semibold hover:underline">View All Activities</button>
           </div>
 
@@ -176,7 +176,7 @@ export default function DashboardPage() {
         <div className="space-y-8">
           {/* System Status */}
           <div className="bg-surface-container-high rounded-2xl p-6 relative overflow-hidden">
-            <h4 className="text-lg font-headline font-bold text-primary mb-4">System Status</h4>
+            <h4 className="text-lg font-display font-bold text-primary mb-4">System Status</h4>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-on-surface-variant">Data Pipeline</span>
@@ -210,7 +210,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 rounded bg-tertiary/10 text-tertiary flex items-center justify-center">
                 <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
               </div>
-              <h4 className="text-md font-headline font-bold text-primary">Curator Insights</h4>
+              <h4 className="text-md font-display font-bold text-primary">Curator Insights</h4>
             </div>
             <p className="text-sm text-on-surface-variant leading-relaxed mb-6 italic">
               "Recent data shifts suggest a 14% increase in respiratory specialty claims within the Northeast corridor. Consider adjusting portfolio weightings."
