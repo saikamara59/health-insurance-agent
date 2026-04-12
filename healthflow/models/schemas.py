@@ -459,3 +459,68 @@ class ActionHistoryResponse(BaseModel):
 class BrokerProfileUpdate(BaseModel):
     full_name: str | None = None
     email: str | None = None
+
+
+# ── Phase 7: RLHF Feedback Schemas ─────────────────────────────────────────
+
+
+VALID_AGENT_TYPES = {"compare", "calculate", "translate", "appeal", "verify"}
+
+
+class FeedbackCreate(BaseModel):
+    output_id: str = Field(..., description="ID of the agent output being rated")
+    agent_type: str = Field(..., description="Agent type: compare/calculate/translate/appeal/verify")
+    accuracy: int = Field(..., ge=1, le=5, description="Accuracy rating 1-5")
+    clarity: int = Field(..., ge=1, le=5, description="Clarity rating 1-5")
+    helpfulness: int = Field(..., ge=1, le=5, description="Helpfulness rating 1-5")
+    comment: str = Field(default="", max_length=2000, description="Optional comment")
+
+    @field_validator("agent_type")
+    @classmethod
+    def validate_agent_type(cls, v: str) -> str:
+        if v not in VALID_AGENT_TYPES:
+            raise ValueError(
+                f"agent_type must be one of: {', '.join(sorted(VALID_AGENT_TYPES))}"
+            )
+        return v
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+    broker_id: str
+    output_id: str
+    agent_type: str
+    accuracy: int
+    clarity: int
+    helpfulness: int
+    comment: str
+    created_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class AgentFeedbackStats(BaseModel):
+    agent_type: str
+    total_feedback: int
+    avg_accuracy: float
+    avg_clarity: float
+    avg_helpfulness: float
+    combined_avg: float
+
+
+class FeedbackAnalytics(BaseModel):
+    period_days: int
+    agents: list[AgentFeedbackStats]
+    overall_avg: float
+    total_feedback: int
+
+
+class WeeklyReport(BaseModel):
+    period_days: int
+    agents: list[AgentFeedbackStats]
+    overall_avg: float
+    worst_agent: str | None
+    best_agent: str | None
+    low_score_count: int
+    top_output_ids: list[str]
+    bottom_output_ids: list[str]
