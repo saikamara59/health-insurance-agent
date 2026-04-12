@@ -155,7 +155,7 @@ export default function NotificationPanel({ open, onClose }) {
 
         {/* Footer */}
         <div className="px-4 sm:px-8 py-4 sm:py-6 bg-surface-container-low/30 flex items-center justify-between border-t border-surface-container-high">
-          <button onClick={() => handleNavigate('/settings')} className="flex items-center gap-2">
+          <button onClick={() => handleNavigate('/settings?tab=notifications')} className="flex items-center gap-2">
             <span className="material-symbols-outlined text-outline text-[18px]">settings</span>
             <span className="text-[10px] font-bold uppercase tracking-widest text-outline hidden sm:inline">Notification Settings</span>
           </button>

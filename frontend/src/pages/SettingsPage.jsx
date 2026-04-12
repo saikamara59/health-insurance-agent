@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/client'
 
 const TABS = ['Profile Identity', 'Security Protocols', 'API Integrations', 'Notifications']
+const TAB_KEYS = { profile: 0, security: 1, api: 2, notifications: 3 }
 
 export default function SettingsPage() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState(0)
+  const [searchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(tabParam && TAB_KEYS[tabParam] !== undefined ? TAB_KEYS[tabParam] : 0)
+
+  useEffect(() => {
+    if (tabParam && TAB_KEYS[tabParam] !== undefined) {
+      setActiveTab(TAB_KEYS[tabParam])
+    }
+  }, [tabParam])
   const [profile, setProfile] = useState({
     full_name: user?.full_name || user?.email?.split('@')[0] || '',
     title: 'Clinical Director',
