@@ -17,6 +17,7 @@ export default defineConfig({
       '/plans': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
       '/history': 'http://localhost:8000',
+      '/feedback': 'http://localhost:8000',
     }
   }
 })
