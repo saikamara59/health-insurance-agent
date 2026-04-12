@@ -4,9 +4,11 @@ import { useAuth } from '../contexts/AuthContext'
 const navItems = [
   { path: '/', icon: 'dashboard', label: 'Dashboard' },
   { path: '/clients', icon: 'group', label: 'Client Portfolios' },
-  { path: '/leads', icon: 'person_search', label: 'Leads Pipeline' },
-  { path: '/history', icon: 'history', label: 'Comparison History' },
+  { path: '/compare', icon: 'compare_arrows', label: 'Plan Comparison' },
+  { path: '/network', icon: 'verified_user', label: 'Network Verify' },
   { path: '/appeals', icon: 'medical_services', label: 'Claims Appeal' },
+  { path: '/history', icon: 'history', label: 'History' },
+  { path: '/leads', icon: 'person_search', label: 'Leads' },
   { path: '/analytics', icon: 'analytics', label: 'Analytics' },
   { path: '/settings', icon: 'settings', label: 'Settings' },
 ]

@@ -15,6 +15,7 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import ClaimsAppealPage from './pages/ClaimsAppealPage'
 import ComparisonHistoryPage from './pages/ComparisonHistoryPage'
 import PlanComparisonPage from './pages/PlanComparisonPage'
+import NetworkVerificationPage from './pages/NetworkVerificationPage'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="clients/:id" element={<ClientProfilePage />} />
             <Route path="leads" element={<LeadsPage />} />
             <Route path="compare" element={<PlanComparisonPage />} />
+            <Route path="network" element={<NetworkVerificationPage />} />
             <Route path="history" element={<ComparisonHistoryPage />} />
             <Route path="appeals" element={<ClaimsAppealPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
