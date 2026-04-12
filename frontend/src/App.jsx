@@ -17,6 +17,7 @@ import ComparisonHistoryPage from './pages/ComparisonHistoryPage'
 import PlanComparisonPage from './pages/PlanComparisonPage'
 import NetworkVerificationPage from './pages/NetworkVerificationPage'
 import CoverageTranslatorPage from './pages/CoverageTranslatorPage'
+import CostCalculatorPage from './pages/CostCalculatorPage'
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="compare" element={<PlanComparisonPage />} />
             <Route path="network" element={<NetworkVerificationPage />} />
             <Route path="translator" element={<CoverageTranslatorPage />} />
+            <Route path="calculator" element={<CostCalculatorPage />} />
             <Route path="appeals" element={<ClaimsAppealPage />} />
             <Route path="history" element={<ComparisonHistoryPage />} />
             <Route path="leads" element={<LeadsPage />} />

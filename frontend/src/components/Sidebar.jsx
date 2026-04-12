@@ -7,6 +7,7 @@ const navItems = [
   { path: '/compare', icon: 'compare_arrows', label: 'Plan Comparison' },
   { path: '/network', icon: 'verified_user', label: 'Network Verify' },
   { path: '/translator', icon: 'translate', label: 'Translator' },
+  { path: '/calculator', icon: 'calculate', label: 'Cost Calculator' },
   { path: '/appeals', icon: 'medical_services', label: 'Claims Appeal' },
   { path: '/history', icon: 'history', label: 'History' },
   { path: '/leads', icon: 'person_search', label: 'Leads' },
