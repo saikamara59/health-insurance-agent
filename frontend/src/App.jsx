@@ -18,6 +18,7 @@ import PlanComparisonPage from './pages/PlanComparisonPage'
 import NetworkVerificationPage from './pages/NetworkVerificationPage'
 import CoverageTranslatorPage from './pages/CoverageTranslatorPage'
 import CostCalculatorPage from './pages/CostCalculatorPage'
+import OnboardingSuccessPage from './pages/OnboardingSuccessPage'
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientListPage />} />
             <Route path="clients/new" element={<AddClientPage />} />
+            <Route path="clients/success" element={<OnboardingSuccessPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
             <Route path="compare" element={<PlanComparisonPage />} />
             <Route path="network" element={<NetworkVerificationPage />} />

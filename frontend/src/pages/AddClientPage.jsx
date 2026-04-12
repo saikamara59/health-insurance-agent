@@ -63,7 +63,7 @@ export default function AddClientPage() {
         doctors: form.doctors,
         procedures: form.procedures,
       })
-      navigate(`/clients/${res.id}`)
+      navigate(`/clients/success?id=${res.id}`)
     } catch (err) {
       setError(err.message || 'Failed to create client')
       setLoading(false)
