@@ -7,6 +7,7 @@ from healthflow.api.routes import router
 from healthflow.auth.router import auth_router
 from healthflow.api.client_router import client_router
 from healthflow.api.history_router import history_router
+from healthflow.feedback.router import feedback_router
 
 
 @asynccontextmanager
@@ -39,6 +40,7 @@ app.include_router(router)
 app.include_router(auth_router)
 app.include_router(client_router)
 app.include_router(history_router)
+app.include_router(feedback_router)
 
 
 if __name__ == "__main__":
