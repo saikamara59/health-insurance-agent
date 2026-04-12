@@ -34,6 +34,22 @@ Login: `demo@healthflow.com` / `healthflow123`
 
 Creates a broker account with 4 sample clients pre-loaded with doctors, prescriptions, and procedures.
 
+## Real Health Data
+
+HealthFlow can use real CMS Medicare Advantage plan data and FDA drug data.
+
+### Load seed data (recommended for development)
+```bash
+python scripts/refresh_data.py --seed-only
+```
+
+### Download latest data from CMS and FDA
+```bash
+python scripts/refresh_data.py
+```
+
+The data is stored in `healthflow_data.db` (gitignored). If the file doesn't exist, the app falls back to curated mock data.
+
 ## Features
 
 | Feature | Endpoint | Description |
