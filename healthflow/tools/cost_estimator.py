@@ -67,10 +67,41 @@ def _fuzzy_match(query: str, candidates: list[dict]) -> dict | None:
 
 
 class CostEstimator:
+    def __init__(self, db_path: str | None = None):
+        self._drug_db = None
+        self._db_path = db_path
+
+    @property
+    def drug_db(self):
+        if self._drug_db is None:
+            from healthflow.data.drug_database import DrugDatabase
+
+            kwargs = {"db_path": self._db_path} if self._db_path else {}
+            self._drug_db = DrugDatabase(**kwargs)
+        return self._drug_db
+
     def estimate(
         self, item_name: str, item_type: str, plan_type: str
     ) -> dict | None:
         if item_type == "medication":
+            # Try real database first
+            if self.drug_db.is_available():
+                db_result = self.drug_db.search_drug(item_name)
+                if db_result is not None:
+                    copay_key = "copay_hmo" if plan_type == "HMO" else "copay_ppo"
+                    return {
+                        "item_name": db_result["name"],
+                        "item_type": "medication",
+                        "estimated_cost": db_result[copay_key],
+                        "cost_details": {
+                            "formulary_tier": db_result["tier"],
+                            "copay": db_result[copay_key],
+                            "coinsurance_pct": None,
+                            "prior_auth_required": db_result["prior_auth"],
+                            "quantity_limit": db_result["quantity_limit"],
+                        },
+                    }
+            # Fallback to hardcoded MEDICATIONS
             match = _fuzzy_match(item_name, MEDICATIONS)
             if match is None:
                 return None
