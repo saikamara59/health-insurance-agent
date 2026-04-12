@@ -14,4 +14,6 @@ build/
 frontend/node_modules/
 frontend/dist/
 healthflow.db
+healthflow_data.db
 healthflow.log
+.env
