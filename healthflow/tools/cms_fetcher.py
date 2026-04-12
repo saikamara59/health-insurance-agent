@@ -232,3 +232,22 @@ class MockCMSFetcher:
         rng = random.Random(int(zip_code))
         indices = rng.sample(range(len(ALL_PLANS)), k=min(8, len(ALL_PLANS)))
         return [ALL_PLANS[i].copy() for i in indices]
+
+
+class RealCMSFetcher:
+    """CMSFetcher that uses the SQLite database with fallback to mock data."""
+
+    def __init__(self, db_path: str | None = None):
+        from healthflow.data.plan_database import PlanDatabase
+
+        kwargs = {"db_path": db_path} if db_path else {}
+        self.db = PlanDatabase(**kwargs)
+        self._mock_fallback = MockCMSFetcher()
+
+    def fetch_plans(self, zip_code: str) -> list[dict]:
+        if self.db.is_available():
+            plans = self.db.search_plans(zip_code)
+            if plans:
+                return plans
+        # Fallback to mock data if DB not available or no results for this zip
+        return self._mock_fallback.fetch_plans(zip_code)
