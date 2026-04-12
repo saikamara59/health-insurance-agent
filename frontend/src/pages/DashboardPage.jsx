@@ -5,6 +5,7 @@ import api from '../api/client'
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -15,157 +16,140 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false))
   }, [])
 
-  const navigate = useNavigate()
   const displayName = user?.full_name || user?.email?.split('@')[0] || 'Doctor'
 
   return (
     <>
-      {/* Hero Header */}
-      <section className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      {/* Hero */}
+      <section className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <span className="text-primary font-label text-xs tracking-[0.2em] font-semibold uppercase block mb-2">
-            Institutional Dashboard
-          </span>
-          <h1 className="text-4xl md:text-5xl font-display font-bold text-primary tracking-tight">
-            Welcome, {displayName}
-          </h1>
-          <p className="text-on-surface-variant mt-3 max-w-lg leading-relaxed">
-            System HealthFlow is currently operating at optimal capacity.
-            {clients.length > 0 && ` You have ${clients.length} active client${clients.length !== 1 ? 's' : ''} in your portfolio.`}
+          <span className="text-primary font-bold text-xs tracking-widest uppercase block mb-2 font-headline">Institutional Dashboard</span>
+          <h1 className="text-4xl font-headline font-extrabold text-sky-950 tracking-tight">Welcome, {displayName}</h1>
+          <p className="text-slate-600 mt-2 max-w-2xl text-lg font-medium leading-relaxed">
+            System HealthFlow is operating at <span className="text-sky-700 font-bold">optimal capacity</span>.
+            {clients.length > 0 && <> There {clients.length === 1 ? 'is' : 'are'} <span className="text-primary font-bold">{clients.length} active client{clients.length !== 1 ? 's' : ''}</span> in your portfolio.</>}
           </p>
         </div>
-        <div className="flex gap-3">
-          <button className="px-6 py-3 rounded-lg border border-outline-variant bg-surface-container-lowest text-primary font-semibold text-sm hover:bg-surface-container-low transition-colors">
+        <div className="flex gap-3 shrink-0">
+          <button className="px-5 py-2.5 rounded border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors shadow-sm">
             Export Report
           </button>
-          <button
-            onClick={() => navigate('/clients')}
-            className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold text-sm shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all"
-          >
+          <button onClick={() => navigate('/clients')} className="px-5 py-2.5 rounded bg-primary text-white font-bold text-sm shadow-md hover:bg-primary-container transition-all">
             Launch Analysis
           </button>
         </div>
       </section>
 
-      {/* Metrics Bento Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="md:col-span-1 bg-surface-container-lowest p-6 rounded-xl shadow-sm shadow-blue-900/5 transition-transform hover:-translate-y-1">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-primary mb-4">
-            <span className="material-symbols-outlined">group</span>
-          </div>
-          <p className="text-on-surface-variant text-xs font-label tracking-wider font-medium">TOTAL CLIENTS</p>
-          <h3 className="text-3xl font-headline font-bold text-primary mt-1">
-            {loading ? '...' : clients.length.toLocaleString()}
-          </h3>
-          <div className="mt-4 flex items-center text-xs text-secondary font-semibold">
-            <span className="material-symbols-outlined text-sm mr-1">trending_up</span>
-            Active portfolio
-          </div>
-        </div>
-
-        <div className="md:col-span-1 bg-surface-container-lowest p-6 rounded-xl shadow-sm shadow-blue-900/5 transition-transform hover:-translate-y-1 border-b-2 border-primary">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-primary mb-4">
-            <span className="material-symbols-outlined">compare_arrows</span>
-          </div>
-          <p className="text-on-surface-variant text-xs font-label tracking-wider font-medium">PENDING COMPARISONS</p>
-          <h3 className="text-3xl font-headline font-bold text-primary mt-1">
-            {loading ? '...' : Math.min(clients.length, 8).toString().padStart(2, '0')}
-          </h3>
-          <div className="mt-4 flex items-center text-xs text-error font-semibold">
-            <span className="material-symbols-outlined text-sm mr-1">priority_high</span>
-            Action Required
-          </div>
-        </div>
-
-        <div className="md:col-span-2 bg-primary text-on-primary p-6 rounded-xl shadow-lg shadow-primary/10 overflow-hidden relative">
-          <div className="relative z-10 h-full flex flex-col justify-between">
-            <div>
-              <p className="text-primary-fixed/70 text-xs font-label tracking-wider font-medium uppercase">Active Portfolio Performance</p>
-              <h3 className="text-3xl font-headline font-bold mt-1">Institutional Tier</h3>
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div className="bg-white p-6 rounded border border-slate-200 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-10 h-10 rounded bg-sky-50 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined">group</span>
             </div>
-            <div className="flex items-end justify-between mt-4">
-              <div className="flex -space-x-3">
-                {clients.slice(0, 3).map((c, i) => {
-                  const initials = c.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'
-                  return (
-                    <div key={i} className="w-10 h-10 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary">
-                      {initials}
-                    </div>
-                  )
-                })}
-                {clients.length > 3 && (
-                  <div className="w-10 h-10 rounded-full border-2 border-primary bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary">
-                    +{clients.length - 3}
+            <span className="flex items-center text-xs text-green-600 font-bold">
+              <span className="material-symbols-outlined text-sm mr-1">trending_up</span>Active
+            </span>
+          </div>
+          <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Total Clients</p>
+          <h3 className="text-3xl font-headline font-extrabold text-sky-950 mt-1">{loading ? '...' : clients.length.toLocaleString()}</h3>
+        </div>
+
+        <div className="bg-white p-6 rounded border-b-4 border-primary shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-10 h-10 rounded bg-sky-50 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined">compare_arrows</span>
+            </div>
+            <span className="flex items-center text-xs text-orange-600 font-bold">
+              <span className="material-symbols-outlined text-sm mr-1">priority_high</span>Action
+            </span>
+          </div>
+          <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Pending Comparisons</p>
+          <h3 className="text-3xl font-headline font-extrabold text-sky-950 mt-1">{loading ? '...' : Math.min(clients.length, 8).toString().padStart(2, '0')}</h3>
+        </div>
+
+        <div className="lg:col-span-2 bg-sky-900 text-white p-6 rounded shadow-lg relative overflow-hidden flex flex-col justify-between group">
+          <div className="relative z-10">
+            <p className="text-sky-300 text-[10px] font-bold tracking-widest uppercase">Portfolio Performance</p>
+            <h3 className="text-2xl font-headline font-bold mt-1">Institutional Tier</h3>
+          </div>
+          <div className="flex items-end justify-between relative z-10 mt-6">
+            <div className="flex -space-x-2">
+              {clients.slice(0, 3).map((c, i) => {
+                const initials = c.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'
+                return (
+                  <div key={i} className="w-9 h-9 rounded-full border-2 border-sky-800 bg-sky-700 flex items-center justify-center text-[10px] font-bold text-white">
+                    {initials}
                   </div>
-                )}
-              </div>
-              <button
-                onClick={() => navigate('/clients')}
-                className="text-sm font-medium bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm hover:bg-white/20 transition-colors"
-              >
-                View Ecosystem
-              </button>
+                )
+              })}
+              {clients.length > 3 && (
+                <div className="w-9 h-9 rounded-full border-2 border-sky-800 bg-sky-700 flex items-center justify-center text-[10px] font-bold">
+                  +{clients.length - 3}
+                </div>
+              )}
             </div>
+            <button onClick={() => navigate('/clients')} className="text-xs font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors backdrop-blur-sm">
+              View Ecosystem
+            </button>
           </div>
-          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+          <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
         </div>
       </div>
 
-      {/* Content Split */}
+      {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         {/* Activity Feed */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
-            <h4 className="text-xl font-display font-bold text-primary">Recent Clinical Activity</h4>
-            <button onClick={() => navigate('/activity')} className="text-secondary text-sm font-semibold hover:underline">View All Activities</button>
+            <h4 className="text-lg font-headline font-bold text-sky-950">Recent Clinical Activity</h4>
+            <button onClick={() => navigate('/activity')} className="text-primary text-sm font-bold hover:underline">View All</button>
           </div>
 
           <div className="space-y-4">
             {clients.length === 0 && !loading && (
-              <div className="bg-surface-container-low p-8 rounded-xl text-center">
-                <span className="material-symbols-outlined text-4xl text-outline mb-4">group_off</span>
-                <p className="text-on-surface-variant">No clients yet. Add your first client to get started.</p>
+              <div className="bg-white p-8 rounded border border-slate-100 text-center">
+                <span className="material-symbols-outlined text-4xl text-slate-300 mb-4">group_off</span>
+                <p className="text-slate-500">No clients yet. Add your first client to get started.</p>
               </div>
             )}
 
             {clients.slice(0, 3).map((client, idx) => (
-              <div key={client.id} className="group bg-surface-container-low hover:bg-surface-container-lowest p-5 rounded-xl transition-all flex gap-5 items-start">
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-lg bg-white shadow-sm flex items-center justify-center text-primary font-bold">
+              <div key={client.id} onClick={() => navigate(`/clients/${client.id}`)}
+                className="bg-white p-5 rounded border border-slate-100 shadow-sm flex gap-4 items-start hover:border-sky-200 transition-colors cursor-pointer group">
+                <div className="relative shrink-0">
+                  <div className="w-14 h-14 rounded bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 text-primary font-bold text-lg">
                     {client.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
                   </div>
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-surface flex items-center justify-center ${
-                    idx === 0 ? 'bg-secondary' : idx === 1 ? 'bg-tertiary-container' : 'bg-slate-400'
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${
+                    idx === 0 ? 'bg-sky-600 text-white' : idx === 1 ? 'bg-violet-600 text-white' : 'bg-slate-400 text-white'
                   }`}>
-                    <span className="material-symbols-outlined text-[10px] text-white" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    <span className="material-symbols-outlined text-[10px]" style={idx === 0 ? { fontVariationSettings: "'FILL' 1" } : {}}>
                       {idx === 0 ? 'check' : idx === 1 ? 'sync' : 'schedule'}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h5 className="font-headline font-bold text-blue-900 group-hover:text-primary transition-colors">
-                        {client.full_name}
-                      </h5>
-                      <p className="text-on-surface-variant text-sm mt-1 leading-relaxed">
-                        {client.zip_code} · Age {client.age} · {client.income_level} income
-                        {client.prescriptions?.length > 0 && ` · ${client.prescriptions.length} prescriptions`}
-                      </p>
-                    </div>
-                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap ml-4">
+                  <div className="flex justify-between items-start mb-1">
+                    <h5 className="font-bold text-sky-900 text-base group-hover:text-primary transition-colors">{client.full_name}</h5>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                       {new Date(client.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center gap-4">
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-secondary bg-secondary-fixed/30 px-2 py-0.5 rounded">
-                      {client.income_level} income
+                  <p className="text-slate-600 text-sm leading-relaxed mb-3">
+                    {client.zip_code} · Age {client.age} · {client.income_level} income
+                    {client.prescriptions?.length > 0 && ` · ${client.prescriptions.length} active prescriptions`}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[9px] font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-100 uppercase tracking-wider">
+                      {client.income_level} tier
                     </span>
                     {client.doctors?.length > 0 && (
-                      <span className="text-xs text-slate-500">
+                      <div className="flex items-center text-xs text-slate-400 font-medium">
+                        <span className="material-symbols-outlined text-sm mr-1">stethoscope</span>
                         {client.doctors.length} provider{client.doctors.length !== 1 ? 's' : ''}
-                      </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -174,79 +158,83 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
+        {/* Sidebar */}
         <div className="space-y-8">
           {/* System Status */}
-          <div className="bg-surface-container-high rounded-2xl p-6 relative overflow-hidden">
-            <h4 className="text-lg font-display font-bold text-primary mb-4">System Status</h4>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-on-surface-variant">Data Pipeline</span>
-                <span className="flex items-center text-xs font-bold text-secondary uppercase">
-                  <span className="w-2 h-2 rounded-full bg-secondary mr-2 animate-pulse"></span>
-                  Operational
-                </span>
-              </div>
-              <div className="w-full bg-white/50 h-1.5 rounded-full">
-                <div className="bg-secondary h-full rounded-full" style={{ width: '94%' }}></div>
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-sm font-medium text-on-surface-variant">Verification Node</span>
-                <span className="flex items-center text-xs font-bold text-secondary uppercase">
-                  <span className="w-2 h-2 rounded-full bg-secondary mr-2"></span>
-                  Active
-                </span>
-              </div>
-              <div className="w-full bg-white/50 h-1.5 rounded-full">
-                <div className="bg-secondary h-full rounded-full" style={{ width: '88%' }}></div>
-              </div>
+          <div className="bg-white rounded border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="font-headline font-bold text-sky-950">System Integrity</h4>
+              <span className="material-symbols-outlined text-sky-200">shield_with_heart</span>
             </div>
-            <div className="absolute top-0 right-0 p-4 opacity-5">
-              <span className="material-symbols-outlined text-6xl">cloud_done</span>
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-slate-500 font-bold uppercase tracking-widest">Data Pipeline</span>
+                  <span className="text-sky-600 font-extrabold flex items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-2 animate-pulse"></span>OPERATIONAL
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-sky-500 h-full" style={{ width: '94%' }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-slate-500 font-bold uppercase tracking-widest">Verification Node</span>
+                  <span className="text-sky-600 font-extrabold flex items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-2"></span>ACTIVE
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-sky-500 h-full" style={{ width: '88%' }}></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Curator Insights */}
-          <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-6 shadow-xl shadow-blue-900/5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded bg-tertiary/10 text-tertiary flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+          {/* Curator Insight */}
+          <div className="bg-sky-50 rounded border border-sky-200 p-6 shadow-sm relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded bg-sky-600 text-white flex items-center justify-center shadow-sm">
+                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                </div>
+                <h4 className="text-base font-headline font-extrabold text-sky-900 uppercase tracking-tight">Curator Insight</h4>
               </div>
-              <h4 className="text-md font-display font-bold text-primary">Curator Insights</h4>
+              <p className="text-sky-800 text-sm leading-relaxed mb-6 font-medium">
+                "Recent data shifts suggest a <span className="text-sky-600 font-bold">14% increase</span> in respiratory specialty claims within the Northeast corridor. Strategic adjustment is recommended."
+              </p>
+              <button onClick={() => navigate('/clients')} className="w-full py-2.5 rounded bg-sky-600 text-white font-bold text-sm hover:bg-sky-700 transition-all shadow-sm">
+                Run Impact Simulations
+              </button>
             </div>
-            <p className="text-sm text-on-surface-variant leading-relaxed mb-6 italic">
-              "Recent data shifts suggest a 14% increase in respiratory specialty claims within the Northeast corridor. Consider adjusting portfolio weightings."
-            </p>
-            <button
-              onClick={() => navigate('/clients')}
-              className="w-full py-3 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-all"
-            >
-              Run Simulations
-            </button>
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <span className="material-symbols-outlined text-7xl">lightbulb</span>
+            </div>
           </div>
 
-          {/* Upcoming Deadlines */}
+          {/* Deadlines */}
           <div className="px-2">
-            <h4 className="text-xs font-label tracking-widest text-slate-400 font-bold uppercase mb-4">Upcoming Deadlines</h4>
+            <h4 className="text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase mb-5">Upcoming Milestones</h4>
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-center justify-center w-10 h-12 bg-white rounded-lg border border-slate-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Apr</span>
-                  <span className="text-sm font-bold text-primary">15</span>
+              <div className="flex items-center gap-4 group cursor-pointer">
+                <div className="flex flex-col items-center justify-center w-11 h-11 bg-white rounded border border-slate-200 group-hover:border-primary transition-colors">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">Apr</span>
+                  <span className="text-sm font-bold text-sky-900 leading-none">15</span>
                 </div>
                 <div>
-                  <h6 className="text-sm font-bold text-blue-900">Annual Audit Report</h6>
-                  <p className="text-xs text-slate-500">Compliance Submission</p>
+                  <h6 className="text-sm font-bold text-sky-950 group-hover:text-primary transition-colors">Annual Audit Report</h6>
+                  <p className="text-[11px] text-slate-500">Compliance Submission</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-center justify-center w-10 h-12 bg-white rounded-lg border border-slate-100 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Apr</span>
-                  <span className="text-sm font-bold text-primary">22</span>
+              <div className="flex items-center gap-4 group cursor-pointer">
+                <div className="flex flex-col items-center justify-center w-11 h-11 bg-white rounded border border-slate-200 group-hover:border-primary transition-colors">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">Apr</span>
+                  <span className="text-sm font-bold text-sky-900 leading-none">22</span>
                 </div>
                 <div>
-                  <h6 className="text-sm font-bold text-blue-900">Insurers Conference</h6>
-                  <p className="text-xs text-slate-500">Global Health Summit</p>
+                  <h6 className="text-sm font-bold text-sky-950 group-hover:text-primary transition-colors">Insurers Conference</h6>
+                  <p className="text-[11px] text-slate-500">Global Health Summit</p>
                 </div>
               </div>
             </div>
