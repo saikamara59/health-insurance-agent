@@ -1,6 +1,5 @@
 import pytest
 from datetime import timedelta
-from unittest.mock import patch
 
 from healthflow.auth.security import (
     hash_password,

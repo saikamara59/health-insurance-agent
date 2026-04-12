@@ -13,6 +13,7 @@ import SupportPage from './pages/SupportPage'
 import ActivityPage from './pages/ActivityPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import ClaimsAppealPage from './pages/ClaimsAppealPage'
+import ComparisonHistoryPage from './pages/ComparisonHistoryPage'
 
 export default function App() {
   return (
@@ -33,8 +34,9 @@ export default function App() {
             <Route path="clients/new" element={<AddClientPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
             <Route path="leads" element={<LeadsPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="history" element={<ComparisonHistoryPage />} />
             <Route path="appeals" element={<ClaimsAppealPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="support" element={<SupportPage />} />

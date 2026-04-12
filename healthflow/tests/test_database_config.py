@@ -24,7 +24,7 @@ async def test_database_url_default():
         from importlib import reload
         import healthflow.database.config as cfg
         reload(cfg)
-        assert "postgresql+asyncpg" in cfg.DATABASE_URL
+        assert "sqlite+aiosqlite" in cfg.DATABASE_URL
 
 
 @pytest.mark.asyncio

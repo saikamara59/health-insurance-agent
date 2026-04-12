@@ -5,6 +5,7 @@ const navItems = [
   { path: '/', icon: 'dashboard', label: 'Dashboard' },
   { path: '/clients', icon: 'group', label: 'Client Portfolios' },
   { path: '/leads', icon: 'person_search', label: 'Leads Pipeline' },
+  { path: '/history', icon: 'history', label: 'Comparison History' },
   { path: '/appeals', icon: 'medical_services', label: 'Claims Appeal' },
   { path: '/analytics', icon: 'analytics', label: 'Analytics' },
   { path: '/settings', icon: 'settings', label: 'Settings' },

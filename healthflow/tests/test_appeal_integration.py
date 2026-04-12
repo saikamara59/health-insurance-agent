@@ -50,7 +50,6 @@ Claims Department
 @patch("healthflow.api.routes.AppealAgent")
 def test_end_to_end_realistic_denial(mock_agent_cls):
     """End-to-end test with a realistic denial letter."""
-    from healthflow.agents.appeal_agent import AppealAgent as RealAgent
     from healthflow.tools.denial_codes import DenialCodeDB
     from healthflow.tools.denial_parser import DenialParser
     from healthflow.tools.phi_redactor import PHIRedactor

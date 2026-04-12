@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from healthflow.tools.provider_checker import ProviderChecker
 from healthflow.tools.provider_cache import InMemoryProviderCache
