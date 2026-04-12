@@ -57,6 +57,7 @@ class Broker(Base):
 
     clients: Mapped[list["Client"]] = relationship(back_populates="broker", cascade="all, delete-orphan")
     actions: Mapped[list["ActionHistory"]] = relationship(back_populates="broker", cascade="all, delete-orphan")
+    feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="broker", cascade="all, delete-orphan")
 
 
 class Client(Base):
@@ -107,3 +108,41 @@ class ActionHistory(Base):
 
     broker: Mapped["Broker"] = relationship(back_populates="actions")
     client: Mapped["Client"] = relationship(back_populates="actions")
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    broker_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("brokers.id"), index=True, nullable=False
+    )
+    output_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    agent_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    accuracy: Mapped[int] = mapped_column(Integer, nullable=False)
+    clarity: Mapped[int] = mapped_column(Integer, nullable=False)
+    helpfulness: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+
+    broker: Mapped["Broker"] = relationship(back_populates="feedbacks")
+
+
+class PromptVariant(Base):
+    __tablename__ = "prompt_variants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    agent_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    variant_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_template: Mapped[str] = mapped_column(String, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    traffic_pct: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
