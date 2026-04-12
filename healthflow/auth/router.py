@@ -12,8 +12,10 @@ from healthflow.auth.security import (
 )
 from healthflow.database.config import get_db
 from healthflow.database.models import Broker
+from healthflow.auth.dependencies import get_current_broker
 from healthflow.models.schemas import (
     BrokerCreate,
+    BrokerProfileUpdate,
     BrokerResponse,
     LoginRequest,
     TokenResponse,
@@ -135,3 +137,42 @@ async def refresh(
         "access_token": new_access_token,
         "token_type": "bearer",
     }
+
+
+@auth_router.get("/profile", response_model=BrokerResponse)
+async def get_profile(
+    broker: Broker = Depends(get_current_broker),
+) -> BrokerResponse:
+    """Get the current broker's profile."""
+    return BrokerResponse(
+        id=str(broker.id),
+        email=broker.email,
+        full_name=broker.full_name,
+        role=broker.role,
+        is_active=broker.is_active,
+        created_at=broker.created_at.isoformat(),
+    )
+
+
+@auth_router.put("/profile", response_model=BrokerResponse)
+async def update_profile(
+    update: BrokerProfileUpdate,
+    broker: Broker = Depends(get_current_broker),
+    db: AsyncSession = Depends(get_db),
+) -> BrokerResponse:
+    """Update the current broker's profile."""
+    if update.full_name is not None:
+        broker.full_name = update.full_name
+    if update.email is not None:
+        broker.email = update.email
+    await db.flush()
+    await db.refresh(broker)
+
+    return BrokerResponse(
+        id=str(broker.id),
+        email=broker.email,
+        full_name=broker.full_name,
+        role=broker.role,
+        is_active=broker.is_active,
+        created_at=broker.created_at.isoformat(),
+    )

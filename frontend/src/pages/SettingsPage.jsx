@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../api/client'
 
 const TABS = ['Profile Identity', 'Security Protocols', 'API Integrations', 'Notifications']
 
@@ -13,10 +14,23 @@ export default function SettingsPage() {
     department: 'Brokerage Operations',
   })
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  useEffect(() => {
+    api.get('/auth/profile').then(data => {
+      setProfile(p => ({ ...p, full_name: data.full_name || p.full_name, email: data.email || p.email }))
+    }).catch(() => {})
+  }, [])
+
+  async function handleSave() {
+    setSaveError('')
+    try {
+      await api.put('/auth/profile', { full_name: profile.full_name })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      setSaveError(err.message)
+    }
   }
 
   return (

@@ -54,6 +54,15 @@ export default function ClientProfilePage() {
       const result = await api.post(WORKFLOW_STEPS[i].endpoint, WORKFLOW_STEPS[i].buildPayload(client))
       setStepResults(p => ({ ...p, [i]: result }))
       setStepStatuses(p => ({ ...p, [i]: 'complete' }))
+      // Log to action history
+      try {
+        await api.post('/history', {
+          client_id: client.id,
+          action_type: WORKFLOW_STEPS[i].title.toLowerCase().replace(/\s+/g, '_'),
+          request_data: { endpoint: WORKFLOW_STEPS[i].endpoint },
+          response_summary: { status: 'complete', has_recommendation: !!result?.recommendation },
+        })
+      } catch (_) { /* non-critical */ }
     } catch (err) {
       setStepResults(p => ({ ...p, [i]: { error: err.message } }))
       setStepStatuses(p => ({ ...p, [i]: 'error' }))

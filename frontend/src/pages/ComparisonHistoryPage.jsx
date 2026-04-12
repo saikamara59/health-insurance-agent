@@ -23,39 +23,36 @@ function timeAgo(dateStr) {
 
 export default function ComparisonHistoryPage() {
   const navigate = useNavigate()
-  const [clients, setClients] = useState([])
+  const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [actionFilter, setActionFilter] = useState('')
 
   useEffect(() => {
-    api.get('/clients').then(data => {
-      setClients(Array.isArray(data) ? data : [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
+    loadHistory()
+  }, [actionFilter])
 
-  // Generate history entries from clients
-  const entries = clients.flatMap((client, idx) => {
-    const actions = []
-    actions.push({ id: `${client.id}-compare`, client, type: 'compare', desc: `Cross-referenced coverage options for ${client.prescriptions?.length || 0} prescriptions and ${client.doctors?.length || 0} providers across available plans.`, date: client.created_at, status: 'validated' })
-    if (client.prescriptions?.length > 0) {
-      actions.push({ id: `${client.id}-calculate`, client, type: 'calculate', desc: `Estimated annual out-of-pocket costs based on ${client.prescriptions.length} active prescriptions and expected procedures.`, date: client.updated_at || client.created_at, status: 'validated' })
+  async function loadHistory() {
+    setLoading(true)
+    try {
+      let url = '/history?limit=100'
+      if (actionFilter) url += `&action_type=${actionFilter}`
+      const data = await api.get(url)
+      setEntries(Array.isArray(data) ? data : [])
+    } catch {
+      setEntries([])
+    } finally {
+      setLoading(false)
     }
-    if (client.doctors?.length > 0) {
-      actions.push({ id: `${client.id}-verify`, client, type: 'verify', desc: `Provider network verification for ${client.zip_code} area. Validated participation status for ${client.doctors.length} provider${client.doctors.length !== 1 ? 's' : ''}.`, date: client.updated_at || client.created_at, status: 'validated' })
-    }
-    return actions
-  }).sort((a, b) => new Date(b.date) - new Date(a.date))
+  }
 
   const filtered = entries.filter(e => {
-    if (searchTerm && !e.client.full_name.toLowerCase().includes(searchTerm.toLowerCase())) return false
-    if (actionFilter && e.type !== actionFilter) return false
+    if (searchTerm && !(e.client_name || '').toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
 
   const totalAnalyses = entries.length
-  const avgSavings = clients.length > 0 ? `$${(clients.length * 3.1).toFixed(0)}k` : '$0'
+  const avgSavings = entries.length > 0 ? `$${(entries.length * 3.1).toFixed(0)}k` : '$0'
 
   return (
     <>
@@ -110,10 +107,11 @@ export default function ComparisonHistoryPage() {
           ) : (
             <section className="space-y-4">
               {filtered.map((entry) => {
-                const style = ACTION_STYLES[entry.type]
+                const actionKey = Object.keys(ACTION_STYLES).find(k => entry.action_type?.includes(k)) || 'compare'
+                const style = ACTION_STYLES[actionKey]
                 return (
                   <div key={entry.id} className="bg-surface-container-lowest p-6 rounded shadow-sm border border-slate-100 flex gap-6 relative overflow-hidden hover:border-sky-200 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/clients/${entry.client.id}`)}>
+                    onClick={() => navigate(`/clients/${entry.client_id}`)}>
                     <div className="flex flex-col items-center">
                       <div className={`w-10 h-10 rounded-full ${style.iconBg} flex items-center justify-center border`}>
                         <span className="material-symbols-outlined">{style.icon}</span>
@@ -123,14 +121,17 @@ export default function ComparisonHistoryPage() {
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="font-headline font-bold text-blue-900">{entry.client.full_name}</h3>
-                          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">{timeAgo(entry.date)}</p>
+                          <h3 className="font-headline font-bold text-blue-900">{entry.client_name || 'Unknown Client'}</h3>
+                          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">{timeAgo(entry.created_at)}</p>
                         </div>
                         <span className={`${style.bg} px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider`}>
-                          {entry.type}
+                          {entry.action_type}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mb-4 leading-relaxed">{entry.desc}</p>
+                      <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                        {entry.response_summary?.status === 'complete' ? 'Analysis completed successfully.' : `Action recorded: ${entry.action_type}`}
+                        {entry.response_summary?.has_recommendation && ' AI recommendation generated.'}
+                      </p>
                       <div className="flex items-center justify-between">
                         <div className="flex gap-4">
                           <div className="flex items-center gap-1.5">
@@ -168,21 +169,21 @@ export default function ComparisonHistoryPage() {
           </div>
 
           {/* Most Active Client */}
-          {clients.length > 0 && (
+          {entries.length > 0 && entries[0].client_name && (
             <div className="bg-surface-container-lowest p-6 rounded shadow-sm border border-slate-100">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Most Active Client</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Most Recent Client</label>
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 rounded bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {clients[0].full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  {entries[0].client_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </div>
                 <div>
-                  <h4 className="font-bold text-blue-900 leading-tight">{clients[0].full_name}</h4>
-                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Active Client · {clients[0].zip_code}</p>
+                  <h4 className="font-bold text-blue-900 leading-tight">{entries[0].client_name}</h4>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">Latest activity</p>
                 </div>
               </div>
               <div className="bg-slate-50 p-3 rounded flex justify-between items-center">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Entries</span>
-                <span className="text-sm font-bold text-primary">{entries.filter(e => e.client.id === clients[0].id).length}</span>
+                <span className="text-sm font-bold text-primary">{entries.filter(e => e.client_id === entries[0].client_id).length}</span>
               </div>
             </div>
           )}

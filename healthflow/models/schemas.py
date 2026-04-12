@@ -432,3 +432,30 @@ class ClientUpdate(BaseModel):
         if v is not None and v not in {"low", "medium", "high"}:
             raise ValueError(f"Income level must be one of: high, low, medium")
         return v
+
+
+# Phase 6: Action History & Profile Schemas
+
+class ActionHistoryCreate(BaseModel):
+    client_id: str
+    action_type: str
+    request_data: dict = {}
+    response_summary: dict = {}
+
+
+class ActionHistoryResponse(BaseModel):
+    id: str
+    broker_id: str
+    client_id: str
+    action_type: str
+    request_data: dict
+    response_summary: dict
+    created_at: str
+    client_name: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BrokerProfileUpdate(BaseModel):
+    full_name: str | None = None
+    email: str | None = None
