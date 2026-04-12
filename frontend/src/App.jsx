@@ -16,6 +16,7 @@ import ClaimsAppealPage from './pages/ClaimsAppealPage'
 import ComparisonHistoryPage from './pages/ComparisonHistoryPage'
 import PlanComparisonPage from './pages/PlanComparisonPage'
 import NetworkVerificationPage from './pages/NetworkVerificationPage'
+import CoverageTranslatorPage from './pages/CoverageTranslatorPage'
 
 export default function App() {
   return (
@@ -35,11 +36,12 @@ export default function App() {
             <Route path="clients" element={<ClientListPage />} />
             <Route path="clients/new" element={<AddClientPage />} />
             <Route path="clients/:id" element={<ClientProfilePage />} />
-            <Route path="leads" element={<LeadsPage />} />
             <Route path="compare" element={<PlanComparisonPage />} />
             <Route path="network" element={<NetworkVerificationPage />} />
-            <Route path="history" element={<ComparisonHistoryPage />} />
+            <Route path="translator" element={<CoverageTranslatorPage />} />
             <Route path="appeals" element={<ClaimsAppealPage />} />
+            <Route path="history" element={<ComparisonHistoryPage />} />
+            <Route path="leads" element={<LeadsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
