@@ -25,14 +25,14 @@ from healthflow.models.schemas import (
     VerifyRequest,
     VerifyResponse,
 )
-from healthflow.tools.cms_fetcher import MockCMSFetcher
+from healthflow.tools.cms_fetcher import RealCMSFetcher
 from healthflow.tools.cost_estimator import CostEstimator
 from healthflow.tools.document_parser import DocumentParser
 from healthflow.tools.plan_parser import PlanParser
 
 router = APIRouter()
 
-fetcher = MockCMSFetcher()
+fetcher = RealCMSFetcher()
 parser = PlanParser()
 estimator = CostEstimator()
 harness = Harness()
