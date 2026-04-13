@@ -11,6 +11,7 @@ const navItems = [
   { path: '/appeals', icon: 'medical_services', label: 'Claims Appeal' },
   { path: '/history', icon: 'history', label: 'History' },
   { path: '/leads', icon: 'person_search', label: 'Leads' },
+  { path: '/feedback', icon: 'rate_review', label: 'Feedback' },
   { path: '/analytics', icon: 'analytics', label: 'Analytics' },
   { path: '/settings', icon: 'settings', label: 'Settings' },
 ]

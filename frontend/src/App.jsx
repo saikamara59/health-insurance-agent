@@ -19,6 +19,7 @@ import NetworkVerificationPage from './pages/NetworkVerificationPage'
 import CoverageTranslatorPage from './pages/CoverageTranslatorPage'
 import CostCalculatorPage from './pages/CostCalculatorPage'
 import OnboardingSuccessPage from './pages/OnboardingSuccessPage'
+import FeedbackDashboardPage from './pages/FeedbackDashboardPage'
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="appeals" element={<ClaimsAppealPage />} />
             <Route path="history" element={<ComparisonHistoryPage />} />
             <Route path="leads" element={<LeadsPage />} />
+            <Route path="feedback" element={<FeedbackDashboardPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
