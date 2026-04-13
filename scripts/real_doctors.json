@@ -1,0 +1,275 @@
+[
+  {
+    "name": "Dr. Nivedita Aanur, M.D.",
+    "npi": "1982833471",
+    "specialty": "Internal Medicine",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Justin Aaron, MD",
+    "npi": "1619243912",
+    "specialty": "Internal Medicine",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Ehab Abaza, MD",
+    "npi": "1114507555",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Vaidarshi Abbagoni, MD",
+    "npi": "1871237495",
+    "specialty": "Internal Medicine",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Zara Abbas, DO",
+    "npi": "1154858025",
+    "specialty": "Internal Medicine, Critical Care Medicine",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Azita Haj Hossein Talasaz, PharmD, PhD",
+    "npi": "1932088416",
+    "specialty": "Pharmacist, Cardiology",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Kaitlyn Pinkos, PharmD",
+    "npi": "1356031801",
+    "specialty": "Pharmacist, Cardiology",
+    "city": "New York",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Omer Aba-Omer, MD",
+    "npi": "1649702093",
+    "specialty": "Family Medicine",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Allan Abbott, M.D.",
+    "npi": "1326061896",
+    "specialty": "Family Medicine, Sports Medicine",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Loghman Abdian, M.D.",
+    "npi": "1356554802",
+    "specialty": "Family Medicine",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Pedram Abdian, M,D,",
+    "npi": "1891021531",
+    "specialty": "Family Medicine",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Edmond Abdou, MD",
+    "npi": "1386225316",
+    "specialty": "Family Medicine",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Eman Abdallah, D.O.",
+    "npi": "1528321957",
+    "specialty": "Dermatology",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Farah Abdulla, MD",
+    "npi": "1093934390",
+    "specialty": "Dermatology",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Karen Abisogun, MD",
+    "npi": "1124474515",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "Los Angeles",
+    "state": "CA"
+  },
+  {
+    "name": "Dr. Alexandra Aaronson, M.D.",
+    "npi": "1881937928",
+    "specialty": "Psychiatry & Neurology, Psychiatry",
+    "city": "Chicago",
+    "state": "IL"
+  },
+  {
+    "name": "Dr. Jeff Abbott, M.D.",
+    "npi": "1265887509",
+    "specialty": "Psychiatry & Neurology, Psychiatry",
+    "city": "Chicago",
+    "state": "IL"
+  },
+  {
+    "name": "Dr. Kathryn Abbott",
+    "npi": "1295537561",
+    "specialty": "Psychiatry & Neurology, Psychiatry",
+    "city": "Chicago",
+    "state": "IL"
+  },
+  {
+    "name": "Dr. Yasmin Akhunji, M.D.",
+    "npi": "1790918738",
+    "specialty": "Internal Medicine",
+    "city": "Miami",
+    "state": "FL"
+  },
+  {
+    "name": "Dr. Angel Alejandro, M.D.",
+    "npi": "1922118728",
+    "specialty": "Internal Medicine, Endocrinology, Diabetes & Metabolism",
+    "city": "Miami",
+    "state": "FL"
+  },
+  {
+    "name": "Dr. Rodolfo Alejandro",
+    "npi": "1356368328",
+    "specialty": "Internal Medicine, Endocrinology, Diabetes & Metabolism",
+    "city": "Miami",
+    "state": "FL"
+  },
+  {
+    "name": "Dr. Rodeo Abrencillo, M.D.",
+    "npi": "1164716635",
+    "specialty": "Internal Medicine",
+    "city": "Houston",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Roberto Adachi, M.D.",
+    "npi": "1598879678",
+    "specialty": "Internal Medicine, Pulmonary Disease",
+    "city": "Houston",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Anurag Agrawal, MD",
+    "npi": "1235373481",
+    "specialty": "Internal Medicine, Pulmonary Disease",
+    "city": "Houston",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Nandini Abburi",
+    "npi": "1730618349",
+    "specialty": "Psychiatry & Neurology, Neurology",
+    "city": "Seattle",
+    "state": "WA"
+  },
+  {
+    "name": "Dr. Ali Abu-Alya, DO",
+    "npi": "1326540337",
+    "specialty": "Psychiatry & Neurology, Neurology",
+    "city": "Seattle",
+    "state": "WA"
+  },
+  {
+    "name": "Dr. Neha Agarwal, MD",
+    "npi": "1275088445",
+    "specialty": "Pediatrics",
+    "city": "Seattle",
+    "state": "WA"
+  },
+  {
+    "name": "Dr. Amber Albaugh, APRN",
+    "npi": "1437798402",
+    "specialty": "Clinical Nurse Specialist, Oncology",
+    "city": "Atlanta",
+    "state": "GA"
+  },
+  {
+    "name": "Dr. Juliana Amankwah",
+    "npi": "1497586572",
+    "specialty": "Registered Nurse, Oncology",
+    "city": "Atlanta",
+    "state": "GA"
+  },
+  {
+    "name": "Dr. Amelie Auclerc, APRN",
+    "npi": "1841001492",
+    "specialty": "Nurse Practitioner, Gerontology",
+    "city": "Atlanta",
+    "state": "GA"
+  },
+  {
+    "name": "Dr. Yuliya Afinogenova, MD",
+    "npi": "1932588498",
+    "specialty": "Allergy & Immunology",
+    "city": "Boston",
+    "state": "MA"
+  },
+  {
+    "name": "Dr. Syed Ahmed, M.D.",
+    "npi": "1407829948",
+    "specialty": "Internal Medicine, Rheumatology",
+    "city": "Boston",
+    "state": "MA"
+  },
+  {
+    "name": "Dr. Fatima Alduraibi, MD, PhD",
+    "npi": "1285155135",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "Boston",
+    "state": "MA"
+  },
+  {
+    "name": "Dr. Cherian Abraham, M.D.",
+    "npi": "1134188311",
+    "specialty": "Internal Medicine, Gastroenterology",
+    "city": "Dallas",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Sindhu Abraham, M.D.",
+    "npi": "1033178223",
+    "specialty": "Internal Medicine, Gastroenterology",
+    "city": "Dallas",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Asha Adams, D.O.",
+    "npi": "1912389370",
+    "specialty": "Internal Medicine",
+    "city": "Dallas",
+    "state": "TX"
+  },
+  {
+    "name": "Dr. Sohail Abdul Salim, MD",
+    "npi": "1457658007",
+    "specialty": "Internal Medicine, Nephrology",
+    "city": "Phoenix",
+    "state": "AZ"
+  },
+  {
+    "name": "Dr. Naief Abudaff, MD",
+    "npi": "1295229920",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "Phoenix",
+    "state": "AZ"
+  },
+  {
+    "name": "Dr. Chirag Acharya, MD",
+    "npi": "1437512506",
+    "specialty": "Internal Medicine, Nephrology",
+    "city": "Phoenix",
+    "state": "AZ"
+  }
+]
