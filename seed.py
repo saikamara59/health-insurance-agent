@@ -82,11 +82,22 @@ def main():
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Create clients
+    # Check existing clients to avoid duplicates
+    existing = httpx.get(f"{BASE_URL}/clients", headers=headers)
+    existing_names = set()
+    if existing.status_code == 200:
+        existing_names = {c["full_name"] for c in existing.json()}
+
+    # Create clients (skip duplicates)
+    created = 0
     for client in CLIENTS:
+        if client["full_name"] in existing_names:
+            print(f"  Skipped (exists): {client['full_name']}")
+            continue
         resp = httpx.post(f"{BASE_URL}/clients", json=client, headers=headers)
         if resp.status_code == 201:
             print(f"  Created client: {client['full_name']}")
+            created += 1
         else:
             print(f"  Failed to create {client['full_name']}: {resp.status_code} {resp.text}")
 
