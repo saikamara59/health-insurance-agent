@@ -1,6 +1,6 @@
 # HealthFlow
 
-**An AI-powered health insurance brokerage platform** designed and built by [Said Kamara](https://github.com/saikamara59) to solve a real industry problem: health insurance is confusing, comparisons are manual, and brokers waste hours on paperwork that should be automated.
+**An AI-powered health insurance brokerage platform** designed and built by [Saidu Kamara](https://github.com/saikamara59) to solve a real industry problem: health insurance is confusing, comparisons are manual, and brokers waste hours on paperwork that should be automated.
 
 HealthFlow gives insurance brokers a single platform to manage client portfolios, compare Medicare Advantage plans side-by-side, estimate annual costs, verify provider networks against real NPPES data, translate dense policy documents into plain English, and auto-generate claims appeal letters — all backed by AI that learns from broker feedback to get smarter over time.
 
