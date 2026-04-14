@@ -2,7 +2,7 @@
 
 AI-powered health insurance brokerage platform. Brokers manage client portfolios, compare Medicare Advantage plans, estimate costs, verify provider networks, translate coverage documents, generate claims appeal letters, and learn from feedback — all powered by Claude.
 
-Built with real CMS Medicare plan data, real FDA drug data, and real NPPES provider lookups.
+Built with **real CMS Medicare plan data**, **real FDA drug data**, and **real NPPES provider lookups**.
 
 ---
 
@@ -27,7 +27,7 @@ python -m healthflow.main                     # API at http://localhost:8000
 # Frontend (separate terminal)
 cd frontend && npm install && npm run dev     # Dashboard at http://localhost:5173
 
-# Seed demo users
+# Seed demo data (15 clients with real doctors)
 python seed.py                                # Login: demo@healthflow.com / healthflow123
 ```
 
@@ -42,25 +42,74 @@ App at http://localhost (frontend) and http://localhost:8000/docs (API docs).
 
 ---
 
+## Demo Data
+
+The seed script creates **15 clients across 10 cities** with real NPPES-verified doctors:
+
+| City | Clients | Real Doctors (with NPIs) |
+|------|---------|--------------------------|
+| New York | Eleanor Rigby, Julian Miller, Marcus Chen | Dr. Nivedita Aanur, Dr. Justin Aaron |
+| Los Angeles | Sofia Rodriguez, David Park | Dr. Omer Aba-Omer, Dr. Allan Abbott |
+| Chicago | Sarah Hudson, Benjamin Thorne | Dr. Alexandra Aaronson, Dr. Jeff Abbott |
+| Miami | Isabella Fernandez, Carlos Gutierrez | Dr. Yasmin Akhunji, Dr. Angel Alejandro |
+| Houston | James Washington | Dr. Rodeo Abrencillo, Dr. Roberto Adachi |
+| Seattle | Emily Nakamura | Dr. Nandini Abburi, Dr. Ali Abu-Alya |
+| Atlanta | Robert Johnson | Dr. Amber Albaugh, Dr. Juliana Amankwah |
+| Boston | Patricia O'Brien | Dr. Yuliya Afinogenova, Dr. Syed Ahmed |
+| Dallas | Miguel Torres | Dr. Cherian Abraham, Dr. Sindhu Abraham |
+| Phoenix | Linda Yamamoto | Dr. Sohail Abdul Salim, Dr. Naief Abudaff |
+
+Each client has realistic prescriptions (Metformin, Ozempic, Eliquis, Humira, etc.) and age-appropriate procedures.
+
+```bash
+# Seed is idempotent — safe to run multiple times
+python seed.py
+
+# Refresh real doctor data from NPPES
+python scripts/fetch_real_doctors.py
+```
+
+---
+
+## Real Health Data
+
+HealthFlow uses real public health data — no mock data in production.
+
+| Source | Data | Count |
+|--------|------|-------|
+| **CMS data.cms.gov** | Medicare Advantage plans (names, premiums, deductibles, star ratings) | 51 plans |
+| **FDA OpenFDA** | Drug names, NDC codes, formulary tiers, copays | 90 drugs |
+| **NPPES Registry** | Real doctor NPIs, specialties, locations (live API) | 39 doctors |
+| **Zip Mapping** | Plan availability by zip code | 26 zip codes |
+
+```bash
+python scripts/refresh_data.py --seed-only   # Load curated seed data
+python scripts/refresh_data.py               # Download latest from CMS + FDA APIs
+```
+
+Data stored in `healthflow_data.db` (gitignored). Falls back to curated mock data if the file doesn't exist.
+
+---
+
 ## Features
 
-### AI-Powered Agents
+### AI-Powered Agents (Claude)
 
 | Feature | Endpoint | Description |
 |---------|----------|-------------|
 | Plan Comparison | `POST /compare` | Compare up to 5 Medicare plans with AI recommendation |
 | Coverage Translation | `POST /translate` | Paste a Summary of Benefits, ask questions in plain English |
 | Cost Calculator | `POST /calculate` | Estimate annual out-of-pocket based on healthcare usage |
-| Claims Appeal | `POST /appeal` | Parse denial letters, generate formal appeal templates |
+| Claims Appeal | `POST /appeal` | Parse denial letters, generate formal appeal templates with PHI redaction |
 | Network Verification | `POST /verify` | Check if doctors are in-network and drugs on formulary |
 | Cost Estimation | `POST /estimate` | Get copay/tier for a specific medication or procedure |
 | Plan Lookup | `GET /plans/{zip}` | List available plans for a zip code |
 
-### Client Management
+### Client Management (JWT Auth)
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /clients` | Create client profile |
+| `POST /clients` | Create client profile (name, zip, age, income, doctors, prescriptions, procedures) |
 | `GET /clients` | List broker's clients |
 | `GET /clients/{id}` | Get client details |
 | `PUT /clients/{id}` | Update client |
@@ -90,52 +139,32 @@ App at http://localhost (frontend) and http://localhost:8000/docs (API docs).
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /history` | List action history (filterable) |
+| `GET /history` | List action history (filterable by action_type, client_id) |
 | `POST /history` | Record an action |
 
 ---
 
-## Real Health Data
-
-HealthFlow uses real public health data from CMS and FDA.
-
-```bash
-# Load curated seed data (51 plans, 90 drugs, 26 zip codes)
-python scripts/refresh_data.py --seed-only
-
-# Or download latest from CMS and FDA APIs
-python scripts/refresh_data.py
-```
-
-Data stored in `healthflow_data.db` (gitignored). Falls back to mock data if the file doesn't exist.
-
-**Data sources:**
-- **CMS Medicare Advantage** — Real plan names, premiums, deductibles, star ratings from data.cms.gov
-- **FDA OpenFDA** — Real drug names, NDC codes, formulary tiers from api.fda.gov
-- **NPPES NPI Registry** — Real provider lookups from npiregistry.cms.hhs.gov (live API)
-
----
-
-## Frontend Dashboard
+## Frontend Dashboard (18 Pages)
 
 | Page | Route | Description |
 |------|-------|-------------|
 | Login | `/login` | Broker sign-in and registration |
 | Dashboard | `/` | Overview with metrics, activity feed, system status |
-| Client Portfolios | `/clients` | Client table with filters, pagination, CRUD |
+| Client Portfolios | `/clients` | Client table with filters, pagination, stats |
 | Add Client | `/clients/new` | 4-step intake wizard (Personal → Financial → Healthcare → Review) |
 | Onboarding Success | `/clients/success` | Post-creation confirmation with quick actions |
 | Client Profile | `/clients/:id` | Analysis workflow, profile editing, prescriptions, doctors |
-| Plan Comparison | `/compare` | Side-by-side plan comparison with AI recommendation |
-| Network Verification | `/network` | Provider and formulary checker per plan |
+| Plan Comparison | `/compare` | Side-by-side plan cards with AI recommendation |
+| Network Verification | `/network` | Provider and formulary checker with compatibility scores |
 | Coverage Translator | `/translator` | Document Q&A with conversational follow-up |
 | Cost Calculator | `/calculator` | Annual cost projections with utilization sliders |
 | Claims Appeal | `/appeals` | Denial letter parser + appeal letter generator |
+| Feedback Dashboard | `/feedback` | RLHF ratings, agent performance, weekly report |
 | Comparison History | `/history` | Timeline of all analyses and actions |
 | Leads Pipeline | `/leads` | Prospect pipeline with intent badges |
 | Analytics | `/analytics` | KPIs, charts, cohort analysis, reports |
 | Activity Feed | `/activity` | Full audit trail of client interactions |
-| Settings | `/settings` | Profile, security, API integrations, notifications |
+| Settings | `/settings?tab=` | Profile, security, API integrations, notifications |
 | Support | `/support` | Knowledge library, ticket submission, contact |
 
 ---
@@ -145,20 +174,23 @@ Data stored in `healthflow_data.db` (gitignored). Falls back to mock data if the
 ```bash
 make help           # Show all commands
 make install        # Install backend + frontend deps
-make test           # Run all 407 tests
+make test           # Run all 407 tests (verbose)
 make test-quick     # Tests with compact output
 make test-cov       # Tests with coverage report
 make lint           # Run ruff linter
 make lint-fix       # Auto-fix unused imports
+make dead-code      # Find dead code with vulture
 make dev            # Start backend server
 make frontend       # Start frontend dev server
-make data           # Load real health data (seed)
-make seed           # Seed demo broker + clients
+make data           # Load real CMS/FDA health data
+make seed           # Seed 15 demo clients with real doctors
 make build          # Build frontend for production
 make check          # CI gate: lint + tests + build
 make all            # Full setup from scratch
-make docker-up      # Start Docker stack
+make docker-up      # Start Docker stack (backend + frontend + Redis)
 make docker-down    # Stop Docker stack
+make docker-logs    # Tail all service logs
+make docker-reset   # Full rebuild from scratch
 make clean          # Remove all generated files
 ```
 
@@ -169,25 +201,26 @@ make clean          # Remove all generated files
 ```
 React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → Claude API
                                               ↓
-                                     SQLite / PostgreSQL
+                              SQLite / PostgreSQL + healthflow_data.db
 ```
 
 ### Backend Layers
 
-- **Harness** — Input validation, medical advice output filtering, PHI redaction, audit logging
-- **Tools** — Real CMS plan database, FDA drug database, plan parser, cost estimator, cost modeler, document parser, denial parser, denial codes DB (25 CARC/RARC codes), appeal writer, PHI redactor, NPI client (real NPPES API), provider network (40 providers), formulary checker, provider cache (24h TTL)
-- **Agents** — Comparison, translation, cost calculator, appeal, network verification — all powered by Claude (claude-sonnet-4-6)
-- **Feedback** — RLHF system: feedback collector, reward model, prompt updater, A/B testing
-- **Database** — SQLAlchemy 2.0 async ORM, SQLite default (PostgreSQL via `DATABASE_URL`)
-- **Auth** — JWT access/refresh tokens, bcrypt passwords, role-based access
+- **Harness** — Input validation, medical advice output filtering, PHI regex redaction, structured audit logging
+- **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules, appeal letter template generator, NPI client (live NPPES API), 40 curated providers, formulary checker with plan exclusions, 24h TTL provider cache
+- **Agents** — 5 Claude-powered agents: comparison, translation, cost calculator, appeal, network verification
+- **Feedback** — RLHF loop: feedback collector (1-5 ratings), reward model (weekly scoring), prompt updater (few-shot generation), A/B testing (traffic-weighted variant routing)
+- **Database** — SQLAlchemy 2.0 async ORM (Broker, Client, ActionHistory, Feedback, PromptVariant)
+- **Auth** — JWT access/refresh tokens (1h/7d), bcrypt passwords, role-based access (broker/admin)
 
 ### Frontend
 
 - React 18 + Vite + Tailwind CSS
-- Fonts: Saira Stencil One (logo), Merriweather (display), Manrope (headlines), Inter (body)
+- Design system: Saira Stencil One (logo), Merriweather (display), Manrope (headlines), Inter (body)
 - Material Symbols Outlined icons
-- Responsive sidebar with mobile hamburger menu
-- Notification slide-out panel
+- Responsive sidebar with mobile hamburger menu + slide-in animation
+- Notification slide-out panel with dismiss/clear functionality
+- SessionStorage auth persistence (survives refresh)
 
 ---
 
@@ -224,10 +257,11 @@ docker compose logs -f              # Tail logs
 docker compose down                 # Stop everything
 ```
 
-**Services:**
-- `backend` — Python 3.12, FastAPI, uvicorn (port 8000)
-- `frontend` — Node 20 build → Nginx (port 80)
-- `redis` — Redis 7 Alpine (port 6379)
+| Service | Image | Port | Purpose |
+|---------|-------|------|---------|
+| `backend` | Python 3.12 | 8000 | FastAPI + uvicorn |
+| `frontend` | Node 20 → Nginx | 80 | React SPA + API proxy |
+| `redis` | Redis 7 Alpine | 6379 | Session cache (optional) |
 
 ---
 
@@ -237,9 +271,10 @@ docker compose down                 # Stop everything
 make test           # 407 tests, ~22 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
+make check          # Full CI gate: lint + tests + frontend build
 ```
 
-**Test coverage:** Auth, client CRUD, all 5 AI agents, feedback system, reward model, prompt updater, plan/drug databases, PHI redaction, denial parsing, API routes, integration flows.
+**407 tests** covering: auth, client CRUD, all 5 AI agents, RLHF feedback system, reward model, prompt updater, A/B testing, real plan/drug databases, PHI redaction, denial parsing, cost modeling, provider caching, API routes, integration flows.
 
 ---
 
@@ -251,11 +286,12 @@ make lint           # Ruff linter
 | AI | Anthropic Claude (claude-sonnet-4-6) |
 | Frontend | React 18, Vite, Tailwind CSS, React Router v6 |
 | Database | SQLite (dev) / PostgreSQL (prod) |
-| Cache | Redis (optional) |
+| Cache | Redis 7 (optional) |
 | Auth | JWT (python-jose), bcrypt (passlib) |
 | Data | CMS data.cms.gov, FDA OpenFDA, NPPES NPI Registry |
 | Infrastructure | Docker, Nginx, docker-compose |
 | Testing | pytest, pytest-asyncio, httpx |
+| Code Quality | ruff, vulture |
 
 ---
 
@@ -267,8 +303,7 @@ healthflow/
 ├── api/                       # REST API routes
 │   ├── routes.py              # Phase 1-5 agent endpoints
 │   ├── client_router.py       # Client CRUD
-│   ├── history_router.py      # Action history
-│   └── v1/                    # Public API (future)
+│   └── history_router.py      # Action history
 ├── agents/                    # AI agents (Claude-powered)
 │   ├── comparison_agent.py    # Plan comparison
 │   ├── translation_agent.py   # Coverage Q&A
@@ -277,8 +312,8 @@ healthflow/
 │   ├── network_agent.py       # Network verification
 │   └── harness.py             # Input/output guardrails
 ├── tools/                     # Data processing (no AI)
-│   ├── cms_fetcher.py         # Real + mock plan data
-│   ├── cost_estimator.py      # Drug/procedure pricing
+│   ├── cms_fetcher.py         # Real CMS + mock fallback
+│   ├── cost_estimator.py      # Drug/procedure pricing (real + fallback)
 │   ├── plan_parser.py         # Plan scoring/ranking
 │   ├── cost_modeler.py        # Annual cost math
 │   ├── document_parser.py     # SoB section splitting
@@ -300,20 +335,29 @@ healthflow/
 │   ├── prompt_updater.py      # Few-shot + A/B testing
 │   └── router.py              # Feedback API endpoints
 ├── database/                  # Persistence layer
-│   ├── config.py              # SQLAlchemy engine
-│   └── models.py              # ORM models
+│   ├── config.py              # SQLAlchemy async engine
+│   └── models.py              # ORM models (6 tables)
 ├── auth/                      # Authentication
 │   ├── router.py              # Auth endpoints
 │   ├── security.py            # JWT + bcrypt
 │   └── dependencies.py        # FastAPI auth deps
 ├── models/
-│   └── schemas.py             # Pydantic models
+│   └── schemas.py             # Pydantic models (~500 lines)
 ├── memory/
-│   └── session.py             # Session store
+│   └── session.py             # Session store (in-memory + Redis)
 ├── logs/
-│   └── audit.py               # Structured logging
+│   └── audit.py               # Structured JSON logging
 └── tests/                     # 407 tests
-frontend/                      # React SPA (17 pages)
+
+frontend/                      # React SPA (18 pages)
+├── src/
+│   ├── pages/                 # 18 page components
+│   ├── components/            # Sidebar, TopBar, Layout, Notifications
+│   ├── contexts/              # AuthContext (JWT)
+│   └── api/                   # API client (fetch + auth)
+
 scripts/
-└── refresh_data.py            # CMS + FDA data loader
+├── refresh_data.py            # CMS + FDA data loader
+├── fetch_real_doctors.py      # NPPES doctor fetcher
+└── real_doctors.json          # 39 real doctors with NPIs
 ```
