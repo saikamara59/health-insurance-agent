@@ -1,8 +1,23 @@
 # HealthFlow
 
-AI-powered health insurance brokerage platform. Brokers manage client portfolios, compare Medicare Advantage plans, estimate costs, verify provider networks, translate coverage documents, generate claims appeal letters, and learn from feedback — all powered by Claude.
+**An AI-powered health insurance brokerage platform** designed and built by [Said Kamara](https://github.com/saikamara59) to solve a real industry problem: health insurance is confusing, comparisons are manual, and brokers waste hours on paperwork that should be automated.
 
-Built with **real CMS Medicare plan data**, **real FDA drug data**, and **real NPPES provider lookups**.
+HealthFlow gives insurance brokers a single platform to manage client portfolios, compare Medicare Advantage plans side-by-side, estimate annual costs, verify provider networks against real NPPES data, translate dense policy documents into plain English, and auto-generate claims appeal letters — all backed by AI that learns from broker feedback to get smarter over time.
+
+### Why This Exists
+
+Health insurance brokers today juggle spreadsheets, PDFs, and phone calls to compare plans for their clients. Denial appeals are manually drafted from scratch. Brokers can't quickly answer "Is my doctor in-network?" or "What will my prescriptions cost under this plan?" without hours of research.
+
+**HealthFlow automates all of this.** It pulls real plan data from CMS, real drug pricing from FDA, real provider verification from NPPES, and uses AI to generate the analysis and recommendations that brokers need — in seconds, not hours.
+
+### Built With Real Data
+
+This isn't a demo with fake data. HealthFlow integrates with real public health data sources:
+
+- **51 real Medicare Advantage plans** from CMS (data.cms.gov) with actual premiums, deductibles, and star ratings
+- **90 real medications** from FDA (OpenFDA) with accurate formulary tiers and copays
+- **39 real doctors** with verified NPIs from the NPPES National Provider Registry (live API)
+- **26 zip codes** across 10 major metro areas
 
 ---
 
@@ -196,7 +211,7 @@ make clean          # Remove all generated files
 
 ---
 
-## Architecture
+## Architecture & Engineering Decisions
 
 ```
 React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → Claude API
@@ -204,13 +219,21 @@ React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → 
                               SQLite / PostgreSQL + healthflow_data.db
 ```
 
+### Key Design Decisions
+
+- **Guardrails-first approach** — Every AI output passes through a harness layer that blocks medical advice, redacts PHI (names, DOB, SSN, member IDs) via regex before any text reaches the LLM, and appends disclaimers. The AI never sees patient identifiable information.
+- **Real data, graceful fallback** — The system uses real CMS/FDA data when available but falls back to curated mock data seamlessly. This means the app works out of the box without any external dependencies.
+- **RLHF feedback loop** — Brokers rate every AI output (accuracy, clarity, helpfulness). A reward model scores outputs weekly, identifies the best examples, and a prompt updater generates improved few-shot prompts. A/B testing routes 20% of traffic to updated prompts to measure improvement before rolling out.
+- **Income-weighted plan scoring** — Plans aren't ranked by premium alone. Low-income users see premium-weighted rankings, high-income users see quality-weighted rankings. The scoring model adapts to the client's financial situation.
+- **PHI redaction before LLM** — In the claims appeal workflow, patient names, dates of birth, member IDs, SSNs, and phone numbers are regex-stripped before any text reaches Claude. The appeal letter template uses placeholders that the user fills in after download.
+
 ### Backend Layers
 
 - **Harness** — Input validation, medical advice output filtering, PHI regex redaction, structured audit logging
-- **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules, appeal letter template generator, NPI client (live NPPES API), 40 curated providers, formulary checker with plan exclusions, 24h TTL provider cache
-- **Agents** — 5 Claude-powered agents: comparison, translation, cost calculator, appeal, network verification
-- **Feedback** — RLHF loop: feedback collector (1-5 ratings), reward model (weekly scoring), prompt updater (few-shot generation), A/B testing (traffic-weighted variant routing)
-- **Database** — SQLAlchemy 2.0 async ORM (Broker, Client, ActionHistory, Feedback, PromptVariant)
+- **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap and deductible tracking, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules and appeal arguments, appeal letter template generator, NPI client (live NPPES API), 40 curated providers, formulary checker with per-plan drug exclusions, 24h TTL provider cache
+- **Agents** — 5 Claude-powered agents: comparison, translation, cost calculator, appeal, network verification. Each agent builds a structured prompt from data, calls Claude for plain-English analysis, and filters the output through the harness.
+- **Feedback** — RLHF loop: feedback collector (1-5 ratings), reward model (weekly scoring, flags low-quality patterns), prompt updater (few-shot generation from top-rated outputs), A/B testing (traffic-weighted variant routing)
+- **Database** — SQLAlchemy 2.0 async ORM with 6 tables: Broker, Client, ActionHistory, Feedback, PromptVariant, plus the real health data in a separate SQLite file
 - **Auth** — JWT access/refresh tokens (1h/7d), bcrypt passwords, role-based access (broker/admin)
 
 ### Frontend
