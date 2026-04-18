@@ -128,3 +128,24 @@ async def test_excluded_paths_are_not_logged(tmp_path):
         await client.get("/openapi.json")
 
     assert _read_log(tmp_path) == []
+
+
+@pytest.mark.anyio
+async def test_query_string_is_captured(tmp_path):
+    server_log_module.reset_server_logger_for_tests()
+    logger = server_log_module.ServerLogger(log_dir=str(tmp_path))
+
+    app = FastAPI()
+    app.add_middleware(HTTPLoggingMiddleware, logger_factory=lambda: logger)
+
+    @app.get("/clients")
+    def list_clients():
+        return {"items": []}
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.get("/clients", params={"limit": 5})
+
+    entries = _read_log(tmp_path)
+    assert len(entries) == 1
+    assert entries[0]["query"] == "limit=5"
