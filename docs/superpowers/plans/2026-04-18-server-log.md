@@ -445,17 +445,22 @@ Then append this fixture to the bottom of the file:
 
 ```python
 @pytest.fixture(autouse=True)
-def isolate_server_log(tmp_path, monkeypatch):
-    """Point ServerLogger at a per-test tmp_path so tests don't write to logs/server.log."""
+def isolate_server_log(tmp_path):
+    """Point ServerLogger at a per-test tmp_path so tests don't write to real logs/server.log.
+
+    Pre-populates the module-level cache so get_server_logger() returns this
+    instance. This preserves singleton semantics (two calls return the same object)
+    while redirecting file writes to tmp_path.
+    """
     server_log_module.reset_server_logger_for_tests()
-    monkeypatch.setattr(
-        server_log_module,
-        "get_server_logger",
-        lambda: server_log_module.ServerLogger(log_dir=str(tmp_path / "logs")),
+    server_log_module._cached_logger = server_log_module.ServerLogger(
+        log_dir=str(tmp_path / "logs")
     )
     yield
     server_log_module.reset_server_logger_for_tests()
 ```
+
+Note: this fixture deliberately reaches past the public API to set `_cached_logger`. This is acceptable because `conftest.py` is test-only infrastructure and installing a specific cached instance (instead of monkeypatching `get_server_logger` itself) is the cleanest way to preserve singleton contract semantics for tests that check them.
 
 - [ ] **Step 2: Run the full existing test suite and confirm nothing breaks**
 
