@@ -184,3 +184,34 @@ async def test_user_id_captured_from_request_state(tmp_path):
     entries = _read_log(tmp_path)
     assert len(entries) == 1
     assert entries[0]["user_id"] == 42
+
+
+@pytest.mark.anyio
+async def test_oversized_4xx_body_does_not_parse_detail(tmp_path):
+    server_log_module.reset_server_logger_for_tests()
+    logger = server_log_module.ServerLogger(log_dir=str(tmp_path))
+
+    app = FastAPI()
+    app.add_middleware(HTTPLoggingMiddleware, logger_factory=lambda: logger)
+
+    huge_detail = "x" * (HTTPLoggingMiddleware._MAX_ERROR_BODY_PARSE + 1)
+
+    @app.get("/huge")
+    def huge():
+        raise HTTPException(status_code=400, detail=huge_detail)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/huge")
+
+    # Client still gets the full body back (replay works).
+    assert response.status_code == 400
+    assert huge_detail in response.text
+
+    entries = _read_log(tmp_path)
+    assert len(entries) == 1
+    # Log entry exists at WARNING level with status 400, but error stays None
+    # because the body exceeded the parse cap.
+    assert entries[0]["level"] == "WARNING"
+    assert entries[0]["status"] == 400
+    assert entries[0]["error"] is None

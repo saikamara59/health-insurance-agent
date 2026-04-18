@@ -72,15 +72,22 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
         except ValueError:
             return None
 
+    _MAX_ERROR_BODY_PARSE = 64 * 1024
+
     @staticmethod
     async def _extract_error_detail(response: Response) -> Optional[str]:
         if response.status_code < 400:
             return None
+        body = b""
+        async for chunk in response.body_iterator:
+            body += chunk
+        # Always replay the full body so the client still receives the response.
+        response.body_iterator = _replay_iterator(body)
+        # Skip parsing oversized bodies — cap protects the dev log from pulling
+        # multi-MB error responses into memory just to find a 'detail' string.
+        if len(body) > HTTPLoggingMiddleware._MAX_ERROR_BODY_PARSE:
+            return None
         try:
-            body = b""
-            async for chunk in response.body_iterator:
-                body += chunk
-            response.body_iterator = _replay_iterator(body)
             parsed = json.loads(body.decode("utf-8"))
         except Exception:
             return None
