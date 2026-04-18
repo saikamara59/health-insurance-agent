@@ -9,6 +9,7 @@ dist/
 build/
 .pytest_cache/
 .mypy_cache/
+.coverage
 
 # Frontend
 frontend/node_modules/
@@ -17,3 +18,4 @@ healthflow.db
 healthflow_data.db
 healthflow.log
 .env
+logs/
