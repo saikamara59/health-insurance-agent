@@ -1,5 +1,8 @@
 import json
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
+
+import pytest
 
 from healthflow.logs.server import ServerLogger
 
@@ -39,9 +42,6 @@ def test_log_request_writes_json_line_to_file(tmp_path: Path):
     assert "timestamp" in entry
 
 
-import pytest
-
-
 @pytest.mark.parametrize(
     "status,expected_level",
     [
@@ -70,9 +70,6 @@ def test_log_level_matches_status_class(tmp_path, status, expected_level):
 
     entry = json.loads((tmp_path / "server.log").read_text().strip().splitlines()[-1])
     assert entry["level"] == expected_level
-
-
-from logging.handlers import TimedRotatingFileHandler
 
 
 def test_file_handler_uses_daily_utc_rotation_with_seven_backups(tmp_path):

@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from healthflow.api.middleware import HTTPLoggingMiddleware
 from healthflow.logs import server as server_log_module
@@ -51,9 +53,6 @@ async def test_successful_request_is_logged(tmp_path):
     assert entry["duration_ms"] > 0
     assert entry["error"] is None
     assert entry["level"] == "INFO"
-
-
-from fastapi import HTTPException
 
 
 @pytest.mark.anyio
@@ -149,11 +148,6 @@ async def test_query_string_is_captured(tmp_path):
     entries = _read_log(tmp_path)
     assert len(entries) == 1
     assert entries[0]["query"] == "limit=5"
-
-
-from types import SimpleNamespace
-
-from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class _FakeAuthMiddleware(BaseHTTPMiddleware):
