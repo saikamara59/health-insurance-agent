@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from healthflow.database.models import Base
 from healthflow.database.config import get_db
 from healthflow.main import app
+from healthflow.logs import server as server_log_module
 
 
 @pytest.fixture
@@ -52,3 +53,19 @@ async def client(db_session_factory):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def isolate_server_log(tmp_path):
+    """Point ServerLogger at a per-test tmp_path so tests don't write to real logs/server.log.
+
+    Pre-populates the module-level cache so get_server_logger() returns this
+    instance. This preserves singleton semantics (two calls return the same object)
+    while redirecting file writes to tmp_path.
+    """
+    server_log_module.reset_server_logger_for_tests()
+    server_log_module._cached_logger = server_log_module.ServerLogger(
+        log_dir=str(tmp_path / "logs")
+    )
+    yield
+    server_log_module.reset_server_logger_for_tests()
