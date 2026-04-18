@@ -149,3 +149,38 @@ async def test_query_string_is_captured(tmp_path):
     entries = _read_log(tmp_path)
     assert len(entries) == 1
     assert entries[0]["query"] == "limit=5"
+
+
+from types import SimpleNamespace
+
+from starlette.middleware.base import BaseHTTPMiddleware
+
+
+class _FakeAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        request.state.user = SimpleNamespace(id=42)
+        return await call_next(request)
+
+
+@pytest.mark.anyio
+async def test_user_id_captured_from_request_state(tmp_path):
+    server_log_module.reset_server_logger_for_tests()
+    logger = server_log_module.ServerLogger(log_dir=str(tmp_path))
+
+    app = FastAPI()
+    # Middlewares execute in reverse order of registration; register auth last
+    # so it runs before logging.
+    app.add_middleware(HTTPLoggingMiddleware, logger_factory=lambda: logger)
+    app.add_middleware(_FakeAuthMiddleware)
+
+    @app.get("/me")
+    def me():
+        return {"ok": True}
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.get("/me")
+
+    entries = _read_log(tmp_path)
+    assert len(entries) == 1
+    assert entries[0]["user_id"] == 42
