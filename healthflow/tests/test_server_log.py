@@ -37,3 +37,36 @@ def test_log_request_writes_json_line_to_file(tmp_path: Path):
     assert entry["error"] is None
     assert entry["level"] == "INFO"
     assert "timestamp" in entry
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "status,expected_level",
+    [
+        (200, "INFO"),
+        (302, "INFO"),
+        (404, "WARNING"),
+        (422, "WARNING"),
+        (500, "ERROR"),
+        (503, "ERROR"),
+    ],
+)
+def test_log_level_matches_status_class(tmp_path, status, expected_level):
+    logger = ServerLogger(log_dir=str(tmp_path))
+
+    logger.log_request(
+        method="GET",
+        path="/x",
+        query="",
+        status=status,
+        duration_ms=1.0,
+        client_ip=None,
+        user_id=None,
+        response_size=None,
+        error=None if status < 400 else "boom",
+    )
+
+    entry = json.loads((tmp_path / "server.log").read_text().strip().splitlines()[-1])
+    assert entry["level"] == expected_level
