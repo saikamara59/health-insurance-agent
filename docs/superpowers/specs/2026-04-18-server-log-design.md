@@ -93,9 +93,9 @@ Field extraction:
 | `response_size` | `int(response.headers.get("content-length"))` if present, else `null` |
 | `error` | on 4xx/5xx: exception message if raised; else the `detail` field from a JSON error response if parseable; else `null` |
 
-### `healthflow/api/routes.py` (modify)
+### `healthflow/main.py` (modify)
 
-Where the FastAPI app is constructed, add:
+Where the FastAPI app is constructed (alongside the existing `CORSMiddleware`), add:
 
 ```python
 from healthflow.api.middleware import HTTPLoggingMiddleware
@@ -161,7 +161,7 @@ Console formatter output is not tested — stdout formatting is cosmetic and low
 | --- | --- |
 | `healthflow/logs/server.py` | new |
 | `healthflow/api/middleware.py` | new |
-| `healthflow/api/routes.py` | add `app.add_middleware(HTTPLoggingMiddleware)` |
+| `healthflow/main.py` | add `app.add_middleware(HTTPLoggingMiddleware)` |
 | `.gitignore` | add `logs/` |
 | `healthflow/tests/test_server_log.py` | new |
 | `healthflow/tests/conftest.py` | fixture pointing `ServerLogger` at `tmp_path` |
