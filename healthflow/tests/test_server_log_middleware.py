@@ -104,3 +104,27 @@ async def test_unhandled_exception_logged_and_reraised(tmp_path):
     assert entry["level"] == "ERROR"
     assert entry["status"] == 500
     assert entry["error"] == "kaboom"
+
+
+@pytest.mark.anyio
+async def test_excluded_paths_are_not_logged(tmp_path):
+    server_log_module.reset_server_logger_for_tests()
+    logger = server_log_module.ServerLogger(log_dir=str(tmp_path))
+
+    app = FastAPI()
+    app.add_middleware(HTTPLoggingMiddleware, logger_factory=lambda: logger)
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
+
+    @app.get("/openapi.json")
+    def openapi():
+        return {"openapi": "3.0.0"}
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.get("/health")
+        await client.get("/openapi.json")
+
+    assert _read_log(tmp_path) == []
