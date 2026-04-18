@@ -1,3 +1,4 @@
+import json
 import time
 from typing import Callable, Optional
 
@@ -28,6 +29,8 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             status = response.status_code
+            if response.status_code >= 400 and error_message is None:
+                error_message = await self._extract_error_detail(response)
         except Exception as exc:
             error_message = str(exc) or exc.__class__.__name__
             raise
@@ -68,3 +71,25 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
             return int(length)
         except ValueError:
             return None
+
+    @staticmethod
+    async def _extract_error_detail(response: Response) -> Optional[str]:
+        if response.status_code < 400:
+            return None
+        try:
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+            response.body_iterator = _replay_iterator(body)
+            parsed = json.loads(body.decode("utf-8"))
+        except Exception:
+            return None
+        if isinstance(parsed, dict):
+            detail = parsed.get("detail")
+            if isinstance(detail, str):
+                return detail
+        return None
+
+
+async def _replay_iterator(body: bytes):
+    yield body
