@@ -104,3 +104,19 @@ class ServerLogger:
         }
         level = _level_for_status(status)
         self._logger.log(level, "", extra={"payload": payload})
+
+
+_cached_logger: Optional[ServerLogger] = None
+
+
+def get_server_logger() -> ServerLogger:
+    global _cached_logger
+    if _cached_logger is None:
+        _cached_logger = ServerLogger()
+    return _cached_logger
+
+
+def reset_server_logger_for_tests() -> None:
+    """Reset the cached logger. Tests only."""
+    global _cached_logger
+    _cached_logger = None

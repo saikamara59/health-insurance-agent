@@ -86,3 +86,16 @@ def test_file_handler_uses_daily_utc_rotation_with_seven_backups(tmp_path):
     assert handler.when == "MIDNIGHT"
     assert handler.backupCount == 7
     assert handler.utc is True
+
+
+def test_get_server_logger_returns_singleton(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    from healthflow.logs import server as server_module
+
+    server_module._cached_logger = None  # reset cache for test isolation
+
+    first = server_module.get_server_logger()
+    second = server_module.get_server_logger()
+
+    assert first is second
