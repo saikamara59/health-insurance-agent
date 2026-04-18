@@ -19,7 +19,6 @@ def _build_app(log_dir: Path) -> FastAPI:
         return logger
 
     app = FastAPI()
-    app.dependency_overrides = {}
     app.add_middleware(HTTPLoggingMiddleware, logger_factory=_override)
 
     @app.get("/ping")
