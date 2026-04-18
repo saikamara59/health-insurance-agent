@@ -93,7 +93,7 @@ def test_get_server_logger_returns_singleton(tmp_path, monkeypatch):
 
     from healthflow.logs import server as server_module
 
-    server_module._cached_logger = None  # reset cache for test isolation
+    server_module.reset_server_logger_for_tests()
 
     first = server_module.get_server_logger()
     second = server_module.get_server_logger()
