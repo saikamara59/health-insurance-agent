@@ -13,6 +13,15 @@ EXCLUDED_PATHS = {"/health", "/docs", "/openapi.json", "/favicon.ico"}
 
 
 class HTTPLoggingMiddleware(BaseHTTPMiddleware):
+    """Log every HTTP request to a ServerLogger.
+
+    user_id is populated only when an upstream middleware has set
+    request.state.user before this middleware runs. HealthFlow's current
+    auth uses fastapi.Depends, not middleware, so user_id is typically
+    None in production. A future auth-middleware can populate it without
+    changes here.
+    """
+
     def __init__(self, app, logger_factory: Callable[[], ServerLogger] = get_server_logger):
         super().__init__(app)
         self._logger_factory = logger_factory

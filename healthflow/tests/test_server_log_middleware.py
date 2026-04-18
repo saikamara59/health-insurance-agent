@@ -168,8 +168,10 @@ async def test_user_id_captured_from_request_state(tmp_path):
     logger = server_log_module.ServerLogger(log_dir=str(tmp_path))
 
     app = FastAPI()
-    # Middlewares execute in reverse order of registration; register auth last
-    # so it runs before logging.
+    # Simulates a future auth middleware. Production auth uses fastapi.Depends,
+    # so user_id will be None in real traffic until that wiring lands.
+    # Middlewares execute in reverse order of registration; register the fake
+    # auth last so it runs before logging.
     app.add_middleware(HTTPLoggingMiddleware, logger_factory=lambda: logger)
     app.add_middleware(_FakeAuthMiddleware)
 
