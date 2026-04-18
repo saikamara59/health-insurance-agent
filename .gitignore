@@ -18,4 +18,4 @@ healthflow.db
 healthflow_data.db
 healthflow.log
 .env
-logs/
+/logs/
