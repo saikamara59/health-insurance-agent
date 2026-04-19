@@ -86,16 +86,18 @@ healthcheck:
 
 ### Test reset endpoint
 
-`healthflow/api/test_router.py` exposes `POST /api/__test/reset`:
+`healthflow/api/test_router.py` exposes `POST /__test/reset`:
 
 1. Drops all tables via `Base.metadata.drop_all`.
 2. Recreates schema via `Base.metadata.create_all`.
-3. Calls `run_seed(session)` (refactored out of `seed.py`).
+3. Calls `seed_db(session)` to insert the test broker and a small set of test clients directly via SQLAlchemy.
 4. Returns `{"status": "reset"}`.
 
 The router is **only included** in `healthflow/main.py` when `os.getenv("HEALTHFLOW_TEST_MODE") == "1"`. Production never sets it. On startup, when the env var is on, the app logs a warning: `"⚠️ test reset endpoint enabled — never run in production"`.
 
-`seed.py` is refactored to expose `run_seed(session: AsyncSession) -> None` so both the CLI invocation (`python seed.py`) and the test endpoint can share one code path.
+A new module `healthflow/seed_data.py` holds the canonical seed data — `TEST_BROKER` (email/password/full_name) and `TEST_CLIENTS` (a list of 3 client dicts with name/zip/age). `seed_db(session)` lives there too and creates rows directly via SQLAlchemy (using `hash_password` from `healthflow.auth.security` for the broker's password). The existing `seed.py` is left unchanged — it remains the HTTP-based broker/CLI tool. Test infrastructure depends only on `seed_data.py`, not on `seed.py`.
+
+The "reuse seed.py" choice from brainstorming Question 7 is honored in spirit: tests use the same brokerage workflow data shape but via a faster, dependency-free DB path. Keeping `seed.py` separate avoids forcing the CLI tool to grow a session/engine API.
 
 ### Playwright config (`frontend/playwright.config.js`)
 
@@ -149,7 +151,7 @@ export { expect }
 export const test = base.extend({
   page: async ({ page, baseURL }, use) => {
     const apiURL = baseURL.replace('5173', '8000')
-    const res = await fetch(`${apiURL}/api/__test/reset`, { method: 'POST' })
+    const res = await fetch(`${apiURL}/__test/reset`, { method: 'POST' })
     if (!res.ok) throw new Error(`DB reset failed: ${res.status}`)
     await use(page)
   },
@@ -301,7 +303,7 @@ If runtime grows past 5 minutes, the next move is sharding by browser project ac
 
 ## Security Considerations
 
-The `/api/__test/reset` endpoint can wipe the entire database. Three layers of protection:
+The `/__test/reset` endpoint can wipe the entire database. Three layers of protection:
 
 1. Route is **only registered** when `HEALTHFLOW_TEST_MODE=1` is set.
 2. Production `docker-compose.yml` does not set the env var.
@@ -313,7 +315,7 @@ Production deployments must never set `HEALTHFLOW_TEST_MODE`. A future hardening
 
 The Playwright tests are themselves verified by:
 
-- Backend: a new pytest test confirms `/api/__test/reset` is **not** registered when `HEALTHFLOW_TEST_MODE` is unset, and **is** registered when set.
+- Backend: a new pytest test confirms `/__test/reset` is **not** registered when `HEALTHFLOW_TEST_MODE` is unset, and **is** registered when set.
 - Backend: a pytest test confirms the reset endpoint actually wipes and re-seeds (calls it, verifies known seed data exists, inserts something, calls it again, verifies the inserted thing is gone).
 - CI: green build on a no-op PR confirms the workflow itself runs.
 
@@ -335,7 +337,7 @@ The Playwright tests are themselves verified by:
 | `frontend/src/pages/ClientListPage.jsx` | add `data-testid="client-row"` to client row |
 | `healthflow/api/test_router.py` | new — env-gated reset endpoint |
 | `healthflow/main.py` | conditionally include `test_router` |
-| `seed.py` | extract `run_seed(session)` function |
+| `healthflow/seed_data.py` | new — `TEST_BROKER`, `TEST_CLIENTS`, `seed_db(session)` |
 | `docker-compose.yml` | add backend healthcheck |
 | `docker-compose.test.yml` | new — test override |
 | `.github/workflows/e2e.yml` | new |
