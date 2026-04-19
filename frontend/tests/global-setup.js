@@ -8,7 +8,7 @@ export default async function globalSetup() {
       'compose',
       '-f', '../docker-compose.yml',
       '-f', '../docker-compose.test.yml',
-      'up', '-d', '--wait',
+      'up', '-d', '--build', '--wait',
     ],
     {
       stdio: 'inherit',
