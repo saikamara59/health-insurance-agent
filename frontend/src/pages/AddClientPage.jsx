@@ -1,399 +1,253 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import api from '../api/client'
-
-const STEPS = ['PERSONAL', 'FINANCIAL', 'HEALTHCARE', 'REVIEW']
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api/client';
+import TopBar from '../components/TopBar';
+import Icon from '../components/ui/Icon';
+import useLayout from '../components/ui/useLayout';
 
 export default function AddClientPage() {
-  const navigate = useNavigate()
-  const [step, setStep] = useState(0)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate();
+  const { openMenu, openNotifications } = useLayout();
 
-  // Form state
   const [form, setForm] = useState({
     full_name: '',
     zip_code: '',
     age: '',
     income_level: 'medium',
-    email: '',
-    phone: '',
-    prescriptions: [],
-    doctors: [],
-    procedures: [],
-  })
+  });
+  const [rx, setRx] = useState([]);
+  const [rxInput, setRxInput] = useState('');
+  const [procs, setProcs] = useState([]);
+  const [procInput, setProcInput] = useState('');
+  const [doctors, setDoctors] = useState([]);
+  const [docName, setDocName] = useState('');
+  const [docNpi, setDocNpi] = useState('');
 
-  // Temp inputs
-  const [rxInput, setRxInput] = useState('')
-  const [docName, setDocName] = useState('')
-  const [docNpi, setDocNpi] = useState('')
-  const [procInput, setProcInput] = useState('')
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  function addRx() {
-    if (rxInput.trim()) {
-      setForm({ ...form, prescriptions: [...form.prescriptions, rxInput.trim()] })
-      setRxInput('')
-    }
-  }
+  const canSubmit = form.full_name.trim() && form.zip_code.trim() && form.age;
 
-  function addDoc() {
-    if (docName.trim()) {
-      setForm({ ...form, doctors: [...form.doctors, { name: docName.trim(), npi: docNpi.trim() || null }] })
-      setDocName(''); setDocNpi('')
-    }
-  }
-
-  function addProc() {
-    if (procInput.trim()) {
-      setForm({ ...form, procedures: [...form.procedures, procInput.trim()] })
-      setProcInput('')
-    }
-  }
-
-  async function handleSubmit() {
-    setError('')
-    setLoading(true)
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSaving(true);
+    setError('');
     try {
-      const res = await api.post('/clients', {
-        full_name: form.full_name,
-        zip_code: form.zip_code,
+      const client = await api.post('/clients', {
+        full_name: form.full_name.trim(),
+        zip_code: form.zip_code.trim(),
         age: parseInt(form.age, 10),
         income_level: form.income_level,
-        prescriptions: form.prescriptions,
-        doctors: form.doctors,
-        procedures: form.procedures,
-      })
-      navigate(`/clients/success?id=${res.id}`)
+        prescriptions: rx,
+        procedures: procs,
+        doctors,
+      });
+      navigate(`/clients/success?id=${client.id}`);
     } catch (err) {
-      setError(err.message || 'Failed to create client')
-      setLoading(false)
+      setError(err.message || 'Could not add client');
+    } finally {
+      setSaving(false);
     }
   }
-
-  function canAdvance() {
-    if (step === 0) return form.full_name && form.zip_code && form.age
-    if (step === 1) return form.income_level
-    return true
-  }
-
-  const inputCls = "w-full bg-surface-container-low border-0 border-b-2 border-transparent py-4 px-0 text-lg font-medium transition-all focus:ring-0 focus:border-primary"
 
   return (
     <>
-      {/* Header */}
-      <div className="mb-12">
-        <div className="flex items-center gap-4 text-primary mb-2">
-          <span className="material-symbols-outlined">person_add</span>
-          <span className="font-label text-xs uppercase tracking-widest font-bold">New Intake Journey</span>
+      <TopBar
+        crumbs={['Clients', 'Add']}
+        onMenuClick={openMenu}
+        onNotificationsClick={openNotifications}
+      />
+      <div className="page">
+        <div style={{ marginBottom: 20 }}>
+          <a onClick={() => navigate('/clients')} className="muted" style={{ fontSize: 13, cursor: 'pointer' }}>
+            ← All clients
+          </a>
         </div>
-        <h1 className="text-4xl font-black font-headline tracking-tighter text-primary">Add New Client</h1>
-        <p className="text-slate-500 mt-2 max-w-xl leading-relaxed">
-          Ensure all clinical and financial fields are accurately populated to maintain institutional compliance standards.
-        </p>
-      </div>
+        <div className="page-head">
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>New record</div>
+            <h1 className="page-title"><em>Add</em> a client.</h1>
+            <p className="page-sub">
+              Only name, ZIP, and age are required. Add medications, procedures, and providers if you already have
+              them — they make comparisons more accurate.
+            </p>
+          </div>
+        </div>
 
-      {/* Stepper */}
-      <div className="flex items-center justify-between mb-16 relative max-w-2xl">
-        <div className="absolute top-5 left-0 w-full h-px bg-slate-200 -z-10"></div>
-        {STEPS.map((label, i) => (
-          <div key={label} className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => i < step && setStep(i)}>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold z-10 transition-all ${
-              i < step ? 'bg-secondary text-white shadow-md' :
-              i === step ? 'bg-primary text-on-primary shadow-md' :
-              'bg-white border-2 border-slate-200 text-slate-400'
-            }`}>
-              {i < step ? <span className="material-symbols-outlined text-lg">check</span> : i + 1}
+        <form onSubmit={handleSubmit} className="card card-pad" style={{ padding: 32 }}>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>Basics</div>
+          <div className="grid-12" style={{ gap: 20 }}>
+            <div className="field" style={{ gridColumn: 'span 6' }}>
+              <label className="field-label">Full name</label>
+              <input
+                className="input"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                placeholder="Marjorie Calloway"
+                required
+              />
             </div>
-            <span className={`text-xs font-bold font-label ${i === step ? 'text-primary' : 'text-slate-400'}`}>{label}</span>
+            <div className="field" style={{ gridColumn: 'span 2' }}>
+              <label className="field-label">ZIP</label>
+              <input
+                className="input"
+                value={form.zip_code}
+                onChange={(e) => setForm({ ...form, zip_code: e.target.value })}
+                placeholder="10025"
+                pattern="\d{5}"
+                required
+              />
+            </div>
+            <div className="field" style={{ gridColumn: 'span 2' }}>
+              <label className="field-label">Age</label>
+              <input
+                className="input"
+                type="number"
+                value={form.age}
+                onChange={(e) => setForm({ ...form, age: e.target.value })}
+                placeholder="67"
+                required
+              />
+            </div>
+            <div className="field" style={{ gridColumn: 'span 2' }}>
+              <label className="field-label">Income</label>
+              <select
+                className="select"
+                value={form.income_level}
+                onChange={(e) => setForm({ ...form, income_level: e.target.value })}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {error && (
-        <div className="mb-8 p-4 bg-error-container rounded-xl">
-          <p className="text-sm text-on-error-container">{error}</p>
-        </div>
-      )}
+          <div className="divider" />
 
-      {/* Form Content */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-        <div className="md:col-span-8 bg-surface-container-lowest p-10 rounded-xl shadow-[0_32px_64px_-12px_rgba(0,62,122,0.08)]">
-
-          {/* Step 1: Personal */}
-          {step === 0 && (
-            <>
-              <h2 className="text-2xl font-bold font-headline mb-8 text-primary">1. Personal Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Full Name</label>
-                  <input className={inputCls} placeholder="e.g. Jane Doe" type="text"
-                    value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Zip Code</label>
-                  <input className={inputCls} placeholder="e.g. 10001" type="text" maxLength={5}
-                    value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Age</label>
-                  <input className={inputCls} placeholder="e.g. 42" type="number" min={18} max={120}
-                    value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Phone (Optional)</label>
-                  <input className={inputCls} placeholder="+1 (555) 000-0000" type="tel"
-                    value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Email (Optional)</label>
-                  <input className={inputCls} placeholder="client@example.com" type="email"
-                    value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                </div>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>Medical</div>
+          <div className="grid-2">
+            <div>
+              <label className="field-label" style={{ marginBottom: 8 }}>Medications</label>
+              <div className="input-group">
+                <input
+                  className="input"
+                  placeholder="e.g. Metformin 500mg"
+                  value={rxInput}
+                  onChange={(e) => setRxInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                    }
+                  }}
+                />
+                <button type="button" className="btn" onClick={() => {
+                  if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                }}>Add</button>
               </div>
-            </>
-          )}
-
-          {/* Step 2: Financial */}
-          {step === 1 && (
-            <>
-              <h2 className="text-2xl font-bold font-headline mb-8 text-primary">2. Financial Profile</h2>
-              <div className="space-y-10">
-                <div>
-                  <label className="block text-xs font-bold font-label text-slate-500 mb-2 uppercase tracking-wide">Income Level</label>
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    {['low', 'medium', 'high'].map((level) => (
-                      <button key={level} type="button"
-                        onClick={() => setForm({ ...form, income_level: level })}
-                        className={`p-6 rounded-xl text-center transition-all ${
-                          form.income_level === level
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                            : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container border border-outline-variant/20'
-                        }`}>
-                        <span className="material-symbols-outlined text-3xl mb-2">
-                          {level === 'low' ? 'savings' : level === 'medium' ? 'account_balance_wallet' : 'diamond'}
-                        </span>
-                        <p className="font-bold capitalize text-lg">{level}</p>
-                        <p className="text-xs mt-1 opacity-70">
-                          {level === 'low' ? 'Under $30k' : level === 'medium' ? '$30k — $75k' : 'Over $75k'}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Step 3: Healthcare */}
-          {step === 2 && (
-            <>
-              <h2 className="text-2xl font-bold font-headline mb-8 text-primary">3. Healthcare Profile</h2>
-              <div className="space-y-10">
-                {/* Prescriptions */}
-                <div>
-                  <label className="block text-xs font-bold font-label text-primary mb-3 uppercase tracking-widest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">medication</span> Prescriptions
-                  </label>
-                  <div className="flex gap-2 mb-3">
-                    <input type="text" placeholder="e.g. Metformin, Lisinopril..." value={rxInput}
-                      className="flex-1 px-4 py-3 bg-surface-container-low rounded-lg border-0 border-b-2 border-transparent text-sm focus:ring-0 focus:border-primary"
-                      onChange={(e) => setRxInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRx() } }} />
-                    <button type="button" onClick={addRx}
-                      className="px-5 py-3 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-container transition-colors">
-                      Add
+              <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {rx.map((r, i) => (
+                  <span key={i} className="chip">
+                    {r}
+                    <button type="button" onClick={() => setRx(rx.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
+                      <Icon name="x" size={10} />
                     </button>
-                  </div>
-                  {form.prescriptions.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {form.prescriptions.map((rx, i) => (
-                        <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary-fixed/30 text-on-secondary-container rounded-full text-xs font-bold">
-                          <span className="material-symbols-outlined text-xs">medication</span> {rx}
-                          <button type="button" onClick={() => setForm({ ...form, prescriptions: form.prescriptions.filter((_, j) => j !== i) })}
-                            className="ml-1 hover:text-error"><span className="material-symbols-outlined text-xs">close</span></button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : <p className="text-xs text-slate-400 italic">No prescriptions added yet.</p>}
-                </div>
-
-                {/* Doctors */}
-                <div>
-                  <label className="block text-xs font-bold font-label text-primary mb-3 uppercase tracking-widest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">stethoscope</span> Preferred Doctors
-                  </label>
-                  <div className="flex gap-2 mb-3">
-                    <input type="text" placeholder="Doctor name" value={docName}
-                      className="flex-1 px-4 py-3 bg-surface-container-low rounded-lg border-0 border-b-2 border-transparent text-sm focus:ring-0 focus:border-primary"
-                      onChange={(e) => setDocName(e.target.value)} />
-                    <input type="text" placeholder="NPI (optional)" value={docNpi}
-                      className="w-40 px-4 py-3 bg-surface-container-low rounded-lg border-0 border-b-2 border-transparent text-sm focus:ring-0 focus:border-primary"
-                      onChange={(e) => setDocNpi(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDoc() } }} />
-                    <button type="button" onClick={addDoc}
-                      className="px-5 py-3 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-container transition-colors">
-                      Add
-                    </button>
-                  </div>
-                  {form.doctors.length > 0 ? (
-                    <div className="space-y-2">
-                      {form.doctors.map((doc, i) => (
-                        <div key={i} className="flex items-center justify-between px-4 py-3 bg-surface-container-low rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-primary text-sm">person</span>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-on-surface">{doc.name}</p>
-                              {doc.npi && <p className="text-[10px] text-slate-400">NPI: {doc.npi}</p>}
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => setForm({ ...form, doctors: form.doctors.filter((_, j) => j !== i) })}
-                            className="p-1 text-slate-400 hover:text-error"><span className="material-symbols-outlined text-sm">close</span></button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className="text-xs text-slate-400 italic">No doctors added yet.</p>}
-                </div>
-
-                {/* Procedures */}
-                <div>
-                  <label className="block text-xs font-bold font-label text-primary mb-3 uppercase tracking-widest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">medical_services</span> Expected Procedures
-                  </label>
-                  <div className="flex gap-2 mb-3">
-                    <input type="text" placeholder="e.g. MRI, Blood work..." value={procInput}
-                      className="flex-1 px-4 py-3 bg-surface-container-low rounded-lg border-0 border-b-2 border-transparent text-sm focus:ring-0 focus:border-primary"
-                      onChange={(e) => setProcInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProc() } }} />
-                    <button type="button" onClick={addProc}
-                      className="px-5 py-3 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-container transition-colors">
-                      Add
-                    </button>
-                  </div>
-                  {form.procedures.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {form.procedures.map((proc, i) => (
-                        <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-full text-xs font-bold">
-                          <span className="material-symbols-outlined text-xs">medical_services</span> {proc}
-                          <button type="button" onClick={() => setForm({ ...form, procedures: form.procedures.filter((_, j) => j !== i) })}
-                            className="ml-1 hover:text-error"><span className="material-symbols-outlined text-xs">close</span></button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : <p className="text-xs text-slate-400 italic">No procedures added yet.</p>}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Step 4: Review */}
-          {step === 3 && (
-            <>
-              <h2 className="text-2xl font-bold font-headline mb-8 text-primary">4. Review & Submit</h2>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Full Name</p>
-                    <p className="font-bold text-on-surface">{form.full_name || '—'}</p>
-                  </div>
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Age</p>
-                    <p className="font-bold text-on-surface">{form.age || '—'}</p>
-                  </div>
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Zip Code</p>
-                    <p className="font-bold text-on-surface">{form.zip_code || '—'}</p>
-                  </div>
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Income Level</p>
-                    <p className="font-bold text-on-surface capitalize">{form.income_level}</p>
-                  </div>
-                </div>
-
-                {form.prescriptions.length > 0 && (
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Prescriptions ({form.prescriptions.length})</p>
-                    <div className="flex flex-wrap gap-2">
-                      {form.prescriptions.map((rx, i) => (
-                        <span key={i} className="px-3 py-1 bg-secondary-fixed/30 text-on-secondary-container rounded-full text-xs font-bold">{rx}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {form.doctors.length > 0 && (
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Doctors ({form.doctors.length})</p>
-                    {form.doctors.map((doc, i) => (
-                      <p key={i} className="text-sm font-medium">{doc.name}{doc.npi ? ` (NPI: ${doc.npi})` : ''}</p>
-                    ))}
-                  </div>
-                )}
-
-                {form.procedures.length > 0 && (
-                  <div className="p-4 bg-surface-container-low rounded-lg">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Procedures ({form.procedures.length})</p>
-                    <div className="flex flex-wrap gap-2">
-                      {form.procedures.map((proc, i) => (
-                        <span key={i} className="px-3 py-1 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-full text-xs font-bold">{proc}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="md:col-span-4 space-y-6">
-          <div className="bg-primary text-on-primary p-8 rounded-xl overflow-hidden relative group">
-            <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/10 rounded-full blur-3xl transition-all group-hover:scale-150"></div>
-            <span className="material-symbols-outlined text-4xl mb-4">security</span>
-            <h3 className="font-headline font-bold text-lg mb-2">HIPAA Encrypted</h3>
-            <p className="text-sm text-blue-100/80 leading-relaxed">All clinical data entered here is protected by 256-bit encryption and complies with institutional privacy regulations.</p>
-          </div>
-          <div className="p-8 border border-slate-200 rounded-xl">
-            <h4 className="font-headline font-bold text-sm mb-4">Intake Progress</h4>
-            <ul className="space-y-4">
-              {STEPS.map((s, i) => (
-                <li key={s} className="flex items-start gap-3">
-                  <span className={`material-symbols-outlined text-sm mt-1 ${i <= step ? 'text-green-500' : 'text-slate-300'}`}
-                    style={i < step ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                    {i < step ? 'check_circle' : 'circle'}
                   </span>
-                  <span className={`text-sm ${i === step ? 'text-primary font-bold' : 'text-slate-600'}`}>{s.charAt(0) + s.slice(1).toLowerCase()} Details</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
+                ))}
+              </div>
+            </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-12 mt-12 border-t border-slate-100">
-        <button onClick={() => step === 0 ? navigate('/clients') : setStep(step - 1)}
-          className="flex items-center gap-2 text-slate-400 font-bold hover:text-slate-600 transition-colors">
-          <span className="material-symbols-outlined">arrow_back</span>
-          {step === 0 ? 'CANCEL' : 'BACK'}
-        </button>
-        <div className="flex items-center gap-6">
-          {step < 3 ? (
-            <button onClick={() => setStep(step + 1)} disabled={!canAdvance()}
-              className="bg-primary hover:bg-primary-container text-on-primary px-10 py-4 rounded-lg font-bold shadow-xl shadow-primary/20 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
-              NEXT: {STEPS[step + 1]}
-              <span className="material-symbols-outlined">arrow_forward</span>
-            </button>
-          ) : (
-            <button onClick={handleSubmit} disabled={loading}
-              className="bg-secondary hover:bg-secondary-container text-on-secondary px-10 py-4 rounded-lg font-bold shadow-xl shadow-secondary/20 transition-all flex items-center gap-3 disabled:opacity-50">
-              {loading ? 'CREATING...' : 'SUBMIT CLIENT'}
-              <span className="material-symbols-outlined">check_circle</span>
-            </button>
+            <div>
+              <label className="field-label" style={{ marginBottom: 8 }}>Expected procedures</label>
+              <div className="input-group">
+                <input
+                  className="input"
+                  placeholder="e.g. Annual physical"
+                  value={procInput}
+                  onChange={(e) => setProcInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (procInput.trim()) { setProcs([...procs, procInput.trim()]); setProcInput(''); }
+                    }
+                  }}
+                />
+                <button type="button" className="btn" onClick={() => {
+                  if (procInput.trim()) { setProcs([...procs, procInput.trim()]); setProcInput(''); }
+                }}>Add</button>
+              </div>
+              <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {procs.map((p, i) => (
+                  <span key={i} className="chip">
+                    {p}
+                    <button type="button" onClick={() => setProcs(procs.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
+                      <Icon name="x" size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          <div className="eyebrow" style={{ marginBottom: 16 }}>Providers</div>
+          <div className="grid-12" style={{ gap: 12, alignItems: 'end' }}>
+            <div className="field" style={{ gridColumn: 'span 6' }}>
+              <label className="field-label">Doctor name</label>
+              <input className="input" value={docName} onChange={(e) => setDocName(e.target.value)} placeholder="Dr. Patel" />
+            </div>
+            <div className="field" style={{ gridColumn: 'span 4' }}>
+              <label className="field-label">NPI (optional)</label>
+              <input className="input" value={docNpi} onChange={(e) => setDocNpi(e.target.value)} placeholder="1356789012" />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <button
+                type="button"
+                className="btn"
+                style={{ width: '100%' }}
+                onClick={() => {
+                  if (!docName.trim()) return;
+                  setDoctors([...doctors, { name: docName.trim(), npi: docNpi.trim() || null }]);
+                  setDocName('');
+                  setDocNpi('');
+                }}
+              >
+                Add provider
+              </button>
+            </div>
+          </div>
+          <div className="col" style={{ gap: 6, marginTop: 14 }}>
+            {doctors.map((d, i) => (
+              <div key={i} className="between" style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 6 }}>
+                <div className="row" style={{ gap: 10 }}>
+                  <Icon name="stethoscope" size={14} className="ink-4" />
+                  <span style={{ fontSize: 13.5 }}>{d.name}</span>
+                  {d.npi && <span className="muted mono" style={{ fontSize: 11.5 }}>NPI {d.npi}</span>}
+                </div>
+                <button type="button" className="btn ghost icon sm" onClick={() => setDoctors(doctors.filter((_, j) => j !== i))}>
+                  <Icon name="x" size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {error && (
+            <div className="notice" style={{ marginTop: 20, color: 'var(--neg)', borderColor: 'var(--neg)' }}>
+              {error}
+            </div>
           )}
-        </div>
+
+          <div className="between" style={{ marginTop: 28 }}>
+            <button type="button" className="btn" onClick={() => navigate('/clients')}>Cancel</button>
+            <button type="submit" className="btn accent" disabled={!canSubmit || saving}>
+              {saving ? 'Creating…' : <><Icon name="plus" size={14} /> Create client</>}
+            </button>
+          </div>
+        </form>
       </div>
     </>
-  )
+  );
 }

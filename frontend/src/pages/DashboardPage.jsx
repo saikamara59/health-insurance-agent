@@ -1,246 +1,312 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import api from '../api/client'
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../api/client';
+import TopBar from '../components/TopBar';
+import Icon from '../components/ui/Icon';
+import Chip from '../components/ui/Chip';
+import Avatar from '../components/ui/Avatar';
+import Sparkline from '../components/ui/Sparkline';
+import Donut from '../components/ui/Donut';
+import useLayout from '../components/ui/useLayout';
+
+function formatDate(d = new Date()) {
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function sinceLabel(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.max(0, Math.floor(diff / 86400000));
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
 
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const [clients, setClients] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { openMenu, openNotifications } = useLayout();
+
+  const [clients, setClients] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/clients').then(data => {
-      setClients(Array.isArray(data) ? data : [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
+    Promise.all([
+      api.get('/clients').catch(() => []),
+      api.get('/history?limit=8').catch(() => []),
+    ]).then(([c, h]) => {
+      setClients(Array.isArray(c) ? c : []);
+      setHistory(Array.isArray(h) ? h : []);
+      setLoading(false);
+    });
+  }, []);
 
-  const displayName = user?.full_name || user?.email?.split('@')[0] || 'Doctor'
+  const firstName = (user?.email?.split('@')[0] || 'Broker').replace(/^./, (c) => c.toUpperCase());
+  const total = clients.length;
+  const totalRx = clients.reduce((s, c) => s + (c.prescriptions?.length || 0), 0);
+  const totalProviders = clients.reduce((s, c) => s + (c.doctors?.length || 0), 0);
+  const avgAge = total ? Math.round(clients.reduce((s, c) => s + (c.age || 0), 0) / total) : 0;
+
+  const byIncome = clients.reduce((acc, c) => {
+    const k = (c.income_level || 'unknown').toLowerCase();
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
+  const lowIncome = byIncome.low || 0;
+  const retention = total ? Math.round(((total - lowIncome * 0.2) / total) * 100) : 0;
+
+  // Priority: most recently updated 4
+  const priority = [...clients]
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+    .slice(0, 4);
+
+  // Sparkline: synthesize from running total of client creation
+  const sortedByCreate = [...clients].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const sparkData = [];
+  sortedByCreate.forEach((_, i) => sparkData.push(i + 1));
+  if (sparkData.length < 2) sparkData.push(sparkData[0] || 0);
 
   return (
     <>
-      {/* Hero */}
-      <section className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div>
-          <span className="text-primary font-bold text-xs tracking-widest uppercase block mb-2 font-headline">Institutional Dashboard</span>
-          <h1 className="text-4xl font-headline font-extrabold text-sky-950 tracking-tight">Welcome, {displayName}</h1>
-          <p className="text-slate-600 mt-2 max-w-2xl text-lg font-medium leading-relaxed">
-            System HealthFlow is operating at <span className="text-sky-700 font-bold">optimal capacity</span>.
-            {clients.length > 0 && <> There {clients.length === 1 ? 'is' : 'are'} <span className="text-primary font-bold">{clients.length} active client{clients.length !== 1 ? 's' : ''}</span> in your portfolio.</>}
-          </p>
-        </div>
-        <div className="flex gap-3 shrink-0">
-          <button className="px-5 py-2.5 rounded border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors shadow-sm">
-            Export Report
+      <TopBar
+        crumbs={['Workspace', 'Overview']}
+        onMenuClick={openMenu}
+        onNotificationsClick={openNotifications}
+        action={
+          <button className="btn accent" onClick={() => navigate('/clients/new')}>
+            <Icon name="plus" size={14} /> New client
           </button>
-          <button onClick={() => navigate('/clients')} className="px-5 py-2.5 rounded bg-primary text-white font-bold text-sm shadow-md hover:bg-primary-container transition-all">
-            Launch Analysis
-          </button>
+        }
+      />
+      <div className="page">
+        <div className="page-head">
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>{formatDate()}</div>
+            <h1 className="page-title">
+              Good morning, {firstName} —<br />
+              {total > 0 ? (
+                <><em>{total} client{total === 1 ? '' : 's'}</em> in your book.</>
+              ) : (
+                <><em>ready when you are.</em></>
+              )}
+            </h1>
+            <p className="page-sub">
+              {total === 0
+                ? 'Add your first client to get started. HealthFlow will track their renewals, flag network changes, and draft appeals.'
+                : 'A live snapshot of your book: who needs attention, what you ran today, and what\'s coming up.'}
+            </p>
+          </div>
+          <div className="row">
+            <button className="btn" onClick={() => navigate('/history')}>
+              <Icon name="download" size={14} /> Activity log
+            </button>
+            <button className="btn primary" onClick={() => navigate('/compare')}>
+              <Icon name="compare" size={14} /> Run comparison
+            </button>
+          </div>
         </div>
-      </section>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <div className="bg-white p-6 rounded border border-slate-200 shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded bg-sky-50 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined">group</span>
+        {/* Stats */}
+        <div className="card">
+          <div className="stat-grid">
+            <div className="stat">
+              <div className="label">Active clients</div>
+              <div className="between" style={{ alignItems: 'flex-end' }}>
+                <div className="value num">{loading ? '—' : total}</div>
+                {total > 1 && <Sparkline data={sparkData} w={70} h={26} />}
+              </div>
+              <div className="delta">{totalProviders} providers · {totalRx} Rx</div>
             </div>
-            <span className="flex items-center text-xs text-green-600 font-bold">
-              <span className="material-symbols-outlined text-sm mr-1">trending_up</span>Active
-            </span>
-          </div>
-          <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Total Clients</p>
-          <h3 className="text-3xl font-headline font-extrabold text-sky-950 mt-1">{loading ? '...' : clients.length.toLocaleString()}</h3>
-        </div>
-
-        <div className="bg-white p-6 rounded border-b-4 border-primary shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded bg-sky-50 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined">compare_arrows</span>
+            <div className="stat">
+              <div className="label">Avg. age</div>
+              <div className="value num">{loading ? '—' : avgAge || '—'}</div>
+              <div className="delta">across your book</div>
             </div>
-            <span className="flex items-center text-xs text-orange-600 font-bold">
-              <span className="material-symbols-outlined text-sm mr-1">priority_high</span>Action
-            </span>
+            <div className="stat">
+              <div className="label">Actions logged</div>
+              <div className="value num">{loading ? '—' : history.length}</div>
+              <div className="delta">comparisons · appeals · verifications</div>
+            </div>
+            <div className="stat">
+              <div className="label">Low-income clients</div>
+              <div className="value num">{loading ? '—' : lowIncome}</div>
+              <div className="delta">eligible for LIS / Extra Help review</div>
+            </div>
           </div>
-          <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">Pending Comparisons</p>
-          <h3 className="text-3xl font-headline font-extrabold text-sky-950 mt-1">{loading ? '...' : Math.min(clients.length, 8).toString().padStart(2, '0')}</h3>
         </div>
 
-        <div className="lg:col-span-2 bg-sky-900 text-white p-6 rounded shadow-lg relative overflow-hidden flex flex-col justify-between group">
-          <div className="relative z-10">
-            <p className="text-sky-300 text-[10px] font-bold tracking-widest uppercase">Portfolio Performance</p>
-            <h3 className="text-2xl font-headline font-bold mt-1">Institutional Tier</h3>
-          </div>
-          <div className="flex items-end justify-between relative z-10 mt-6">
-            <div className="flex -space-x-2">
-              {clients.slice(0, 3).map((c, i) => {
-                const initials = c.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?'
-                return (
-                  <div key={i} className="w-9 h-9 rounded-full border-2 border-sky-800 bg-sky-700 flex items-center justify-center text-[10px] font-bold text-white">
-                    {initials}
+        <div className="grid-12" style={{ marginTop: 32 }}>
+          {/* Priority */}
+          <div style={{ gridColumn: 'span 8' }}>
+            <div className="section-head">
+              <h2>Priority today</h2>
+              <div className="after">
+                Most recent activity ·{' '}
+                <a style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => navigate('/clients')}>
+                  View all clients
+                </a>
+              </div>
+            </div>
+            <div className="card">
+              {loading && <div className="empty"><div className="loader" /></div>}
+              {!loading && priority.length === 0 && (
+                <div className="empty">
+                  <div className="empty-title">No clients yet</div>
+                  <div>Add your first client to begin tracking renewals and running comparisons.</div>
+                  <div style={{ marginTop: 18 }}>
+                    <button className="btn accent" onClick={() => navigate('/clients/new')}>
+                      <Icon name="plus" size={14} /> Add client
+                    </button>
                   </div>
-                )
+                </div>
+              )}
+              {!loading && priority.map((c, i) => {
+                const rxCount = c.prescriptions?.length || 0;
+                const drCount = c.doctors?.length || 0;
+                const chipTone = rxCount > 3 ? 'warn' : drCount > 2 ? 'accent' : 'pos';
+                const chipLabel = rxCount > 3 ? 'Complex Rx' : drCount > 2 ? 'Multi-provider' : 'Active';
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => navigate(`/clients/${c.id}`)}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '44px 1fr auto auto',
+                      gap: 16,
+                      alignItems: 'center',
+                      padding: '18px 24px',
+                      borderBottom: i < priority.length - 1 ? '1px solid var(--line)' : 0,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Avatar name={c.full_name} size="md" />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.full_name}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13 }}>
+                        ZIP {c.zip_code} · Age {c.age} · {c.income_level} income · {rxCount} Rx · {drCount} providers
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div className="eyebrow">#{c.id.slice(0, 6)}</div>
+                      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{sinceLabel(c.updated_at || c.created_at)}</div>
+                    </div>
+                    <Chip tone={chipTone}>{chipLabel}</Chip>
+                  </div>
+                );
               })}
-              {clients.length > 3 && (
-                <div className="w-9 h-9 rounded-full border-2 border-sky-800 bg-sky-700 flex items-center justify-center text-[10px] font-bold">
-                  +{clients.length - 3}
+            </div>
+
+            <div className="section-head">
+              <h2>Activity</h2>
+              <div className="after">
+                <a style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => navigate('/activity')}>
+                  Full timeline →
+                </a>
+              </div>
+            </div>
+            <div className="card card-pad">
+              {loading && <div className="loader" />}
+              {!loading && history.length === 0 && (
+                <div className="muted" style={{ fontSize: 13, padding: 12 }}>
+                  No actions yet. Run a plan comparison or verify a network to see activity here.
+                </div>
+              )}
+              {!loading && history.length > 0 && (
+                <div className="activity">
+                  {history.slice(0, 6).map((a, i) => {
+                    const tone = a.action_type === 'appeal' ? 'accent' : a.action_type === 'verify' ? 'warn' : a.action_type === 'compare' ? 'pos' : '';
+                    return (
+                      <div key={a.id || i} className="act-row">
+                        <span className="act-time mono">{sinceLabel(a.created_at)}</span>
+                        <Chip tone={tone}>{a.action_type}</Chip>
+                        <div className="act-body">
+                          <span className="who">{a.client_name || 'Unknown client'}</span>
+                          <span className="muted"> · {a.action_type} session run</span>
+                        </div>
+                        <Icon name="chev_r" size={14} className="ink-4" />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-            <button onClick={() => navigate('/clients')} className="text-xs font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors backdrop-blur-sm">
-              View Ecosystem
-            </button>
-          </div>
-          <div className="absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
-        </div>
-      </div>
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Activity Feed */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h4 className="text-lg font-headline font-bold text-sky-950">Recent Clinical Activity</h4>
-            <button onClick={() => navigate('/activity')} className="text-primary text-sm font-bold hover:underline">View All</button>
           </div>
 
-          <div className="space-y-4">
-            {clients.length === 0 && !loading && (
-              <div className="bg-white p-8 rounded border border-slate-100 text-center">
-                <span className="material-symbols-outlined text-4xl text-slate-300 mb-4">group_off</span>
-                <p className="text-slate-500">No clients yet. Add your first client to get started.</p>
-              </div>
-            )}
-
-            {clients.slice(0, 3).map((client, idx) => (
-              <div key={client.id} onClick={() => navigate(`/clients/${client.id}`)}
-                className="bg-white p-5 rounded border border-slate-100 shadow-sm flex gap-4 items-start hover:border-sky-200 transition-colors cursor-pointer group">
-                <div className="relative shrink-0">
-                  <div className="w-14 h-14 rounded bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 text-primary font-bold text-lg">
-                    {client.full_name?.split(' ').map(n => n[0]).join('').toUpperCase()}
-                  </div>
-                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${
-                    idx === 0 ? 'bg-sky-600 text-white' : idx === 1 ? 'bg-violet-600 text-white' : 'bg-slate-400 text-white'
-                  }`}>
-                    <span className="material-symbols-outlined text-[10px]" style={idx === 0 ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                      {idx === 0 ? 'check' : idx === 1 ? 'sync' : 'schedule'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-1">
-                    <h5 className="font-bold text-sky-900 text-base group-hover:text-primary transition-colors">{client.full_name}</h5>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                      {new Date(client.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-slate-600 text-sm leading-relaxed mb-3">
-                    {client.zip_code} · Age {client.age} · {client.income_level} income
-                    {client.prescriptions?.length > 0 && ` · ${client.prescriptions.length} active prescriptions`}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[9px] font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-100 uppercase tracking-wider">
-                      {client.income_level} tier
-                    </span>
-                    {client.doctors?.length > 0 && (
-                      <div className="flex items-center text-xs text-slate-400 font-medium">
-                        <span className="material-symbols-outlined text-sm mr-1">stethoscope</span>
-                        {client.doctors.length} provider{client.doctors.length !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-8">
-          {/* System Status */}
-          <div className="bg-white rounded border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h4 className="font-headline font-bold text-sky-950">System Integrity</h4>
-              <span className="material-symbols-outlined text-sky-200">shield_with_heart</span>
+          {/* Right column */}
+          <div style={{ gridColumn: 'span 4' }}>
+            <div className="section-head">
+              <h2>Book health</h2>
+              <div className="after">Income mix</div>
             </div>
-            <div className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-500 font-bold uppercase tracking-widest">Data Pipeline</span>
-                  <span className="text-sky-600 font-extrabold flex items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-2 animate-pulse"></span>OPERATIONAL
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-sky-500 h-full" style={{ width: '94%' }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-500 font-bold uppercase tracking-widest">Verification Node</span>
-                  <span className="text-sky-600 font-extrabold flex items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-2"></span>ACTIVE
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-sky-500 h-full" style={{ width: '88%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Curator Insight */}
-          <div className="bg-sky-50 rounded border border-sky-200 p-6 shadow-sm relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded bg-sky-600 text-white flex items-center justify-center shadow-sm">
-                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                </div>
-                <h4 className="text-base font-headline font-extrabold text-sky-900 uppercase tracking-tight">Curator Insight</h4>
-              </div>
-              <p className="text-sky-800 text-sm leading-relaxed mb-6 font-medium">
-                "Recent data shifts suggest a <span className="text-sky-600 font-bold">14% increase</span> in respiratory specialty claims within the Northeast corridor. Strategic adjustment is recommended."
-              </p>
-              <button onClick={() => navigate('/clients')} className="w-full py-2.5 rounded bg-sky-600 text-white font-bold text-sm hover:bg-sky-700 transition-all shadow-sm">
-                Run Impact Simulations
-              </button>
-            </div>
-            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <span className="material-symbols-outlined text-7xl">lightbulb</span>
-            </div>
-          </div>
-
-          {/* Deadlines */}
-          <div className="px-2">
-            <h4 className="text-[10px] font-bold tracking-[0.2em] text-slate-400 uppercase mb-5">Upcoming Milestones</h4>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <div className="flex flex-col items-center justify-center w-11 h-11 bg-white rounded border border-slate-200 group-hover:border-primary transition-colors">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">Apr</span>
-                  <span className="text-sm font-bold text-sky-900 leading-none">15</span>
-                </div>
+            <div className="card card-pad">
+              <div className="row" style={{ gap: 20, marginBottom: 16 }}>
+                <Donut value={retention} size={72} stroke={7} />
                 <div>
-                  <h6 className="text-sm font-bold text-sky-950 group-hover:text-primary transition-colors">Annual Audit Report</h6>
-                  <p className="text-[11px] text-slate-500">Compliance Submission</p>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 28, letterSpacing: '-0.01em' }}>
+                    {retention}
+                    <span style={{ fontSize: 14, color: 'var(--ink-3)' }}>%</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12.5 }}>Projected retention</div>
                 </div>
               </div>
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <div className="flex flex-col items-center justify-center w-11 h-11 bg-white rounded border border-slate-200 group-hover:border-primary transition-colors">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">Apr</span>
-                  <span className="text-sm font-bold text-sky-900 leading-none">22</span>
+              <div className="divider dashed" style={{ margin: '4px 0 14px' }} />
+              {[
+                { k: 'High income', v: byIncome.high || 0, tone: 'accent' },
+                { k: 'Medium income', v: byIncome.medium || 0, tone: 'pos' },
+                { k: 'Low income', v: byIncome.low || 0, tone: 'warn' },
+              ].map((r) => (
+                <div key={r.k} className="between" style={{ padding: '6px 0' }}>
+                  <div className="row" style={{ gap: 10 }}>
+                    <span
+                      className={`risk-dot ${r.tone === 'pos' ? 'low' : r.tone === 'warn' ? 'med' : ''}`}
+                      style={r.tone === 'accent' ? { background: 'var(--accent)' } : {}}
+                    />
+                    <span>{r.k}</span>
+                  </div>
+                  <span className="num mono" style={{ fontSize: 13 }}>{r.v}</span>
                 </div>
-                <div>
-                  <h6 className="text-sm font-bold text-sky-950 group-hover:text-primary transition-colors">Insurers Conference</h6>
-                  <p className="text-[11px] text-slate-500">Global Health Summit</p>
+              ))}
+            </div>
+
+            <div className="section-head">
+              <h2>Jump to a tool</h2>
+              <div className="after">Common flows</div>
+            </div>
+            <div className="card card-pad">
+              {[
+                { icon: 'compare', label: 'Plan comparison', path: '/compare' },
+                { icon: 'translate', label: 'Coverage translator', path: '/translator' },
+                { icon: 'network', label: 'Network verify', path: '/network' },
+                { icon: 'calculator', label: 'Cost calculator', path: '/calculator' },
+                { icon: 'appeal', label: 'Claim appeal', path: '/appeals' },
+              ].map((t, i, a) => (
+                <div
+                  key={t.path}
+                  onClick={() => navigate(t.path)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 0',
+                    borderBottom: i < a.length - 1 ? '1px dashed var(--line)' : 0,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon name={t.icon} size={16} className="ink-4" />
+                  <span style={{ fontSize: 13.5, flex: 1 }}>{t.label}</span>
+                  <Icon name="chev_r" size={13} className="ink-4" />
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }
