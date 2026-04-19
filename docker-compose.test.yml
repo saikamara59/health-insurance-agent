@@ -5,8 +5,8 @@ services:
       - JWT_SECRET=test-secret
       - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
       - HEALTHFLOW_TEST_MODE=1
-    tmpfs:
-      - /data
+    volumes:
+      - test-db:/data
 
   seed:
     build:
@@ -18,7 +18,12 @@ services:
       - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
       - HEALTHFLOW_TEST_MODE=1
       - PYTHONPATH=/app
+    volumes:
+      - test-db:/data
     depends_on:
       backend:
         condition: service_healthy
     command: ["python", "scripts/seed_test_db.py"]
+
+volumes:
+  test-db:
