@@ -1,3 +1,5 @@
+import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -44,6 +46,12 @@ app.include_router(auth_router)
 app.include_router(client_router)
 app.include_router(history_router)
 app.include_router(feedback_router)
+
+
+if os.getenv("HEALTHFLOW_TEST_MODE") == "1":
+    from healthflow.api.test_router import test_router
+    app.include_router(test_router)
+    logging.warning("⚠️ test reset endpoint enabled — never run in production")
 
 
 if __name__ == "__main__":
