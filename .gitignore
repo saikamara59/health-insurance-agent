@@ -19,3 +19,6 @@ healthflow_data.db
 healthflow.log
 .env
 /logs/
+frontend/playwright-report/
+frontend/test-results/
+frontend/playwright/.cache/
