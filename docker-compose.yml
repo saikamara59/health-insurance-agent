@@ -9,9 +9,13 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - JWT_SECRET=${JWT_SECRET:-healthflow-dev-secret-change-in-production}
       - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///healthflow.db}
-    volumes:
-      - backend-data:/app
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
 
   frontend:
     build:
@@ -32,5 +36,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  backend-data:
   redis-data:

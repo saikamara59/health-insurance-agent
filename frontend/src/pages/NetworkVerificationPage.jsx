@@ -1,317 +1,277 @@
-import { useState } from 'react'
-import api from '../api/client'
+import { useState, useEffect } from 'react';
+import api from '../api/client';
+import TopBar from '../components/TopBar';
+import Icon from '../components/ui/Icon';
+import Chip from '../components/ui/Chip';
+import useLayout from '../components/ui/useLayout';
 
 export default function NetworkVerificationPage() {
-  const [form, setForm] = useState({ zip_code: '', income_level: 'medium', providers: [], prescriptions: [] })
-  const [provName, setProvName] = useState('')
-  const [provNpi, setProvNpi] = useState('')
-  const [drugInput, setDrugInput] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { openMenu, openNotifications } = useLayout();
+  const [clients, setClients] = useState([]);
+  const [clientId, setClientId] = useState('');
+  const [zip, setZip] = useState('10001');
+  const [income, setIncome] = useState('medium');
+  const [providers, setProviders] = useState([]);
+  const [pName, setPName] = useState('');
+  const [pNpi, setPNpi] = useState('');
+  const [rx, setRx] = useState([]);
+  const [rxInput, setRxInput] = useState('');
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
-  function addProvider() {
-    if (provName.trim()) {
-      setForm({ ...form, providers: [...form.providers, { name: provName.trim(), npi: provNpi.trim() || null }] })
-      setProvName(''); setProvNpi('')
-    }
-  }
-  function addDrug() {
-    if (drugInput.trim()) {
-      setForm({ ...form, prescriptions: [...form.prescriptions, drugInput.trim()] })
-      setDrugInput('')
-    }
+  useEffect(() => {
+    api.get('/clients').then((d) => setClients(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  function applyClient(c) {
+    if (!c) { setClientId(''); return; }
+    setClientId(c.id);
+    setZip(c.zip_code);
+    setIncome(c.income_level);
+    setProviders(c.doctors || []);
+    setRx(c.prescriptions || []);
   }
 
-  async function handleVerify() {
-    if (!form.zip_code) return
-    setLoading(true); setError(''); setResult(null)
+  async function run() {
+    setError('');
+    setRunning(true);
     try {
-      const data = await api.post('/verify', {
-        zip_code: form.zip_code,
-        income_level: form.income_level,
-        providers: form.providers,
-        prescriptions: form.prescriptions,
-      })
-      setResult(data)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+      const res = await api.post('/verify', {
+        zip_code: zip,
+        income_level: income,
+        providers: providers.map((p) => ({ name: p.name, npi: p.npi || null })),
+        prescriptions: rx,
+      });
+      setResult(res);
+      if (clientId) {
+        api.post('/history', {
+          client_id: clientId,
+          action_type: 'verify',
+          request_data: { zip_code: zip, income_level: income, providers: providers.length, prescriptions: rx.length },
+          response_summary: { plans: res.plans?.length || 0 },
+        }).catch(() => {});
+      }
+    } catch (err) {
+      setError(err.message || 'Verification failed');
+    } finally {
+      setRunning(false);
+    }
   }
-
-  const plans = result?.plans || []
 
   return (
     <>
-      {/* Header */}
-      <section className="mb-8">
-        <h1 className="font-display text-4xl text-primary mb-2">Network Verification</h1>
-        <p className="text-slate-500 max-w-2xl text-sm leading-relaxed">
-          Cross-reference provider NPI data against carrier-specific network files and drug formularies to ensure clinical alignment for your clients.
-        </p>
-      </section>
-
-      {/* Input Section */}
-      {!result && (
-        <div className="grid grid-cols-12 gap-8 mb-8">
-          {/* Left: Provider Search */}
-          <div className="col-span-12 lg:col-span-7 space-y-6">
-            <div className="flex justify-between items-end mb-2">
-              <label className="text-[11px] uppercase tracking-widest font-bold text-primary">Provider Directory Search</label>
-            </div>
-
-            {/* Zip + Income */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-surface-container-lowest p-5 rounded-lg border border-slate-100 shadow-sm">
-                <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Zip Code</span>
-                <input className="w-full bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-lg font-bold py-2 px-0"
-                  placeholder="e.g. 10001" value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} maxLength={5} />
-              </div>
-              <div className="bg-surface-container-lowest p-5 rounded-lg border border-slate-100 shadow-sm">
-                <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Income Level</span>
-                <select className="w-full bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-lg font-bold py-2 px-0"
-                  value={form.income_level} onChange={(e) => setForm({ ...form, income_level: e.target.value })}>
-                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Add Providers */}
-            <div className="bg-surface-container-lowest p-6 rounded-lg border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-3 block">Add Providers to Verify</span>
-              <div className="flex gap-2 mb-4">
-                <input className="flex-1 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm py-2 px-0"
-                  placeholder="Doctor name" value={provName} onChange={(e) => setProvName(e.target.value)} />
-                <input className="w-40 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm py-2 px-0"
-                  placeholder="NPI (optional)" value={provNpi} onChange={(e) => setProvNpi(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProvider() } }} />
-                <button onClick={addProvider} className="px-4 py-2 bg-primary text-white rounded text-xs font-bold">Add</button>
-              </div>
-              {form.providers.length > 0 ? (
-                <div className="space-y-2">
-                  {form.providers.map((p, i) => (
-                    <div key={i} className="bg-surface-container-low p-4 rounded-lg border border-slate-100 flex justify-between items-center relative overflow-hidden group">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-primary transition-all group-hover:w-2"></div>
-                      <div className="flex items-center gap-3 pl-3">
-                        <div className="w-10 h-10 bg-surface-container-high rounded flex items-center justify-center text-primary">
-                          <span className="material-symbols-outlined">medical_services</span>
-                        </div>
-                        <div>
-                          <p className="font-headline font-bold text-primary">{p.name}</p>
-                          {p.npi && <p className="text-[10px] text-slate-400">NPI: {p.npi}</p>}
-                        </div>
-                      </div>
-                      <button onClick={() => setForm({ ...form, providers: form.providers.filter((_, j) => j !== i) })}
-                        className="text-slate-300 hover:text-error transition-colors"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-xs text-slate-400 italic">No providers added yet.</p>}
-            </div>
-          </div>
-
-          {/* Right: Drug Formulary + Run */}
-          <div className="col-span-12 lg:col-span-5 space-y-6">
-            <div className="bg-white/40 backdrop-blur-xl p-6 rounded-lg border border-white/20 shadow-lg">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-primary">medication</span>
-                <h2 className="font-headline font-bold text-sm uppercase tracking-widest text-primary">Drug Formulary Checker</h2>
-              </div>
-              <div className="flex gap-2 mb-4">
-                <input className="flex-1 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm py-2 px-0"
-                  placeholder="e.g. Metformin" value={drugInput} onChange={(e) => setDrugInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDrug() } }} />
-                <button onClick={addDrug} className="px-4 py-2 bg-primary text-white rounded text-xs font-bold">Add</button>
-              </div>
-              {form.prescriptions.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {form.prescriptions.map((d, i) => (
-                    <span key={i} className="bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                      {d} <button onClick={() => setForm({ ...form, prescriptions: form.prescriptions.filter((_, j) => j !== i) })}><span className="material-symbols-outlined text-xs">close</span></button>
-                    </span>
-                  ))}
-                </div>
-              ) : <p className="text-xs text-slate-400 italic">No drugs added yet.</p>}
-            </div>
-
-            <button onClick={handleVerify} disabled={loading || !form.zip_code}
-              className="w-full bg-primary text-on-primary py-4 rounded-lg font-bold shadow-md hover:bg-primary-container transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-              {loading ? <><span className="material-symbols-outlined animate-spin">progress_activity</span> Verifying...</>
-                : <><span className="material-symbols-outlined">verified_user</span> Run Network Verification</>}
-            </button>
+      <TopBar
+        crumbs={['Tools', 'Network verify']}
+        onMenuClick={openMenu}
+        onNotificationsClick={openNotifications}
+      />
+      <div className="page wide">
+        <div className="page-head">
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Provider &amp; formulary check</div>
+            <h1 className="page-title"><em>Verify</em> the network,<br />before you enroll.</h1>
+            <p className="page-sub">
+              Enter a client's doctors and prescriptions to see which Medicare Advantage plans keep everyone
+              in-network and on-formulary.
+            </p>
           </div>
         </div>
-      )}
 
-      {error && <div className="p-4 bg-error-container rounded mb-8"><p className="text-sm text-on-error-container">{error}</p></div>}
-
-      {/* Results */}
-      {result && (
-        <>
-          {/* AI Recommendation */}
-          {result.recommendation && (
-            <div className="relative overflow-hidden bg-primary-container text-white p-8 rounded-lg shadow-lg mb-8">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <span className="material-symbols-outlined text-[100px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-              </div>
-              <div className="relative z-10 flex gap-6 items-start">
-                <div className="w-10 h-10 bg-on-primary-container rounded-full flex items-center justify-center text-primary-container shrink-0">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest text-on-primary-container font-extrabold mb-2 block">Network Analysis</span>
-                  <div className="text-slate-200 leading-relaxed whitespace-pre-wrap text-sm">{result.recommendation}</div>
-                </div>
-              </div>
+        <form className="card card-pad" style={{ padding: 32, marginBottom: 28 }} onSubmit={(e) => { e.preventDefault(); run(); }}>
+          {clients.length > 0 && (
+            <div className="field" style={{ marginBottom: 20 }}>
+              <label className="field-label">Prefill from client</label>
+              <select
+                className="select"
+                value={clientId}
+                onChange={(e) => applyClient(clients.find((x) => x.id === e.target.value))}
+              >
+                <option value="">— none —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.full_name} · ZIP {c.zip_code}</option>
+                ))}
+              </select>
             </div>
           )}
 
-          {/* Plan Results */}
-          {plans.map((plan, idx) => (
-            <div key={idx} className="bg-surface-container-lowest rounded-lg border border-slate-100 shadow-sm mb-6 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <h3 className="font-headline font-bold text-lg text-primary">{plan.plan_name}</h3>
-                  <p className="text-xs text-slate-400">{plan.plan_id}</p>
-                </div>
-              </div>
-
-              {/* Provider Results */}
-              {plan.provider_results?.length > 0 && (
-                <div className="p-6 border-b border-slate-50">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-primary mb-3 block">Provider Network Status</label>
-                  <div className="space-y-2">
-                    {plan.provider_results.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 bg-surface-container-low rounded">
-                        <div className="flex items-center gap-3">
-                          <span className={`material-symbols-outlined text-lg ${p.in_network ? 'text-green-600' : 'text-error'}`}
-                            style={p.in_network ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                            {p.in_network ? 'check_circle' : 'cancel'}
-                          </span>
-                          <div>
-                            <p className="text-sm font-bold">{p.name}</p>
-                            {p.specialty && <p className="text-[10px] text-slate-400">{p.specialty}</p>}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${p.in_network ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}`}>
-                            {p.in_network ? 'IN-NETWORK' : 'OUT-OF-NETWORK'}
-                          </span>
-                          {p.warning && <p className="text-[9px] text-error mt-1">{p.warning}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Formulary Results */}
-              {plan.formulary_results?.length > 0 && (
-                <div className="p-6">
-                  <label className="text-[10px] uppercase tracking-widest font-bold text-primary mb-3 block">Drug Formulary Status</label>
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-surface-container-low">
-                        <th className="p-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Drug Name</th>
-                        <th className="p-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center">Tier</th>
-                        <th className="p-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center">Status</th>
-                        <th className="p-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-right">Copay</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {plan.formulary_results.map((f, i) => (
-                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-semibold text-primary">{f.drug_name}</td>
-                          <td className="p-3 text-center">
-                            {f.tier ? <span className="bg-secondary-container/30 text-secondary px-2 py-0.5 rounded text-[10px] font-bold">{f.tier}</span> : '—'}
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${f.on_formulary ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}`}>
-                              {f.on_formulary ? 'ON FORMULARY' : 'NOT COVERED'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right font-medium">{f.copay != null ? `$${f.copay.toFixed(2)}` : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+          <div className="grid-12" style={{ gap: 20 }}>
+            <div className="field" style={{ gridColumn: 'span 3' }}>
+              <label className="field-label">ZIP code</label>
+              <input className="input" value={zip} onChange={(e) => setZip(e.target.value)} pattern="\d{5}" required />
             </div>
-          ))}
+            <div className="field" style={{ gridColumn: 'span 3' }}>
+              <label className="field-label">Income</label>
+              <select className="select" value={income} onChange={(e) => setIncome(e.target.value)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
 
-          {/* Compatibility Scores */}
-          {plans.length > 0 && (
-            <div className="pt-8 border-t border-slate-200/50">
-              <label className="text-[11px] uppercase tracking-widest font-bold text-primary mb-6 block">Compatibility Scores</label>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-surface-container-lowest p-6 rounded shadow-sm border border-slate-100 flex flex-col justify-between h-48">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Provider Overlap</p>
-                    <h4 className="text-2xl font-bold text-primary">
-                      {plans[0]?.provider_results ? `${plans[0].provider_results.filter(p => p.in_network).length} / ${plans[0].provider_results.length}` : '—'}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 mt-2">Doctors in network for top plan.</p>
+          <div className="divider" />
+
+          <div className="grid-2">
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Providers</div>
+              <div className="input-group">
+                <input className="input" placeholder="Dr. name" value={pName} onChange={(e) => setPName(e.target.value)} />
+                <input className="input" placeholder="NPI (optional)" value={pNpi} onChange={(e) => setPNpi(e.target.value)} style={{ maxWidth: 180 }} />
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    if (!pName.trim()) return;
+                    setProviders([...providers, { name: pName.trim(), npi: pNpi.trim() || null }]);
+                    setPName('');
+                    setPNpi('');
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              <div className="col" style={{ gap: 6, marginTop: 12 }}>
+                {providers.map((p, i) => (
+                  <div key={i} className="between" style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 6 }}>
+                    <div className="row" style={{ gap: 10 }}>
+                      <Icon name="stethoscope" size={14} className="ink-4" />
+                      <span style={{ fontSize: 13.5 }}>{p.name}</span>
+                      {p.npi && <span className="muted mono" style={{ fontSize: 11.5 }}>NPI {p.npi}</span>}
+                    </div>
+                    <button type="button" className="btn ghost icon sm" onClick={() => setProviders(providers.filter((_, j) => j !== i))}>
+                      <Icon name="x" size={12} />
+                    </button>
                   </div>
-                  <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: plans[0]?.provider_results ? `${(plans[0].provider_results.filter(p => p.in_network).length / Math.max(plans[0].provider_results.length, 1)) * 100}%` : '0%' }}></div>
-                  </div>
-                </div>
-                <div className="bg-surface-container-lowest p-6 rounded shadow-sm border border-slate-100 flex flex-col justify-between h-48">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Formulary Match</p>
-                    <h4 className="text-2xl font-bold text-secondary">
-                      {plans[0]?.formulary_results ? `${Math.round((plans[0].formulary_results.filter(f => f.on_formulary).length / Math.max(plans[0].formulary_results.length, 1)) * 100)}%` : '—'}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 mt-2">Drug coverage across formulary.</p>
-                  </div>
-                  <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-secondary" style={{ width: plans[0]?.formulary_results ? `${(plans[0].formulary_results.filter(f => f.on_formulary).length / Math.max(plans[0].formulary_results.length, 1)) * 100}%` : '0%' }}></div>
-                  </div>
-                </div>
-                <div className="bg-primary text-on-primary p-6 rounded shadow-xl flex flex-col justify-between h-48 relative overflow-hidden">
-                  <div className="relative z-10">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-blue-200 mb-1">Compatibility Score</p>
-                    <h4 className="text-4xl font-extrabold">A+</h4>
-                    <p className="text-[10px] text-blue-100 mt-2">Institutional grade alignment.</p>
-                  </div>
-                  <div className="relative z-10 flex items-center text-[10px] font-bold">
-                    <span className="material-symbols-outlined text-xs mr-1">verified_user</span> VERIFIED
-                  </div>
-                </div>
-                <div className="bg-surface-container-lowest p-6 rounded shadow-sm border border-slate-100 flex flex-col justify-between h-48">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">Gap Analysis</p>
-                    <h4 className="text-2xl font-bold text-tertiary">
-                      {plans[0]?.provider_results ? plans[0].provider_results.filter(p => !p.in_network).length : 0}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 mt-2">Uncovered requirements identified.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {plans[0]?.provider_results?.filter(p => !p.in_network).map((_, i) => (
-                      <div key={i} className="w-3 h-3 rounded-full bg-error"></div>
-                    ))}
-                    {(!plans[0]?.provider_results || plans[0].provider_results.every(p => p.in_network)) && (
-                      <div className="w-3 h-3 rounded-full bg-slate-200"></div>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Disclaimer + Reset */}
-          {result.disclaimer && (
-            <div className="mt-8 p-4 bg-surface-container-low rounded border border-outline-variant/20">
-              <p className="text-[10px] text-on-surface-variant italic">{result.disclaimer}</p>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Prescriptions</div>
+              <div className="input-group">
+                <input
+                  className="input"
+                  placeholder="Medication name"
+                  value={rxInput}
+                  onChange={(e) => setRxInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                    }
+                  }}
+                />
+                <button type="button" className="btn" onClick={() => {
+                  if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                }}>Add</button>
+              </div>
+              <div className="row" style={{ gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                {rx.map((r, i) => (
+                  <span key={i} className="chip">
+                    {r}
+                    <button type="button" onClick={() => setRx(rx.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
+                      <Icon name="x" size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
-          )}
-          <div className="mt-6 text-center">
-            <button onClick={() => setResult(null)} className="text-primary font-bold text-sm hover:underline flex items-center gap-2 mx-auto">
-              <span className="material-symbols-outlined text-sm">refresh</span> Run New Verification
+          </div>
+
+          {error && <div className="notice" style={{ marginTop: 20, color: 'var(--neg)', borderColor: 'var(--neg)' }}>{error}</div>}
+
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 20, gap: 10 }}>
+            <button type="submit" className="btn accent" disabled={running || (providers.length === 0 && rx.length === 0)}>
+              {running ? <><span className="loader" /> Checking…</> : <><Icon name="network" size={14} /> Verify coverage</>}
             </button>
           </div>
-        </>
-      )}
+        </form>
+
+        {result && (
+          <>
+            {result.recommendation && (
+              <div className="card card-pad" style={{ marginBottom: 28 }}>
+                <div className="eyebrow" style={{ marginBottom: 10 }}>Recommendation</div>
+                <p style={{ fontFamily: 'var(--serif)', fontSize: 20, letterSpacing: '-0.01em', lineHeight: 1.4 }}>
+                  {result.recommendation}
+                </p>
+              </div>
+            )}
+
+            <div className="section-head" style={{ marginTop: 0 }}>
+              <h2>Plan-by-plan</h2>
+              <div className="after">{result.plans?.length || 0} plans checked</div>
+            </div>
+
+            <div className="col" style={{ gap: 16 }}>
+              {(result.plans || []).map((plan) => {
+                const providersIn = plan.provider_results.filter((r) => r.in_network).length;
+                const providersTotal = plan.provider_results.length;
+                const formularyCovered = plan.formulary_results.filter((r) => r.on_formulary).length;
+                const formularyTotal = plan.formulary_results.length;
+                const allClean = providersIn === providersTotal && formularyCovered === formularyTotal;
+                return (
+                  <div key={plan.plan_id} className="card card-pad">
+                    <div className="between" style={{ marginBottom: 16 }}>
+                      <div>
+                        <div style={{ fontFamily: 'var(--serif)', fontSize: 20, letterSpacing: '-0.01em' }}>{plan.plan_name}</div>
+                        <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{plan.plan_id}</div>
+                      </div>
+                      <Chip tone={allClean ? 'pos' : 'warn'} dot>
+                        {allClean ? 'Full coverage' : 'Has gaps'}
+                      </Chip>
+                    </div>
+                    <div className="grid-2">
+                      <div>
+                        <div className="eyebrow" style={{ marginBottom: 10 }}>Providers · {providersIn}/{providersTotal} in-network</div>
+                        {plan.provider_results.length === 0 && <div className="muted" style={{ fontSize: 13 }}>No providers entered.</div>}
+                        {plan.provider_results.map((p, i, a) => (
+                          <div key={i} className="between" style={{ padding: '8px 0', borderBottom: i < a.length - 1 ? '1px dashed var(--line)' : 0 }}>
+                            <div className="row" style={{ gap: 10 }}>
+                              <Icon name="stethoscope" size={14} className="ink-4" />
+                              <div>
+                                <div style={{ fontSize: 13 }}>{p.name}</div>
+                                {p.specialty && <div className="muted" style={{ fontSize: 11 }}>{p.specialty}</div>}
+                                {p.warning && <div style={{ color: 'var(--warn)', fontSize: 11, marginTop: 2 }}>{p.warning}</div>}
+                              </div>
+                            </div>
+                            <Chip tone={p.in_network ? 'pos' : 'neg'} dot>
+                              {p.in_network ? 'In-network' : 'Out'}
+                            </Chip>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <div className="eyebrow" style={{ marginBottom: 10 }}>Formulary · {formularyCovered}/{formularyTotal} covered</div>
+                        {plan.formulary_results.length === 0 && <div className="muted" style={{ fontSize: 13 }}>No prescriptions entered.</div>}
+                        {plan.formulary_results.map((f, i, a) => (
+                          <div key={i} className="between" style={{ padding: '8px 0', borderBottom: i < a.length - 1 ? '1px dashed var(--line)' : 0 }}>
+                            <div className="row" style={{ gap: 10 }}>
+                              <Icon name="pill" size={14} className="ink-4" />
+                              <div>
+                                <div style={{ fontSize: 13 }}>{f.drug_name}</div>
+                                {f.tier && <div className="muted mono" style={{ fontSize: 11 }}>Tier {f.tier}</div>}
+                                {f.prior_auth_required && <div style={{ color: 'var(--warn)', fontSize: 11, marginTop: 2 }}>Prior auth required</div>}
+                              </div>
+                            </div>
+                            <Chip tone={f.on_formulary ? 'pos' : 'neg'} dot>
+                              {f.on_formulary ? (f.copay != null ? `$${f.copay}` : 'Covered') : 'Not covered'}
+                            </Chip>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {result.disclaimer && <div className="notice" style={{ marginTop: 24 }}>{result.disclaimer}</div>}
+          </>
+        )}
+      </div>
     </>
-  )
+  );
 }

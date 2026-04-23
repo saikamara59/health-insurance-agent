@@ -1,106 +1,96 @@
-import { NavLink, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import Icon from './ui/Icon';
+import Avatar from './ui/Avatar';
 
-const navItems = [
-  { path: '/', icon: 'dashboard', label: 'Dashboard' },
-  { path: '/clients', icon: 'group', label: 'Client Portfolios' },
-  { path: '/compare', icon: 'compare_arrows', label: 'Plan Comparison' },
-  { path: '/network', icon: 'verified_user', label: 'Network Verify' },
-  { path: '/translator', icon: 'translate', label: 'Translator' },
-  { path: '/calculator', icon: 'calculate', label: 'Cost Calculator' },
-  { path: '/appeals', icon: 'medical_services', label: 'Claims Appeal' },
-  { path: '/history', icon: 'history', label: 'History' },
-  { path: '/leads', icon: 'person_search', label: 'Leads' },
-  { path: '/feedback', icon: 'rate_review', label: 'Feedback' },
-  { path: '/analytics', icon: 'analytics', label: 'Analytics' },
-  { path: '/settings', icon: 'settings', label: 'Settings' },
-]
+const NAV = [
+  {
+    group: 'Workspace',
+    items: [
+      { path: '/', label: 'Overview', icon: 'dashboard', end: true },
+      { path: '/clients', label: 'Clients', icon: 'users' },
+      { path: '/leads', label: 'Leads', icon: 'leads' },
+      { path: '/activity', label: 'Activity', icon: 'history' },
+    ],
+  },
+  {
+    group: 'Tools',
+    items: [
+      { path: '/compare', label: 'Plan comparison', icon: 'compare' },
+      { path: '/translator', label: 'Coverage translator', icon: 'translate' },
+      { path: '/network', label: 'Network verify', icon: 'network' },
+      { path: '/calculator', label: 'Cost calculator', icon: 'calculator' },
+      { path: '/appeals', label: 'Claim appeals', icon: 'appeal' },
+    ],
+  },
+  {
+    group: 'Review',
+    items: [
+      { path: '/history', label: 'History', icon: 'history' },
+      { path: '/analytics', label: 'Analytics', icon: 'analytics' },
+      { path: '/feedback', label: 'Feedback', icon: 'feedback' },
+      { path: '/settings', label: 'Settings', icon: 'settings' },
+      { path: '/support', label: 'Support', icon: 'support' },
+    ],
+  },
+];
 
 export default function Sidebar({ open, onClose }) {
-  const { logout } = useAuth()
-  const location = useLocation()
-
-  const sidebarContent = (
-    <>
-      <div className="px-6 mb-10">
-        <h1 className="text-lg font-extrabold text-blue-950">Clinical Curator</h1>
-        <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Institutional Access</p>
-      </div>
-
-      <nav className="flex-1 space-y-1 px-4 overflow-y-auto">
-        {navItems.map(({ path, icon, label }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === '/'}
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
-                isActive
-                  ? 'bg-blue-100/50 text-blue-900 font-semibold'
-                  : 'text-slate-600 hover:bg-slate-100 hover:translate-x-1'
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-xl">{icon}</span>
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="px-6 mt-auto pt-4">
-        <NavLink
-          to="/clients/new"
-          onClick={onClose}
-          className="block w-full py-3 bg-primary text-on-primary rounded-lg font-semibold shadow-sm shadow-primary/20 hover:opacity-90 transition-opacity text-center text-sm"
-        >
-          New Application
-        </NavLink>
-        <div className="mt-4 space-y-1">
-          <NavLink to="/support" onClick={onClose} className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors text-xs">
-            <span className="material-symbols-outlined text-lg">help</span>
-            Support
-          </NavLink>
-          <button
-            onClick={() => { logout(); onClose?.() }}
-            className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-error transition-colors text-xs w-full"
-          >
-            <span className="material-symbols-outlined text-lg">logout</span>
-            Sign Out
-          </button>
-        </div>
-      </div>
-    </>
-  )
+  const { user, logout } = useAuth();
+  const brokerName = user?.email?.split('@')[0] || 'Broker';
+  const display = brokerName.charAt(0).toUpperCase() + brokerName.slice(1);
 
   return (
     <>
-      {/* Desktop sidebar — always visible */}
-      <aside className="h-screen w-64 fixed left-0 top-0 bg-slate-50 flex-col py-8 font-headline tracking-wide z-40 hidden md:flex">
-        {sidebarContent}
-      </aside>
+      <div className={`side-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
+      <aside className={`side ${open ? 'open' : ''}`}>
+        <div className="brand">
+          <span className="brand-mark">h</span>
+          <span className="brand-name">HealthFlow</span>
+          <span className="brand-tag">v3</span>
+        </div>
 
-      {/* Mobile overlay sidebar */}
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 z-50 md:hidden"
-            onClick={onClose}
-          ></div>
-          {/* Drawer */}
-          <aside className="fixed left-0 top-0 h-screen w-72 bg-slate-50 flex flex-col py-8 font-headline tracking-wide z-50 md:hidden shadow-2xl animate-slide-in">
-            {/* Close button */}
+        {NAV.map((group) => (
+          <div key={group.group} className="nav-group">
+            <div className="nav-group-label">{group.group}</div>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                onClick={onClose}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-dot" />
+                <Icon name={item.icon} className="nav-ic" />
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
+
+        <div className="bottom">
+          <div className="user-chip">
+            <Avatar name={display} />
+            <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {display}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.email || 'broker@healthflow.com'}
+              </div>
+            </div>
             <button
-              onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="btn icon ghost sm"
+              onClick={logout}
+              title="Sign out"
+              aria-label="Sign out"
             >
-              <span className="material-symbols-outlined text-slate-500">close</span>
+              <Icon name="logout" size={14} />
             </button>
-            {sidebarContent}
-          </aside>
-        </>
-      )}
+          </div>
+        </div>
+      </aside>
     </>
-  )
+  );
 }

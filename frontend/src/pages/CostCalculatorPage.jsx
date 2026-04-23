@@ -1,286 +1,258 @@
-import { useState } from 'react'
-import api from '../api/client'
+import { useState, useEffect } from 'react';
+import api from '../api/client';
+import TopBar from '../components/TopBar';
+import Icon from '../components/ui/Icon';
+import useLayout from '../components/ui/useLayout';
+
+function currency(v) {
+  if (v == null || Number.isNaN(v)) return '—';
+  return `$${Math.round(v).toLocaleString()}`;
+}
 
 export default function CostCalculatorPage() {
-  const [form, setForm] = useState({ zip_code: '', income_level: 'medium', doctor_visits: 12, prescriptions: [], procedures: [] })
-  const [rxName, setRxName] = useState('')
-  const [rxFills, setRxFills] = useState(12)
-  const [procName, setProcName] = useState('')
-  const [procCount, setProcCount] = useState(1)
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [expanded, setExpanded] = useState(null)
+  const { openMenu, openNotifications } = useLayout();
+  const [clients, setClients] = useState([]);
+  const [clientId, setClientId] = useState('');
+  const [zip, setZip] = useState('10001');
+  const [income, setIncome] = useState('medium');
+  const [visits, setVisits] = useState(12);
+  const [rx, setRx] = useState([]);
+  const [rxName, setRxName] = useState('');
+  const [rxFills, setRxFills] = useState(12);
+  const [procs, setProcs] = useState([]);
+  const [procName, setProcName] = useState('');
+  const [procCount, setProcCount] = useState(1);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
-  function addRx() { if (rxName.trim()) { setForm({ ...form, prescriptions: [...form.prescriptions, { name: rxName.trim(), fills_per_year: rxFills }] }); setRxName(''); setRxFills(12) } }
-  function addProc() { if (procName.trim()) { setForm({ ...form, procedures: [...form.procedures, { name: procName.trim(), count: procCount }] }); setProcName(''); setProcCount(1) } }
+  useEffect(() => {
+    api.get('/clients').then((d) => setClients(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
-  async function handleCalculate() {
-    if (!form.zip_code) return
-    setLoading(true); setError(''); setResult(null)
-    try {
-      const data = await api.post('/calculate', {
-        zip_code: form.zip_code,
-        income_level: form.income_level,
-        usage: { doctor_visits_per_year: form.doctor_visits, prescriptions: form.prescriptions, procedures: form.procedures },
-      })
-      setResult(data)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+  function applyClient(c) {
+    if (!c) { setClientId(''); return; }
+    setClientId(c.id);
+    setZip(c.zip_code);
+    setIncome(c.income_level);
+    setRx((c.prescriptions || []).map((name) => ({ name, fills_per_year: 12 })));
+    setProcs((c.procedures || []).map((name) => ({ name, count: 1 })));
   }
 
-  const plans = result?.plans || []
-  const cheapest = plans[0]
-  const mostExpensive = plans[plans.length - 1]
-  const savings = cheapest && mostExpensive ? (mostExpensive.total_annual_cost - cheapest.total_annual_cost).toFixed(0) : 0
+  async function run() {
+    setError('');
+    setRunning(true);
+    try {
+      const res = await api.post('/calculate', {
+        zip_code: zip,
+        income_level: income,
+        usage: {
+          doctor_visits_per_year: parseInt(visits, 10),
+          prescriptions: rx,
+          procedures: procs,
+        },
+      });
+      setResult(res);
+      if (clientId) {
+        api.post('/history', {
+          client_id: clientId,
+          action_type: 'calculate',
+          request_data: { zip_code: zip, visits, prescriptions: rx.length },
+          response_summary: { plans: res.plans?.length || 0 },
+        }).catch(() => {});
+      }
+    } catch (err) {
+      setError(err.message || 'Calculation failed');
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const plans = result?.plans || [];
+  const cheapest = plans.length ? plans.reduce((a, b) => (a.total_annual_cost < b.total_annual_cost ? a : b)) : null;
 
   return (
     <>
-      <div className="mb-10">
-        <span className="uppercase tracking-widest text-[11px] font-semibold text-secondary mb-2 block">Premium Analysis Tool</span>
-        <h1 className="font-display text-4xl text-primary font-bold mb-4">Plan Cost Projections</h1>
-        <p className="text-outline max-w-2xl leading-relaxed">Adjust your clinical utilization metrics to see a detailed annual cost breakdown across plans.</p>
-      </div>
+      <TopBar crumbs={['Tools', 'Cost calculator']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
+      <div className="page wide">
+        <div className="page-head">
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Project annual spend</div>
+            <h1 className="page-title"><em>Calculate</em> full-year cost.</h1>
+            <p className="page-sub">
+              Project a client's total out-of-pocket spend across premiums, deductibles, prescription tiers, and
+              expected procedures — for every plan in their ZIP.
+            </p>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-12 gap-8">
-        {/* Input Sidebar */}
-        <section className="col-span-12 lg:col-span-4 xl:col-span-3 space-y-6">
-          <div className="bg-surface-container-low p-6 rounded-lg">
-            <h2 className="font-headline font-bold text-primary text-lg mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">tune</span> Utilization Inputs
-            </h2>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="uppercase tracking-widest text-[10px] font-bold text-slate-600 mb-2 block">Zip Code</label>
-                  <input className="w-full bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm font-bold py-2 px-0"
-                    placeholder="10001" value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} maxLength={5} />
-                </div>
-                <div>
-                  <label className="uppercase tracking-widest text-[10px] font-bold text-slate-600 mb-2 block">Income</label>
-                  <select className="w-full bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm font-bold py-2 px-0"
-                    value={form.income_level} onChange={(e) => setForm({ ...form, income_level: e.target.value })}>
-                    <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="uppercase tracking-widest text-[10px] font-bold text-slate-600">Doctor Visits / Year</label>
-                  <span className="font-headline font-bold text-primary">{form.doctor_visits}</span>
-                </div>
-                <input type="range" min="0" max="52" value={form.doctor_visits}
-                  onChange={(e) => setForm({ ...form, doctor_visits: parseInt(e.target.value) })}
-                  className="w-full h-1.5 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" />
-              </div>
-
-              {/* Prescriptions */}
-              <div>
-                <label className="uppercase tracking-widest text-[10px] font-bold text-slate-600 mb-2 block">Prescriptions</label>
-                <div className="flex gap-2 mb-2">
-                  <input className="flex-1 bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-xs py-2 px-0" placeholder="Drug name" value={rxName} onChange={(e) => setRxName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRx() } }} />
-                  <input type="number" className="w-16 bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-xs py-2 px-0 text-center" min={1} max={365} value={rxFills} onChange={(e) => setRxFills(parseInt(e.target.value) || 1)} />
-                  <button onClick={addRx} className="px-3 py-1 bg-primary text-white rounded text-[10px] font-bold">+</button>
-                </div>
-                {form.prescriptions.map((rx, i) => (
-                  <div key={i} className="flex justify-between items-center text-xs py-1.5 border-b border-slate-50">
-                    <span className="font-medium">{rx.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">{rx.fills_per_year}x/yr</span>
-                      <button onClick={() => setForm({ ...form, prescriptions: form.prescriptions.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-error"><span className="material-symbols-outlined text-xs">close</span></button>
-                    </div>
-                  </div>
+        <form className="card card-pad" style={{ padding: 32, marginBottom: 28 }} onSubmit={(e) => { e.preventDefault(); run(); }}>
+          {clients.length > 0 && (
+            <div className="field" style={{ marginBottom: 20 }}>
+              <label className="field-label">Prefill from client</label>
+              <select className="select" value={clientId} onChange={(e) => applyClient(clients.find((x) => x.id === e.target.value))}>
+                <option value="">— none —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.full_name} · ZIP {c.zip_code}</option>
                 ))}
-              </div>
-
-              {/* Procedures */}
-              <div>
-                <label className="uppercase tracking-widest text-[10px] font-bold text-slate-600 mb-2 block">Procedures</label>
-                <div className="flex gap-2 mb-2">
-                  <input className="flex-1 bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-xs py-2 px-0" placeholder="Procedure" value={procName} onChange={(e) => setProcName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProc() } }} />
-                  <input type="number" className="w-16 bg-surface-container-highest border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-xs py-2 px-0 text-center" min={1} max={365} value={procCount} onChange={(e) => setProcCount(parseInt(e.target.value) || 1)} />
-                  <button onClick={addProc} className="px-3 py-1 bg-primary text-white rounded text-[10px] font-bold">+</button>
-                </div>
-                {form.procedures.map((p, i) => (
-                  <div key={i} className="flex justify-between items-center text-xs py-1.5 border-b border-slate-50">
-                    <span className="font-medium">{p.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">{p.count}x</span>
-                      <button onClick={() => setForm({ ...form, procedures: form.procedures.filter((_, j) => j !== i) })} className="text-slate-300 hover:text-error"><span className="material-symbols-outlined text-xs">close</span></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              </select>
             </div>
+          )}
 
-            <button onClick={handleCalculate} disabled={loading || !form.zip_code}
-              className="w-full mt-8 bg-primary text-white py-3 rounded font-headline font-bold shadow-md hover:bg-primary-container transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-              {loading ? <><span className="material-symbols-outlined animate-spin">progress_activity</span> Calculating...</> : 'Update Analysis'}
-            </button>
+          <div className="grid-12" style={{ gap: 20 }}>
+            <div className="field" style={{ gridColumn: 'span 3' }}>
+              <label className="field-label">ZIP code</label>
+              <input className="input" value={zip} onChange={(e) => setZip(e.target.value)} pattern="\d{5}" required />
+            </div>
+            <div className="field" style={{ gridColumn: 'span 3' }}>
+              <label className="field-label">Income level</label>
+              <select className="select" value={income} onChange={(e) => setIncome(e.target.value)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div className="field" style={{ gridColumn: 'span 3' }}>
+              <label className="field-label">Doctor visits / year</label>
+              <input className="input" type="number" min="0" max="100" value={visits} onChange={(e) => setVisits(e.target.value)} />
+            </div>
           </div>
 
-          {/* Savings Card */}
-          {result && cheapest && (
-            <div className="bg-primary text-white p-6 rounded-lg relative overflow-hidden">
-              <div className="relative z-10">
-                <span className="uppercase tracking-widest text-[10px] font-bold opacity-70">Projected Efficiency</span>
-                <div className="mt-2 mb-1 flex items-baseline gap-1">
-                  <span className="text-3xl font-headline font-extrabold">${Number(savings).toLocaleString()}</span>
-                  <span className="text-xs opacity-80 uppercase tracking-widest font-bold">Annual Delta</span>
-                </div>
-                <p className="text-xs leading-relaxed opacity-90">
-                  Switching to <span className="font-bold">{cheapest.plan_name}</span> saves the most in total out-of-pocket costs.
-                </p>
+          <div className="divider" />
+
+          <div className="grid-2">
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Prescriptions · annual fills</div>
+              <div className="input-group">
+                <input className="input" placeholder="Medication" value={rxName} onChange={(e) => setRxName(e.target.value)} />
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="365"
+                  style={{ maxWidth: 100 }}
+                  value={rxFills}
+                  onChange={(e) => setRxFills(e.target.value)}
+                />
+                <button type="button" className="btn" onClick={() => {
+                  if (!rxName.trim()) return;
+                  setRx([...rx, { name: rxName.trim(), fills_per_year: parseInt(rxFills, 10) || 12 }]);
+                  setRxName(''); setRxFills(12);
+                }}>Add</button>
               </div>
-              <div className="absolute -right-4 -bottom-4 opacity-10">
-                <span className="material-symbols-outlined text-8xl" style={{ fontVariationSettings: "'FILL' 1" }}>savings</span>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Results */}
-        <section className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-6">
-          {error && <div className="p-4 bg-error-container rounded"><p className="text-sm text-on-error-container">{error}</p></div>}
-
-          {!result && !loading && (
-            <div className="bg-surface-container-lowest border border-slate-100 rounded-lg p-12 text-center">
-              <span className="material-symbols-outlined text-5xl text-slate-200 mb-4">calculate</span>
-              <h3 className="font-headline font-bold text-lg text-slate-400 mb-2">Configure & Calculate</h3>
-              <p className="text-sm text-slate-400 max-w-md mx-auto">Set your utilization inputs on the left and click "Update Analysis" to see cost projections across plans.</p>
-            </div>
-          )}
-
-          {/* Plan Cards */}
-          {plans.length > 0 && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {plans.slice(0, 3).map((plan, idx) => {
-                  const premPct = plan.annual_premium / plan.total_annual_cost * 100
-                  const carePct = 100 - premPct
-                  return (
-                    <div key={plan.plan_id} className={`bg-surface-container-lowest p-5 rounded-lg shadow-sm ${idx === 0 ? 'border-2 border-primary relative' : 'border border-slate-100'}`}>
-                      {idx === 0 && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] px-3 py-1 rounded-full uppercase tracking-widest font-bold">Recommended</div>}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${idx === 0 ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-high text-slate-600'}`}>
-                            {plan.plan_type}
-                          </span>
-                          <h4 className="font-headline font-bold text-primary mt-2">{plan.plan_name}</h4>
-                        </div>
-                        <span className="text-xl font-headline font-extrabold text-primary">${plan.total_annual_cost.toLocaleString()}</span>
-                      </div>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500 uppercase tracking-widest font-medium">Premium</span>
-                          <span className="font-bold">${plan.annual_premium.toLocaleString()}</span>
-                        </div>
-                        <div className="w-full h-2 bg-surface-container-high rounded-full overflow-hidden flex">
-                          <div className="h-full bg-primary" style={{ width: `${premPct}%` }}></div>
-                          <div className="h-full bg-secondary" style={{ width: `${carePct}%` }}></div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500 uppercase tracking-widest font-medium">Care Costs</span>
-                          <span className="font-bold">${plan.annual_care_cost.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <button onClick={() => setExpanded(expanded === plan.plan_id ? null : plan.plan_id)}
-                        className="w-full py-2 border-t border-slate-100 text-[10px] font-bold text-primary uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
-                        {expanded === plan.plan_id ? 'Hide' : 'View'} Line Items
-                        <span className={`material-symbols-outlined text-sm transition-transform ${expanded === plan.plan_id ? 'rotate-180' : ''}`}>expand_more</span>
-                      </button>
-                      {expanded === plan.plan_id && (
-                        <div className="pt-4 border-t border-slate-50 space-y-2 text-xs">
-                          <div className="flex justify-between"><span className="text-slate-500">Doctor Visits</span><span className="font-bold">${plan.breakdown.doctor_visit_costs.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">Prescriptions</span><span className="font-bold">${plan.breakdown.prescription_costs.toLocaleString()}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">Procedures</span><span className="font-bold">${plan.breakdown.procedure_costs.toLocaleString()}</span></div>
-                          {plan.breakdown.oop_cap_applied && <div className="flex justify-between text-secondary font-bold"><span>OOP Cap Applied</span><span>Saved ${(plan.breakdown.total_before_oop_cap - plan.breakdown.final_care_cost).toLocaleString()}</span></div>}
-                          {plan.prescription_details?.map((rx, i) => (
-                            <div key={i} className="flex justify-between text-slate-400"><span>{rx.name} ({Math.round(rx.annual_cost / rx.cost_per_fill)}x)</span><span>${rx.annual_cost.toLocaleString()}/yr</span></div>
-                          ))}
-                        </div>
-                      )}
+              <div className="col" style={{ gap: 6, marginTop: 12 }}>
+                {rx.map((r, i) => (
+                  <div key={i} className="between" style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 6 }}>
+                    <div className="row" style={{ gap: 10 }}>
+                      <Icon name="pill" size={14} className="ink-4" />
+                      <span style={{ fontSize: 13.5 }}>{r.name}</span>
                     </div>
-                  )
-                })}
-              </div>
-
-              {/* Ranking Table */}
-              <div className="bg-surface-container-lowest rounded-lg border border-slate-100 overflow-hidden shadow-sm">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="font-headline font-bold text-primary">Full Comparison Ranking</h3>
-                </div>
-                <table className="w-full text-left">
-                  <thead className="bg-surface-container-low">
-                    <tr>
-                      <th className="px-6 py-4 uppercase tracking-widest text-[10px] font-bold text-slate-500">Plan</th>
-                      <th className="px-6 py-4 uppercase tracking-widest text-[10px] font-bold text-slate-500">Annual Premium</th>
-                      <th className="px-6 py-4 uppercase tracking-widest text-[10px] font-bold text-slate-500">Care Costs</th>
-                      <th className="px-6 py-4 uppercase tracking-widest text-[10px] font-bold text-slate-500 text-right">Total OOP</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {plans.map((plan, idx) => (
-                      <tr key={plan.plan_id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded ${idx === 0 ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'} text-[10px] flex items-center justify-center font-bold`}>{idx + 1}</span>
-                            <span className="font-headline font-bold text-sm">{plan.plan_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-sm font-medium">${plan.annual_premium.toLocaleString()}</td>
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                              <div className="h-full bg-secondary" style={{ width: `${(plan.annual_care_cost / (plans[plans.length - 1]?.total_annual_cost || 1)) * 100}%` }}></div>
-                            </div>
-                            <span className="text-xs font-bold text-secondary">${plan.annual_care_cost.toLocaleString()}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-right font-headline font-bold text-primary">${plan.total_annual_cost.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* AI Recommendation */}
-              {result.recommendation && (
-                <div className="relative overflow-hidden bg-primary-container text-white p-8 rounded-lg shadow-lg">
-                  <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <span className="material-symbols-outlined text-[100px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
+                    <span className="muted mono" style={{ fontSize: 11.5 }}>{r.fills_per_year}×/yr</span>
                   </div>
-                  <div className="relative z-10 flex gap-6 items-start">
-                    <div className="w-10 h-10 bg-on-primary-container rounded-full flex items-center justify-center text-primary-container shrink-0">
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Procedures · annual count</div>
+              <div className="input-group">
+                <input className="input" placeholder="Procedure" value={procName} onChange={(e) => setProcName(e.target.value)} />
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="52"
+                  style={{ maxWidth: 100 }}
+                  value={procCount}
+                  onChange={(e) => setProcCount(e.target.value)}
+                />
+                <button type="button" className="btn" onClick={() => {
+                  if (!procName.trim()) return;
+                  setProcs([...procs, { name: procName.trim(), count: parseInt(procCount, 10) || 1 }]);
+                  setProcName(''); setProcCount(1);
+                }}>Add</button>
+              </div>
+              <div className="col" style={{ gap: 6, marginTop: 12 }}>
+                {procs.map((p, i) => (
+                  <div key={i} className="between" style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 6 }}>
+                    <div className="row" style={{ gap: 10 }}>
+                      <Icon name="note" size={14} className="ink-4" />
+                      <span style={{ fontSize: 13.5 }}>{p.name}</span>
                     </div>
+                    <span className="muted mono" style={{ fontSize: 11.5 }}>{p.count}×/yr</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {error && <div className="notice" style={{ marginTop: 20, color: 'var(--neg)', borderColor: 'var(--neg)' }}>{error}</div>}
+
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
+            <button type="submit" className="btn accent" disabled={running}>
+              {running ? <><span className="loader" /> Calculating…</> : <><Icon name="calculator" size={14} /> Estimate cost</>}
+            </button>
+          </div>
+        </form>
+
+        {result && (
+          <>
+            {cheapest && (
+              <div className="card" style={{ marginBottom: 28, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
+                  <div style={{ padding: 28 }}>
+                    <div className="eyebrow" style={{ marginBottom: 10 }}>Best value</div>
+                    <h2 style={{ fontFamily: 'var(--serif)', fontSize: 26, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
+                      <em style={{ color: 'var(--accent)' }}>{cheapest.plan_name}</em> — {currency(cheapest.total_annual_cost)} projected for the year.
+                    </h2>
+                  </div>
+                  <div style={{ background: 'var(--bg-2)', borderLeft: '1px solid var(--line)', padding: 28 }}>
+                    <div className="eyebrow" style={{ marginBottom: 14 }}>Annual estimate</div>
+                    <div style={{ fontFamily: 'var(--serif)', fontSize: 44, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                      {currency(cheapest.total_annual_cost)}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+                      {currency(cheapest.annual_premium)} premium · {currency(cheapest.annual_care_cost)} care
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="section-head" style={{ marginTop: 0 }}><h2>All plans</h2></div>
+            <div className="col" style={{ gap: 16 }}>
+              {plans.map((p) => (
+                <div key={p.plan_id} className={`plan-card ${p === cheapest ? 'best' : ''}`}>
+                  {p === cheapest && <span className="best-tag">Cheapest</span>}
+                  <div className="between" style={{ alignItems: 'flex-start' }}>
                     <div>
-                      <span className="text-[10px] uppercase tracking-widest text-on-primary-container font-extrabold mb-2 block">AI Cost Analysis</span>
-                      <div className="text-slate-200 leading-relaxed whitespace-pre-wrap text-sm">{result.recommendation}</div>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 20, letterSpacing: '-0.01em' }}>{p.plan_name}</div>
+                      <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{p.plan_id}</div>
+                    </div>
+                    <div style={{ fontFamily: 'var(--serif)', fontSize: 28, letterSpacing: '-0.01em' }}>
+                      {currency(p.total_annual_cost)}
+                      <div className="muted" style={{ fontSize: 11, fontFamily: 'var(--mono)', marginTop: 4, textAlign: 'right' }}>annual</div>
                     </div>
                   </div>
+                  <div className="plan-metrics" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                    <div className="plan-metric"><div className="k">Premium</div><div className="v num">{currency(p.annual_premium)}</div></div>
+                    <div className="plan-metric"><div className="k">Visits</div><div className="v num">{currency(p.breakdown?.doctor_visit_costs)}</div></div>
+                    <div className="plan-metric"><div className="k">Rx</div><div className="v num">{currency(p.breakdown?.prescription_costs)}</div></div>
+                    <div className="plan-metric"><div className="k">Procedures</div><div className="v num">{currency(p.breakdown?.procedure_costs)}</div></div>
+                  </div>
+                  {p.breakdown?.oop_cap_applied && (
+                    <div className="notice" style={{ marginTop: 0 }}>
+                      Out-of-pocket cap applied. Costs above the cap aren't counted here.
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
+            </div>
 
-              {result.disclaimer && (
-                <div className="p-4 bg-surface-container-low rounded border border-outline-variant/20">
-                  <p className="text-[10px] text-on-surface-variant italic">{result.disclaimer}</p>
-                </div>
-              )}
-
-              <div className="text-center">
-                <button onClick={() => setResult(null)} className="text-primary font-bold text-sm hover:underline flex items-center gap-2 mx-auto">
-                  <span className="material-symbols-outlined text-sm">refresh</span> New Calculation
-                </button>
-              </div>
-            </>
-          )}
-        </section>
+            {result.disclaimer && <div className="notice" style={{ marginTop: 24 }}>{result.disclaimer}</div>}
+          </>
+        )}
       </div>
     </>
-  )
+  );
 }

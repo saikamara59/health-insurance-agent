@@ -430,7 +430,7 @@ class ClientUpdate(BaseModel):
     @classmethod
     def validate_income_level(cls, v: str | None) -> str | None:
         if v is not None and v not in {"low", "medium", "high"}:
-            raise ValueError(f"Income level must be one of: high, low, medium")
+            raise ValueError("Income level must be one of: high, low, medium")
         return v
 
 

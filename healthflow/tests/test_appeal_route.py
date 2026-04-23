@@ -126,7 +126,6 @@ def test_appeal_medical_advice_filtered(mock_agent_cls):
         "/appeal",
         json={"denial_text": SAMPLE_DENIAL_TEXT},
     )
-    data = response.json()
     # The harness filter_output should catch "you should take"
     # The recommendation is embedded in the response but filtered
     assert response.status_code == 200

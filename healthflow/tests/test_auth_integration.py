@@ -232,7 +232,6 @@ async def test_expired_token_returns_401(client):
         json={"email": "expired@example.com", "password": "securepass123"},
     )
     assert login_resp.status_code == 200
-    broker_id = login_resp.json().get("broker_id") or login_resp.json().get("sub")
 
     # Craft an already-expired access token
     expired_payload = {

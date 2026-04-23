@@ -1,0 +1,29 @@
+services:
+  backend:
+    environment:
+      - ANTHROPIC_API_KEY=test-key-not-used
+      - JWT_SECRET=test-secret
+      - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
+      - HEALTHFLOW_TEST_MODE=1
+    volumes:
+      - test-db:/data
+
+  seed:
+    build:
+      context: .
+      target: backend
+    environment:
+      - ANTHROPIC_API_KEY=test-key-not-used
+      - JWT_SECRET=test-secret
+      - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
+      - HEALTHFLOW_TEST_MODE=1
+      - PYTHONPATH=/app
+    volumes:
+      - test-db:/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: ["python", "scripts/seed_test_db.py"]
+
+volumes:
+  test-db:

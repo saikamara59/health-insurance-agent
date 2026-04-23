@@ -1,255 +1,361 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import api from '../api/client'
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import api from '../api/client';
+import TopBar from '../components/TopBar';
+import Icon from '../components/ui/Icon';
+import Stars from '../components/ui/Stars';
+import useLayout from '../components/ui/useLayout';
+
+function currency(v) {
+  if (v == null || Number.isNaN(v)) return '—';
+  return `$${Math.round(v).toLocaleString()}`;
+}
+
+function annualEstimate(plan) {
+  const premium = (plan.monthly_premium || 0) * 12;
+  const rxTotal = Object.values(plan.estimated_medication_costs || {}).reduce((s, v) => s + v, 0);
+  const procTotal = Object.values(plan.estimated_procedure_costs || {}).reduce((s, v) => s + v, 0);
+  return premium + rxTotal + procTotal + (plan.annual_deductible || 0) * 0.3;
+}
 
 export default function PlanComparisonPage() {
-  const navigate = useNavigate()
-  const [form, setForm] = useState({ zip_code: '', age: '', income_level: 'medium', medications: [], procedures: [] })
-  const [medInput, setMedInput] = useState('')
-  const [procInput, setProcInput] = useState('')
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const location = useLocation();
+  const { openMenu, openNotifications } = useLayout();
 
-  function addMed() { if (medInput.trim()) { setForm({ ...form, medications: [...form.medications, medInput.trim()] }); setMedInput('') } }
-  function addProc() { if (procInput.trim()) { setForm({ ...form, procedures: [...form.procedures, procInput.trim()] }); setProcInput('') } }
+  const preset = location.state?.client;
+  const [step, setStep] = useState('input');
+  const [clientId, setClientId] = useState(preset?.id || '');
+  const [clientOptions, setClientOptions] = useState([]);
+  const [zip, setZip] = useState(preset?.zip_code || '10001');
+  const [age, setAge] = useState(preset?.age || 67);
+  const [income, setIncome] = useState(preset?.income_level || 'medium');
+  const [rx, setRx] = useState(preset?.prescriptions || []);
+  const [rxInput, setRxInput] = useState('');
+  const [procInput, setProcInput] = useState('');
+  const [procs, setProcs] = useState(preset?.procedures || []);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
 
-  async function handleCompare() {
-    if (!form.zip_code || !form.age) return
-    setLoading(true); setError(''); setResult(null)
-    try {
-      const data = await api.post('/compare', {
-        zip_code: form.zip_code,
-        age: parseInt(form.age, 10),
-        income_level: form.income_level,
-        medications: form.medications,
-        procedures: form.procedures,
-      })
-      setResult(data)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+  useEffect(() => {
+    api.get('/clients').then((d) => setClientOptions(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  function applyClient(c) {
+    if (!c) return;
+    setClientId(c.id);
+    setZip(c.zip_code);
+    setAge(c.age);
+    setIncome(c.income_level);
+    setRx(c.prescriptions || []);
+    setProcs(c.procedures || []);
   }
 
-  const plans = result?.plans || []
-  const bestPlan = plans[0]
+  async function run() {
+    setError('');
+    setRunning(true);
+    try {
+      const data = await api.post('/compare', {
+        zip_code: zip,
+        age: parseInt(age, 10),
+        income_level: income,
+        medications: rx,
+        procedures: procs,
+      });
+      setResult(data);
+      setStep('results');
+      if (clientId) {
+        api.post('/history', {
+          client_id: clientId,
+          action_type: 'compare',
+          request_data: { zip_code: zip, age, income_level: income },
+          response_summary: { plans: data.plans?.length || 0, session_id: data.session_id },
+        }).catch(() => {});
+      }
+    } catch (err) {
+      setError(err.message || 'Comparison failed');
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const plans = result?.plans || [];
+  const annuals = plans.map(annualEstimate);
+  const cheapestIdx = annuals.length ? annuals.indexOf(Math.min(...annuals)) : -1;
+  const selectedClient = clientOptions.find((c) => c.id === clientId);
+
+  const rows = plans.length > 0
+    ? [
+        { k: 'Est. annual cost', vals: annuals, fmt: currency },
+        { k: 'Monthly premium', vals: plans.map((p) => p.monthly_premium), fmt: (v) => `$${v}` },
+        { k: 'Deductible', vals: plans.map((p) => p.annual_deductible), fmt: currency },
+        { k: 'Out-of-pocket max', vals: plans.map((p) => p.out_of_pocket_max), fmt: currency },
+      ]
+    : [];
 
   return (
     <>
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-10">
-        <div className="flex justify-between items-end mb-6">
+      <TopBar
+        crumbs={['Tools', 'Plan comparison']}
+        onMenuClick={openMenu}
+        onNotificationsClick={openNotifications}
+        action={
+          step === 'results' && (
+            <button className="btn" onClick={() => setStep('input')}>
+              <Icon name="settings" size={14} /> Edit inputs
+            </button>
+          )
+        }
+      />
+      <div className="page wide">
+        <div className="page-head">
           <div>
-            <h1 className="font-display text-4xl text-primary font-bold mb-2">Plan Comparison Results</h1>
-            <p className="text-on-surface-variant font-headline">Side-by-side Medicare Advantage plan analysis</p>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>
+              {selectedClient ? `For · ${selectedClient.full_name} · ${zip}` : `ZIP ${zip}`}
+            </div>
+            <h1 className="page-title">
+              {step === 'results' && cheapestIdx >= 0
+                ? <>Plans compared,<br /><em>one clear choice.</em></>
+                : <><em>Compare</em> Medicare Advantage plans.</>}
+            </h1>
+            <p className="page-sub">
+              Real-time CMS plan filings for the ZIP you enter, ranked by total cost given the client's medications
+              and expected procedures. Star rating is CMS 2026.
+            </p>
           </div>
         </div>
 
-        {/* Input Section */}
-        {!result && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Zip Code</span>
-              <input className="w-full bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-lg font-bold py-2 px-0"
-                placeholder="e.g. 10001" value={form.zip_code} onChange={(e) => setForm({ ...form, zip_code: e.target.value })} maxLength={5} />
+        {step === 'input' && (
+          <form
+            className="card card-pad"
+            style={{ padding: 32, marginBottom: 32 }}
+            onSubmit={(e) => { e.preventDefault(); run(); }}
+          >
+            {clientOptions.length > 0 && (
+              <div className="field" style={{ marginBottom: 20 }}>
+                <label className="field-label">Prefill from client (optional)</label>
+                <select
+                  className="select"
+                  value={clientId}
+                  onChange={(e) => {
+                    const c = clientOptions.find((x) => x.id === e.target.value);
+                    if (c) applyClient(c);
+                    else setClientId('');
+                  }}
+                >
+                  <option value="">— none —</option>
+                  {clientOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.full_name} · ZIP {c.zip_code}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid-12" style={{ gap: 20 }}>
+              <div className="field" style={{ gridColumn: 'span 3' }}>
+                <label className="field-label">ZIP code</label>
+                <input className="input" value={zip} onChange={(e) => setZip(e.target.value)} pattern="\d{5}" required />
+              </div>
+              <div className="field" style={{ gridColumn: 'span 3' }}>
+                <label className="field-label">Age</label>
+                <input className="input" type="number" value={age} onChange={(e) => setAge(e.target.value)} required />
+              </div>
+              <div className="field" style={{ gridColumn: 'span 3' }}>
+                <label className="field-label">Income level</label>
+                <select className="select" value={income} onChange={(e) => setIncome(e.target.value)}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div className="field" style={{ gridColumn: 'span 6' }}>
+                <label className="field-label">Medications</label>
+                <div className="input-group">
+                  <input
+                    className="input"
+                    placeholder="e.g. Metformin 500mg"
+                    value={rxInput}
+                    onChange={(e) => setRxInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                      }
+                    }}
+                  />
+                  <button type="button" className="btn" onClick={() => {
+                    if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
+                  }}>Add</button>
+                </div>
+                <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {rx.map((r, i) => (
+                    <span key={i} className="chip">
+                      {r}
+                      <button type="button" onClick={() => setRx(rx.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
+                        <Icon name="x" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="field" style={{ gridColumn: 'span 6' }}>
+                <label className="field-label">Expected procedures</label>
+                <div className="input-group">
+                  <input
+                    className="input"
+                    placeholder="e.g. Annual physical"
+                    value={procInput}
+                    onChange={(e) => setProcInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (procInput.trim()) { setProcs([...procs, procInput.trim()]); setProcInput(''); }
+                      }
+                    }}
+                  />
+                  <button type="button" className="btn" onClick={() => {
+                    if (procInput.trim()) { setProcs([...procs, procInput.trim()]); setProcInput(''); }
+                  }}>Add</button>
+                </div>
+                <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {procs.map((p, i) => (
+                    <span key={i} className="chip">
+                      {p}
+                      <button type="button" onClick={() => setProcs(procs.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
+                        <Icon name="x" size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Age</span>
-              <input type="number" className="w-full bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-lg font-bold py-2 px-0"
-                placeholder="e.g. 65" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} min={18} max={120} />
-            </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Income Level</span>
-              <select className="w-full bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-lg font-bold py-2 px-0"
-                value={form.income_level} onChange={(e) => setForm({ ...form, income_level: e.target.value })}>
-                <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
-              </select>
-            </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm md:col-span-1 flex flex-col justify-end">
-              <button onClick={handleCompare} disabled={loading || !form.zip_code || !form.age}
-                className="w-full bg-primary text-on-primary py-3 rounded font-bold text-sm shadow-md hover:bg-primary-container transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                {loading ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Comparing...</>
-                  : <><span className="material-symbols-outlined text-sm">compare_arrows</span> Compare Plans</>}
+
+            {error && (
+              <div className="notice" style={{ marginTop: 20, color: 'var(--neg)', borderColor: 'var(--neg)' }}>
+                {error}
+              </div>
+            )}
+
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: 20, gap: 10 }}>
+              <button type="submit" className="btn accent" disabled={running}>
+                {running ? <><span className="loader" /> Running…</> : <><Icon name="compare" size={14} /> Compare plans</>}
               </button>
             </div>
-          </div>
+          </form>
         )}
 
-        {/* Medications & Procedures Input */}
-        {!result && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-3 block">Medications</span>
-              <div className="flex gap-2 mb-3">
-                <input className="flex-1 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm py-2 px-0"
-                  placeholder="e.g. Metformin" value={medInput} onChange={(e) => setMedInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMed() } }} />
-                <button onClick={addMed} className="px-4 py-2 bg-primary text-white rounded text-xs font-bold">Add</button>
+        {step === 'results' && result && (
+          <>
+            {result.recommendation && (
+              <div className="card" style={{ marginBottom: 28, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
+                  <div style={{ padding: 28 }}>
+                    <div className="eyebrow" style={{ marginBottom: 10 }}>Recommendation</div>
+                    <p
+                      style={{
+                        fontFamily: 'var(--serif)',
+                        fontSize: 22,
+                        letterSpacing: '-0.01em',
+                        lineHeight: 1.35,
+                        maxWidth: 620,
+                      }}
+                    >
+                      {result.recommendation}
+                    </p>
+                  </div>
+                  {cheapestIdx >= 0 && (
+                    <div style={{ background: 'var(--bg-2)', borderLeft: '1px solid var(--line)', padding: 28 }}>
+                      <div className="eyebrow" style={{ marginBottom: 14 }}>Cheapest estimate</div>
+                      <div style={{ fontFamily: 'var(--serif)', fontSize: 44, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                        {currency(annuals[cheapestIdx])}
+                      </div>
+                      <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{plans[cheapestIdx].plan_name}</div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {form.medications.map((m, i) => (
-                  <span key={i} className="bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                    {m} <button onClick={() => setForm({ ...form, medications: form.medications.filter((_, j) => j !== i) })}><span className="material-symbols-outlined text-xs">close</span></button>
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-3 block">Procedures</span>
-              <div className="flex gap-2 mb-3">
-                <input className="flex-1 bg-surface-container-low border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-sm py-2 px-0"
-                  placeholder="e.g. MRI" value={procInput} onChange={(e) => setProcInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProc() } }} />
-                <button onClick={addProc} className="px-4 py-2 bg-primary text-white rounded text-xs font-bold">Add</button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {form.procedures.map((p, i) => (
-                  <span key={i} className="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                    {p} <button onClick={() => setForm({ ...form, procedures: form.procedures.filter((_, j) => j !== i) })}><span className="material-symbols-outlined text-xs">close</span></button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {error && <div className="p-4 bg-error-container rounded mb-8"><p className="text-sm text-on-error-container">{error}</p></div>}
+            <div className="grid-3">
+              {plans.map((p, i) => {
+                const isBest = i === cheapestIdx;
+                return (
+                  <div key={p.plan_id || i} data-testid="plan-row" className={`plan-card ${isBest ? 'best' : ''}`}>
+                    {isBest && <span className="best-tag">Best value</span>}
+                    <div>
+                      <div className="eyebrow">{p.plan_type}</div>
+                      <h3 style={{ fontFamily: 'var(--serif)', fontSize: 22, lineHeight: 1.2, marginTop: 6 }}>{p.plan_name}</h3>
+                      <div className="row" style={{ gap: 10, marginTop: 10 }}>
+                        <Stars value={p.star_rating} />
+                        <span className="muted mono" style={{ fontSize: 11 }}>
+                          {p.star_rating?.toFixed(1)} · {p.drug_coverage ? 'Rx included' : 'No Rx'}
+                        </span>
+                      </div>
+                    </div>
 
-        {/* Input Summary (after results) */}
-        {result && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Demographics</span>
-              <p className="text-xl font-headline font-bold text-primary">Age {form.age}</p>
-              <p className="text-sm text-on-surface-variant">Zip: {form.zip_code}</p>
+                    <div className="plan-metrics">
+                      <div className="plan-metric"><div className="k">Premium</div><div className="v num">${p.monthly_premium}<small>/mo</small></div></div>
+                      <div className="plan-metric"><div className="k">Deductible</div><div className="v num">{currency(p.annual_deductible)}</div></div>
+                      <div className="plan-metric"><div className="k">OOP max</div><div className="v num">{currency(p.out_of_pocket_max)}</div></div>
+                      <div className="plan-metric"><div className="k">Est. annual</div><div className="v num">{currency(annuals[i])}</div></div>
+                    </div>
+
+                    <div className="row" style={{ gap: 8, marginTop: 'auto' }}>
+                      <button className={`btn ${isBest ? 'accent' : ''}`} style={{ flex: 1 }}>
+                        {isBest ? 'Recommend' : 'Select'}
+                      </button>
+                      <button className="btn ghost icon" aria-label="More">
+                        <Icon name="dot3" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-2 block">Income</span>
-              <p className="text-xl font-headline font-bold text-primary capitalize">{form.income_level}</p>
-              <p className="text-sm text-on-surface-variant">{plans.length} plans compared</p>
-            </div>
-            <div className="bg-surface-container-lowest p-5 rounded border border-slate-100 shadow-sm md:col-span-2">
-              <span className="text-[10px] uppercase tracking-widest text-outline font-bold mb-3 block">Medical Profile</span>
-              <div className="flex flex-wrap gap-2">
-                {form.medications.map((m, i) => (
-                  <span key={i} className="bg-secondary-fixed text-on-secondary-fixed-variant px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">{m}</span>
-                ))}
-                {form.procedures.map((p, i) => (
-                  <span key={`p-${i}`} className="bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">{p}</span>
-                ))}
-                {form.medications.length === 0 && form.procedures.length === 0 && <span className="text-sm text-slate-400">None specified</span>}
-              </div>
-            </div>
-          </div>
+
+            {rows.length > 0 && (
+              <>
+                <div className="section-head" style={{ marginTop: 40 }}>
+                  <h2>Side by side</h2>
+                  <div className="after">Lower bars are better</div>
+                </div>
+                <div className="card card-pad">
+                  {rows.map((row, ri) => {
+                    const max = Math.max(...row.vals.map((v) => v || 0));
+                    return (
+                      <div key={ri} style={{ padding: '16px 0', borderBottom: ri < rows.length - 1 ? '1px dashed var(--line)' : 0 }}>
+                        <div className="between" style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 13 }}>{row.k}</div>
+                          <div className="muted mono" style={{ fontSize: 11 }}>{plans.length} plans</div>
+                        </div>
+                        {row.vals.map((v, i) => (
+                          <div key={i} className="cbar-row">
+                            <div className="row" style={{ gap: 8, minWidth: 0 }}>
+                              <span className={`risk-dot ${i === cheapestIdx ? '' : 'med'}`} style={i === cheapestIdx ? { background: 'var(--accent)' } : {}} />
+                              <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {plans[i].plan_name}
+                              </span>
+                            </div>
+                            <div className="cbar-track">
+                              <div
+                                className={`cbar-fill ${i === cheapestIdx ? '' : 'muted'}`}
+                                style={{ width: max === 0 ? '2%' : `${Math.max(2, ((v || 0) / max) * 100)}%` }}
+                              />
+                            </div>
+                            <div className="num mono" style={{ fontSize: 13, textAlign: 'right' }}>{row.fmt(v)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {result.disclaimer && <div className="notice" style={{ marginTop: 24 }}>{result.disclaimer}</div>}
+          </>
         )}
       </div>
-
-      {/* AI Recommendation */}
-      {result?.recommendation && (
-        <div className="max-w-7xl mx-auto mb-12">
-          <div className="relative overflow-hidden bg-primary-container text-white p-8 rounded-lg shadow-lg border border-primary/20">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <span className="material-symbols-outlined text-[120px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span>
-            </div>
-            <div className="relative z-10 flex gap-8 items-start">
-              <div className="shrink-0">
-                <div className="w-12 h-12 bg-on-primary-container rounded-full flex items-center justify-center text-primary-container">
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                </div>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-on-primary-container font-extrabold mb-2 block">AI Clinical Guidance</span>
-                <h2 className="font-display text-2xl mb-4">Recommendation</h2>
-                <div className="text-slate-200 max-w-3xl leading-relaxed whitespace-pre-wrap">
-                  {result.recommendation}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Plan Cards */}
-      {plans.length > 0 && (
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {plans.map((plan, idx) => (
-              <div key={plan.plan_id} className={`bg-surface-container-lowest rounded-lg shadow-sm hover:shadow-md transition-shadow ${idx === 0 ? 'border-2 border-primary ring-4 ring-primary/5 relative' : 'border border-slate-200'}`}>
-                {idx === 0 && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
-                    Best Clinical Value
-                  </div>
-                )}
-                <div className="p-6 border-b border-slate-100">
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{plan.plan_type}</p>
-                  <h3 className="font-headline font-bold text-lg leading-tight mt-1">{plan.plan_name}</h3>
-                  <p className="text-xs text-slate-400 mt-1">{plan.plan_id}</p>
-                </div>
-                <div className="divide-y divide-slate-50 text-center">
-                  <div className="h-16 flex flex-col justify-center px-6">
-                    <span className="text-[9px] text-outline font-bold uppercase mb-1">Monthly Premium</span>
-                    <span className={`font-headline font-extrabold text-xl ${idx === 0 ? 'text-primary' : 'text-slate-700'}`}>${plan.monthly_premium.toFixed(2)}</span>
-                  </div>
-                  <div className="h-14 flex flex-col justify-center px-6">
-                    <span className="text-[9px] text-outline font-bold uppercase mb-1">Deductible</span>
-                    <span className="font-medium">${plan.annual_deductible.toFixed(2)}</span>
-                  </div>
-                  <div className="h-14 flex flex-col justify-center px-6">
-                    <span className="text-[9px] text-outline font-bold uppercase mb-1">OOP Max</span>
-                    <span className="font-medium">${plan.out_of_pocket_max.toFixed(2)}</span>
-                  </div>
-                  <div className="h-14 flex flex-col justify-center px-6">
-                    <span className="text-[9px] text-outline font-bold uppercase mb-1">Star Rating</span>
-                    <div className="flex justify-center text-yellow-500">
-                      {Array.from({ length: 5 }, (_, i) => (
-                        <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: `'FILL' ${i < Math.floor(plan.star_rating) ? 1 : 0}` }}>star</span>
-                      ))}
-                      <span className="text-xs text-slate-500 ml-1">{plan.star_rating}</span>
-                    </div>
-                  </div>
-                  {plan.estimated_medication_costs && Object.keys(plan.estimated_medication_costs).length > 0 && (
-                    <div className="px-6 py-3">
-                      <span className="text-[9px] text-outline font-bold uppercase mb-2 block">Drug Costs</span>
-                      {Object.entries(plan.estimated_medication_costs).map(([drug, cost]) => (
-                        <div key={drug} className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-600">{drug}</span>
-                          <span className="font-bold">${cost.toFixed(2)}/mo</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {plan.estimated_procedure_costs && Object.keys(plan.estimated_procedure_costs).length > 0 && (
-                    <div className="px-6 py-3">
-                      <span className="text-[9px] text-outline font-bold uppercase mb-2 block">Procedures</span>
-                      {Object.entries(plan.estimated_procedure_costs).map(([proc, cost]) => (
-                        <div key={proc} className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-600">{proc}</span>
-                          <span className="font-bold">${cost.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Disclaimer */}
-      {result?.disclaimer && (
-        <div className="max-w-7xl mx-auto mt-8 p-4 bg-surface-container-low rounded border border-outline-variant/20">
-          <p className="text-[10px] text-on-surface-variant italic">{result.disclaimer}</p>
-        </div>
-      )}
-
-      {/* Reset button */}
-      {result && (
-        <div className="max-w-7xl mx-auto mt-8 text-center">
-          <button onClick={() => setResult(null)} className="text-primary font-bold text-sm hover:underline flex items-center gap-2 mx-auto">
-            <span className="material-symbols-outlined text-sm">refresh</span> Run New Comparison
-          </button>
-        </div>
-      )}
     </>
-  )
+  );
 }
