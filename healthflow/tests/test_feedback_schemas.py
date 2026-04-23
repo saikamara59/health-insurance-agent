@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from healthflow.models.schemas import FeedbackCreate, FeedbackResponse, AgentFeedbackStats
+from healthflow.models.schemas import FeedbackCreate, AgentFeedbackStats
 
 
 def test_feedback_create_valid():

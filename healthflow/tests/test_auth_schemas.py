@@ -53,9 +53,9 @@ def test_broker_response():
 
 
 def test_login_request():
-    l = LoginRequest(email="broker@example.com", password="securepass123")
-    assert l.email == "broker@example.com"
-    assert l.password == "securepass123"
+    req = LoginRequest(email="broker@example.com", password="securepass123")
+    assert req.email == "broker@example.com"
+    assert req.password == "securepass123"
 
 
 def test_token_response():

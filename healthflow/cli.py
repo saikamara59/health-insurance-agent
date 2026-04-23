@@ -196,7 +196,7 @@ def calculate(session_id: str, zip_code: str, income: str, doctor_visits: int, p
         click.echo(f"  Annual Premium:    ${plan['annual_premium']:>10,.2f}")
         click.echo(f"  Annual Care Cost:  ${plan['annual_care_cost']:>10,.2f}")
         click.echo(f"  TOTAL ANNUAL COST: ${plan['total_annual_cost']:>10,.2f}")
-        click.echo(f"  ---")
+        click.echo("  ---")
         click.echo(f"  Doctor Visits:     ${b['doctor_visit_costs']:>10,.2f}")
         click.echo(f"  Prescriptions:     ${b['prescription_costs']:>10,.2f}")
         click.echo(f"  Procedures:        ${b['procedure_costs']:>10,.2f}")
