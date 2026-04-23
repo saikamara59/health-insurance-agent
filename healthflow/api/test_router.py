@@ -37,10 +37,10 @@ async def reset_db() -> dict:
     """
     async with _reset_lock:
         async with async_session_factory() as session:
+            # Single transaction: wipe + re-seed commit atomically so parallel
+            # workers never observe a broker-less intermediate state.
             for table in _TABLES_TO_CLEAR:
                 await session.execute(delete(table))
-            await session.commit()
-
             await seed_db(session)
             await session.commit()
     return {"status": "reset"}

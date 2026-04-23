@@ -255,6 +255,7 @@ React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → 
 | `DATABASE_URL` | `sqlite+aiosqlite:///healthflow.db` | Database connection string |
 | `JWT_SECRET` | dev default | JWT signing secret (change in production) |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection (optional) |
+| `HEALTHFLOW_TEST_MODE` | unset | **Test-only.** When `1`, registers `/__test/reset` and short-circuits Anthropic calls to deterministic stubs. Never set this in production. |
 
 ---
 
@@ -291,13 +292,27 @@ docker compose down                 # Stop everything
 ## Testing
 
 ```bash
-make test           # 407 tests, ~22 seconds
+make test           # ~429 backend tests, ~25 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
 make check          # Full CI gate: lint + tests + frontend build
 ```
 
-**407 tests** covering: auth, client CRUD, all 5 AI agents, RLHF feedback system, reward model, prompt updater, A/B testing, real plan/drug databases, PHI redaction, denial parsing, cost modeling, provider caching, API routes, integration flows.
+Backend pytest covers: auth, client CRUD, all 5 AI agents, RLHF feedback system, reward model, prompt updater, A/B testing, real plan/drug databases, PHI redaction, denial parsing, cost modeling, provider caching, API routes, integration flows.
+
+### Frontend E2E Tests (Playwright)
+
+End-to-end tests run the real backend (Dockerized) against Chrome, Firefox, and Safari via Playwright. The test stack gates a `POST /__test/reset` endpoint behind `HEALTHFLOW_TEST_MODE=1` and seeds a deterministic broker + clients before each test. AI agents return deterministic stub responses in test mode so tests don't depend on a live Anthropic API key.
+
+```bash
+cd frontend
+npm install
+npx playwright install                 # one-time: download browsers
+npm run test:e2e                       # runs docker stack + tests + teardown
+npm run test:e2e:ui                    # interactive debugger UI
+```
+
+`global-setup.js` brings up `docker-compose.yml + docker-compose.test.yml` and `global-teardown.js` tears it down (including volumes). Auth is seeded per-test via an API login helper that writes `hf_token`/`hf_refresh` into `sessionStorage` before page load — see `frontend/tests/fixtures/index.js`.
 
 ---
 

@@ -106,3 +106,25 @@ def test_agent_includes_cost_data_when_provided(mock_anthropic):
     user_msg = call_kwargs.kwargs["messages"][0]["content"]
     assert "Metformin" in user_msg
     assert "MRI" in user_msg
+
+
+@patch("healthflow.agents.comparison_agent.anthropic")
+def test_agent_stubs_anthropic_call_in_test_mode(mock_anthropic, monkeypatch):
+    """In HEALTHFLOW_TEST_MODE, recommend() must NOT call the Anthropic API.
+
+    The e2e docker stack runs with a fake API key; without a stub path,
+    /compare returns 500 because the API rejects the key.
+    """
+    monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
+    mock_client = MagicMock()
+    mock_anthropic.Anthropic.return_value = mock_client
+
+    agent = ComparisonAgent()
+    result = agent.recommend(
+        plans=SAMPLE_PLANS,
+        age=65,
+        income_level="low",
+    )
+
+    assert isinstance(result, str) and result
+    mock_client.messages.create.assert_not_called()

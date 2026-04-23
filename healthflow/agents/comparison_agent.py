@@ -1,7 +1,16 @@
+import os
+
 import anthropic
 
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanSummary
+
+# Deterministic stub for the e2e docker stack, which runs with a fake Anthropic
+# API key. Returned verbatim when HEALTHFLOW_TEST_MODE=1.
+_TEST_MODE_RECOMMENDATION = (
+    "Plans are ranked by total estimated cost given your profile. "
+    "Review the list for premium, deductible, and star-rating differences."
+)
 
 SYSTEM_PROMPT = (
     "You are a health insurance plan comparison assistant. Your role is to compare "
@@ -26,6 +35,13 @@ class ComparisonAgent:
         medications: list[str] | None = None,
         procedures: list[str] | None = None,
     ) -> str:
+        if os.environ.get("HEALTHFLOW_TEST_MODE") == "1":
+            self.audit.log(
+                "recommendation_generated",
+                {"length": len(_TEST_MODE_RECOMMENDATION), "stubbed": True},
+            )
+            return _TEST_MODE_RECOMMENDATION
+
         user_prompt = self._build_prompt(plans, age, income_level, medications, procedures)
 
         self.audit.log("tool_called", {"tool": "claude_api", "model": "claude-sonnet-4-6"})
