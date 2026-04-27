@@ -46,5 +46,8 @@ async def reset_db(body: ResetRequest) -> dict:
             await session.execute(
                 delete(Feedback).where(Feedback.broker_id == broker.id)
             )
+            # PromptVariant is intentionally not wiped: it is a global table
+            # (no broker_id column) — wiping it per-worker would destroy rows
+            # owned by other workers.
             await session.commit()
     return {"status": "reset", "worker_id": body.worker_id}
