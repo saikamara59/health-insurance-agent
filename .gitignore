@@ -22,3 +22,6 @@ healthflow.log
 frontend/playwright-report/
 frontend/test-results/
 frontend/playwright/.cache/
+
+# Worktrees
+.worktrees/
