@@ -50,10 +50,10 @@ POST /__test/reset
 body: { "worker_id": "e2e-worker-3" }
 ```
 
-- Validate `worker_id` matches `^e2e-worker-\d+$`. Reject with 400 otherwise. There is no way to call this endpoint without a scope — accidental global wipes are impossible.
+- Validate `worker_id` matches `^e2e-worker-\d+$`. Reject with 422 (Pydantic validation error) otherwise. There is no way to call this endpoint without a scope — accidental global wipes are impossible.
 - In a single transaction (still under the existing `_reset_lock` for SQLite write safety):
   1. Look up the broker by deterministic email `{worker_id}@healthflow.test`. If missing, create it (lazy provisioning).
-  2. Delete `Feedback`, `ActionHistory`, `PromptVariant`, `Client` rows owned (transitively) by that broker. **Do not** touch the `Broker` row — keep it stable so JWTs issued to it stay valid across resets.
+  2. Delete `Feedback`, `ActionHistory`, `Client` rows owned (transitively) by that broker. **Do not** touch the `Broker` row — keep it stable so JWTs issued to it stay valid across resets. `PromptVariant` is intentionally excluded — it is a global table (no `broker_id` column), so wiping it per-worker would destroy rows owned by other workers.
   3. Re-seed the canonical client set, owned by this broker.
 
 The `_reset_lock` stays. SQLite writes are still single-writer at the engine level, so serializing the write transaction is correct. What we're removing is the cross-worker data wipe, not the write serialization.
@@ -152,8 +152,8 @@ New unit tests for `test_router.py`:
 - `POST /__test/reset` with valid `worker_id` → 200, broker created, only that broker's clients exist
 - Same call twice → idempotent (no duplicate clients)
 - Reset for worker 0 → reset for worker 1 → worker 0's data still intact (the actual isolation property)
-- `POST /__test/reset` with no body → 400
-- `POST /__test/reset` with malformed `worker_id` → 400
+- `POST /__test/reset` with no body → 422
+- `POST /__test/reset` with malformed `worker_id` → 422
 
 ### 2. API audit verification
 
