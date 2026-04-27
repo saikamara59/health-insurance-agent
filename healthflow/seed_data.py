@@ -1,19 +1,19 @@
-"""Canonical test seed data and DB-direct seeder for the e2e test stack.
+"""Per-worker test seed: idempotently provisions a worker's Broker + canonical clients.
 
-Used by `healthflow/api/test_router.py`'s reset endpoint. Distinct from the
-top-level `seed.py` (which is an HTTP-based broker tool).
+Used by `healthflow/api/test_router.py`'s scoped reset endpoint. The broker is
+sticky across resets (we only ever create it, never delete) so JWTs issued to
+it stay valid. Clients are wiped and re-inserted on each call.
+
+Distinct from the top-level `seed.py` (an HTTP-based broker tool).
 """
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from healthflow.auth.security import hash_password
 from healthflow.database.models import Broker, Client
 
 
-TEST_BROKER = {
-    "email": "broker@healthflow.test",
-    "password": "TestBroker123!",
-    "full_name": "E2E Test Broker",
-}
+WORKER_PASSWORD = "TestWorker123!"
 
 TEST_CLIENTS = [
     {
@@ -46,29 +46,48 @@ TEST_CLIENTS = [
 ]
 
 
-async def seed_db(session: AsyncSession) -> None:
-    """Insert TEST_BROKER and TEST_CLIENTS into a fresh schema.
+def worker_email(worker_id: str) -> str:
+    return f"{worker_id}@healthflow.test"
+
+
+def _worker_full_name(worker_id: str) -> str:
+    suffix = worker_id.removeprefix("e2e-worker-")
+    return f"E2E Worker {suffix}"
+
+
+async def seed_for_worker(session: AsyncSession, worker_id: str) -> Broker:
+    """Get-or-create the worker's broker, wipe its clients, re-insert canonical set.
 
     Caller is responsible for committing.
     """
-    broker = Broker(
-        email=TEST_BROKER["email"],
-        hashed_password=hash_password(TEST_BROKER["password"]),
-        full_name=TEST_BROKER["full_name"],
-    )
-    session.add(broker)
-    await session.flush()
+    email = worker_email(worker_id)
+    broker = (
+        await session.execute(select(Broker).where(Broker.email == email))
+    ).scalar_one_or_none()
+
+    if broker is None:
+        broker = Broker(
+            email=email,
+            hashed_password=hash_password(WORKER_PASSWORD),
+            full_name=_worker_full_name(worker_id),
+        )
+        session.add(broker)
+        await session.flush()
+
+    await session.execute(delete(Client).where(Client.broker_id == broker.id))
 
     for client_data in TEST_CLIENTS:
-        client = Client(
-            broker_id=broker.id,
-            full_name=client_data["full_name"],
-            zip_code=client_data["zip_code"],
-            age=client_data["age"],
-            income_level=client_data["income_level"],
-            doctors=client_data["doctors"],
-            prescriptions=client_data["prescriptions"],
-            procedures=client_data["procedures"],
+        session.add(
+            Client(
+                broker_id=broker.id,
+                full_name=client_data["full_name"],
+                zip_code=client_data["zip_code"],
+                age=client_data["age"],
+                income_level=client_data["income_level"],
+                doctors=client_data["doctors"],
+                prescriptions=client_data["prescriptions"],
+                procedures=client_data["procedures"],
+            )
         )
-        session.add(client)
     await session.flush()
+    return broker
