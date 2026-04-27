@@ -5,7 +5,6 @@ from sqlalchemy import select
 from healthflow.database.models import Broker, Client
 from healthflow.seed_data import (
     TEST_CLIENTS,
-    WORKER_PASSWORD,
     seed_for_worker,
     worker_email,
 )
