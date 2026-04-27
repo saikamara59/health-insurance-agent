@@ -40,7 +40,7 @@ async def test_reset_endpoint_returns_404_when_test_mode_off(monkeypatch, db_ses
     monkeypatch.delenv("HEALTHFLOW_TEST_MODE", raising=False)
     client_, app = _build_client(db_session_factory)
     try:
-        response = await client_.post("/__test/reset")
+        response = await client_.post("/__test/reset", json={"worker_id": "e2e-worker-0"})
         assert response.status_code == 404
     finally:
         await client_.aclose()
@@ -48,13 +48,37 @@ async def test_reset_endpoint_returns_404_when_test_mode_off(monkeypatch, db_ses
 
 
 @pytest.mark.anyio
-async def test_reset_endpoint_works_when_test_mode_on(monkeypatch, db_session_factory):
+async def test_reset_endpoint_returns_200_with_valid_worker_id(monkeypatch, db_session_factory):
+    monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
+    client_, app = _build_client(db_session_factory)
+    try:
+        response = await client_.post("/__test/reset", json={"worker_id": "e2e-worker-0"})
+        assert response.status_code == 200
+        assert response.json() == {"status": "reset", "worker_id": "e2e-worker-0"}
+    finally:
+        await client_.aclose()
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_reset_endpoint_rejects_missing_body(monkeypatch, db_session_factory):
     monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
     client_, app = _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset")
-        assert response.status_code == 200
-        assert response.json() == {"status": "reset"}
+        assert response.status_code == 422
+    finally:
+        await client_.aclose()
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_reset_endpoint_rejects_malformed_worker_id(monkeypatch, db_session_factory):
+    monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
+    client_, app = _build_client(db_session_factory)
+    try:
+        response = await client_.post("/__test/reset", json={"worker_id": "not-a-worker"})
+        assert response.status_code == 422
     finally:
         await client_.aclose()
         app.dependency_overrides.clear()

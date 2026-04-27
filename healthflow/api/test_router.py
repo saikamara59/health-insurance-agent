@@ -1,46 +1,50 @@
-"""Test-only router. Wipes and re-seeds the DB.
+"""Test-only router. Scoped reset for per-worker e2e isolation.
 
 Only registered when HEALTHFLOW_TEST_MODE=1. Never expose in production.
 """
 import asyncio
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 from sqlalchemy import delete
 
 from healthflow.database.config import async_session_factory
 from healthflow.database.models import (
     ActionHistory,
-    Broker,
-    Client,
     Feedback,
-    PromptVariant,
 )
-from healthflow.seed_data import seed_db
+from healthflow.seed_data import seed_for_worker
 
 
 test_router = APIRouter(prefix="/__test", tags=["test"])
 
-# Serialize concurrent resets — Playwright fires them in parallel across browsers,
-# and SQLite doesn't tolerate concurrent writes well.
+# SQLite is single-writer; serialize the reset transaction to avoid
+# `database is locked` errors when many workers reset concurrently.
 _reset_lock = asyncio.Lock()
 
-# Tables in dependency order (children before parents) for safe DELETE.
-_TABLES_TO_CLEAR = [Feedback, ActionHistory, PromptVariant, Client, Broker]
+
+class ResetRequest(BaseModel):
+    worker_id: str = Field(..., pattern=r"^e2e-worker-\d+$")
 
 
 @test_router.post("/reset")
-async def reset_db() -> dict:
-    """Delete all rows from app tables, then re-seed with TEST_BROKER + TEST_CLIENTS.
+async def reset_db(body: ResetRequest) -> dict:
+    """Wipe and re-seed only the requesting worker's broker-scoped data.
 
-    Uses DELETE rather than DROP/CREATE so we don't fight SQLite connection
-    pool state or transaction isolation around DDL.
+    The broker itself is sticky (created once, never deleted) so JWTs stay
+    valid across resets. Client/ActionHistory/Feedback rows owned by this
+    broker are deleted and the canonical client set is re-inserted.
     """
     async with _reset_lock:
         async with async_session_factory() as session:
-            # Single transaction: wipe + re-seed commit atomically so parallel
-            # workers never observe a broker-less intermediate state.
-            for table in _TABLES_TO_CLEAR:
-                await session.execute(delete(table))
-            await seed_db(session)
+            broker = await seed_for_worker(session, body.worker_id)
+            # seed_for_worker already wiped + re-inserted Client rows; also
+            # wipe ActionHistory and Feedback rows owned by this broker.
+            await session.execute(
+                delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
+            )
+            await session.execute(
+                delete(Feedback).where(Feedback.broker_id == broker.id)
+            )
             await session.commit()
-    return {"status": "reset"}
+    return {"status": "reset", "worker_id": body.worker_id}
