@@ -4,11 +4,8 @@ export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/global-setup.js',
   globalTeardown: './tests/global-teardown.js',
-  // Shared backend + single SQLite file means parallel workers race on
-  // /__test/reset (one worker wipes another's just-created row). Serialize
-  // until per-worker DB isolation lands.
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: true,
+  workers: process.env.CI ? 4 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
