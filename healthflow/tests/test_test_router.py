@@ -6,7 +6,7 @@ a fresh AsyncClient against the reloaded app. We can't reuse the shared
 
 Note: this suite covers env-gating and that the endpoint returns 200.
 The actual seeding correctness is covered by:
-  - healthflow/tests/test_seed_data.py (seed_db unit tests)
+  - healthflow/tests/test_seed_data.py (seed_for_worker unit tests)
   - the e2e test stack (frontend/tests/e2e/) which exercises the seeded
     broker via real login
 

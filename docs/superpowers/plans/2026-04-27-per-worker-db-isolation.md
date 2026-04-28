@@ -685,9 +685,9 @@ async function resetForWorker(api, workerId, requester = fetch) {
 
 export const test = base.extend({
   // Per-worker broker identity (sticky across all tests on this worker).
-  workerBroker: [async ({}, use, testInfo) => {
-    await use(workerBroker(testInfo.parallelIndex))
-  }, { scope: 'test' }],
+  workerBroker: [async ({}, use, workerInfo) => {
+    await use(workerBroker(workerInfo.parallelIndex))
+  }, { scope: 'worker' }],
 
   // Auto-reset this worker's broker-scoped data before each test.
   page: async ({ page, baseURL, workerBroker }, use) => {
