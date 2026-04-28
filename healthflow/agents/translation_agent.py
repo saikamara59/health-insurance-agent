@@ -1,5 +1,6 @@
 import anthropic
 
+from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import DocumentSection
 
@@ -27,17 +28,17 @@ class TranslationAgent:
 
         self.audit.log(
             "tool_called",
-            {"tool": "claude_api", "model": "claude-sonnet-4-6", "task": "translate"},
+            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "translate"},
         )
 
         response = self.client.messages.create(
-            model="claude-sonnet-4-6",
+            model=CLAUDE_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
 
-        answer = response.content[0].text
+        answer = extract_text(response)
         self.audit.log("recommendation_generated", {"length": len(answer), "task": "translate"})
         return answer, section_titles
 

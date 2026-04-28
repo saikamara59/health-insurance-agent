@@ -2,6 +2,7 @@ import os
 
 import anthropic
 
+from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanSummary
 
@@ -44,16 +45,16 @@ class ComparisonAgent:
 
         user_prompt = self._build_prompt(plans, age, income_level, medications, procedures)
 
-        self.audit.log("tool_called", {"tool": "claude_api", "model": "claude-sonnet-4-6"})
+        self.audit.log("tool_called", {"tool": "claude_api", "model": CLAUDE_MODEL})
 
         response = self.client.messages.create(
-            model="claude-sonnet-4-6",
+            model=CLAUDE_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
 
-        recommendation = response.content[0].text
+        recommendation = extract_text(response)
         self.audit.log("recommendation_generated", {"length": len(recommendation)})
         return recommendation
 

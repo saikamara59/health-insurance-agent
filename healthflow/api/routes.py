@@ -258,8 +258,7 @@ def generate_appeal(request: AppealRequest):
         request.additional_context,
     )
 
-    # Filter Claude's recommendation through the harness (side effects: audit log)
-    harness.filter_output(raw_recommendation)
+    refined_recommendation = harness.filter_output(raw_recommendation)
 
     session_id = str(uuid.uuid4())
     session_store.save(session_id, {
@@ -273,6 +272,7 @@ def generate_appeal(request: AppealRequest):
         denial_analysis=analysis,
         coverage_argument=argument,
         appeal_letter=appeal_letter,
+        refined_recommendation=refined_recommendation,
         disclaimer=APPEAL_DISCLAIMER,
     )
 

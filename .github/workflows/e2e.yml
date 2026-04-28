@@ -25,21 +25,13 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Build & start docker stack
-        env:
-          ANTHROPIC_API_KEY: test-key-not-used
-          JWT_SECRET: test-secret
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --wait
-
       - name: Run Playwright
         working-directory: frontend
         env:
           CI: true
+          ANTHROPIC_API_KEY: test-key-not-used
+          JWT_SECRET: test-secret
         run: npm run test:e2e
-
-      - name: Tear down docker stack
-        if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml down -v --remove-orphans
 
       - name: Upload Playwright report on failure
         if: failure()
