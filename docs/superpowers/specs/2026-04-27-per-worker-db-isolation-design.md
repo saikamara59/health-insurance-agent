@@ -33,7 +33,7 @@ Each Playwright worker derives a stable identity from `testInfo.parallelIndex`:
 ```
 worker_id: "e2e-worker-{N}"
 email:     "e2e-worker-{N}@healthflow.test"
-password:  "test-password"
+password:  "TestWorker123!"
 broker:    lazily provisioned on first reset for this worker_id
 ```
 
@@ -97,7 +97,7 @@ export function workerBroker(workerIndex) {
   return {
     workerId: id,
     email:    `${id}@healthflow.test`,
-    password: 'test-password',
+    password: 'TestWorker123!',
   }
 }
 ```
