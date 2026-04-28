@@ -15,7 +15,7 @@ async function resetForWorker(api, workerId, requester = fetch) {
   })
   const ok = typeof res.ok === 'function' ? res.ok() : res.ok
   if (!ok) {
-    const text = typeof res.text === 'function' ? await res.text() : await res.text()
+    const text = await res.text()
     const status = typeof res.status === 'function' ? res.status() : res.status
     throw new Error(`DB reset failed: ${status} ${text}`)
   }
@@ -23,9 +23,9 @@ async function resetForWorker(api, workerId, requester = fetch) {
 
 export const test = base.extend({
   // Per-worker broker identity (sticky across all tests on this worker).
-  workerBroker: [async ({}, use, testInfo) => {
-    await use(workerBroker(testInfo.parallelIndex))
-  }, { scope: 'test' }],
+  workerBroker: [async ({}, use, workerInfo) => {
+    await use(workerBroker(workerInfo.parallelIndex))
+  }, { scope: 'worker' }],
 
   // Auto-reset this worker's broker-scoped data before each test.
   page: async ({ page, baseURL, workerBroker }, use) => {
