@@ -1,18 +1,17 @@
 import { test, expect } from '../fixtures'
-import { broker } from '../fixtures/test-users'
 
-test('broker can log in and reach the dashboard', async ({ page }) => {
+test('broker can log in and reach the dashboard', async ({ page, workerBroker }) => {
   await page.goto('/login')
-  await page.getByLabel(/work email/i).fill(broker.email)
-  await page.getByLabel(/credentials/i).fill(broker.password)
+  await page.getByLabel(/work email/i).fill(workerBroker.email)
+  await page.getByLabel(/credentials/i).fill(workerBroker.password)
   await page.getByRole('button', { name: /authenticate/i }).click()
   await expect(page).toHaveURL('/')
   await expect(page.getByRole('heading', { name: /good morning/i })).toBeVisible()
 })
 
-test('invalid credentials show an error', async ({ page }) => {
+test('invalid credentials show an error', async ({ page, workerBroker }) => {
   await page.goto('/login')
-  await page.getByLabel(/work email/i).fill(broker.email)
+  await page.getByLabel(/work email/i).fill(workerBroker.email)
   await page.getByLabel(/credentials/i).fill('wrong-password')
   await page.getByRole('button', { name: /authenticate/i }).click()
   // api/client.js throws `Unauthorized` on 401 before reading the detail payload,

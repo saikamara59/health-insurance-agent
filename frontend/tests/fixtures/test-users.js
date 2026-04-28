@@ -1,4 +1,8 @@
-export const broker = {
-  email: 'broker@healthflow.test',
-  password: 'TestBroker123!',
+export function workerBroker(workerIndex) {
+  const id = `e2e-worker-${workerIndex}`
+  return {
+    workerId: id,
+    email: `${id}@healthflow.test`,
+    password: 'TestWorker123!',
+  }
 }
