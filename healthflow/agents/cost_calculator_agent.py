@@ -1,5 +1,6 @@
 import anthropic
 
+from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanCostResult, PlanSummary, UsageInput
 from healthflow.tools.cost_modeler import CostModeler
@@ -30,17 +31,17 @@ class CostCalculatorAgent:
 
         self.audit.log(
             "tool_called",
-            {"tool": "claude_api", "model": "claude-sonnet-4-6", "task": "calculate"},
+            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "calculate"},
         )
 
         response = self.client.messages.create(
-            model="claude-sonnet-4-6",
+            model=CLAUDE_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
 
-        recommendation = response.content[0].text
+        recommendation = extract_text(response)
         self.audit.log(
             "recommendation_generated",
             {"length": len(recommendation), "task": "calculate"},

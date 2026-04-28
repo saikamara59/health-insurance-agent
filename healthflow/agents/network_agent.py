@@ -1,5 +1,6 @@
 import anthropic
 
+from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import (
     FormularyResult,
@@ -116,13 +117,16 @@ class NetworkAgent:
     def _get_recommendation(self, plan_results: list[PlanNetworkResult]) -> str:
         user_prompt = self._build_prompt(plan_results)
 
-        self.audit.log("claude_called", {"tool": "network_agent"})
+        self.audit.log(
+            "tool_called",
+            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "network_verify"},
+        )
 
         response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=CLAUDE_MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
 
-        return response.content[0].text
+        return extract_text(response)

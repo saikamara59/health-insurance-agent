@@ -2,6 +2,20 @@ import re
 
 from healthflow.logs.audit import AuditLogger
 
+CLAUDE_MODEL = "claude-sonnet-4-6"
+
+
+def extract_text(response) -> str:
+    """Pull the first text block out of an Anthropic Messages response.
+
+    Skips non-text content blocks (e.g. tool_use) and tolerates empty content.
+    """
+    for block in getattr(response, "content", None) or []:
+        text = getattr(block, "text", None)
+        if text:
+            return text
+    return ""
+
 
 class ValidationError(Exception):
     pass

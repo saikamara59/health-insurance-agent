@@ -251,6 +251,7 @@ class AppealResponse(BaseModel):
     denial_analysis: DenialAnalysis
     coverage_argument: CoverageArgument
     appeal_letter: str
+    refined_recommendation: str
     disclaimer: str
 
 

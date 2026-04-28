@@ -97,6 +97,7 @@ def test_appeal_response_full():
         denial_analysis=da,
         coverage_argument=ca,
         appeal_letter="Dear Appeals Committee...",
+        refined_recommendation="Consider requesting peer-to-peer review.",
         disclaimer="For educational purposes only.",
     )
     assert resp.session_id == "abc-123"
