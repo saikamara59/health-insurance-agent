@@ -28,7 +28,7 @@ async def _login(client: AsyncClient, email: str, password: str = "TestWorker123
     return res.json()["access_token"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_broker_cannot_read_other_brokers_clients(client, db_session):
     broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
     broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
@@ -52,12 +52,13 @@ async def test_broker_cannot_read_other_brokers_clients(client, db_session):
     assert res.status_code == 200
     names = [c["full_name"] for c in res.json()]
     assert "A's Only Client" not in names
+    assert names == [], f"Broker B should have zero clients but got: {names}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_broker_cannot_read_other_brokers_client_by_id(client, db_session):
-    broker_a = await _make_broker(db_session, "iso-a2@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-b2@healthflow.test")
+    broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
+    broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id,
         full_name="A's Only Client",
@@ -71,7 +72,7 @@ async def test_broker_cannot_read_other_brokers_client_by_id(client, db_session)
     db_session.add(a_client)
     await db_session.commit()
 
-    b_token = await _login(client, "iso-b2@healthflow.test")
+    b_token = await _login(client, "iso-b@healthflow.test")
     res = await client.get(
         f"/clients/{a_client.id}",
         headers={"Authorization": f"Bearer {b_token}"},
@@ -81,10 +82,10 @@ async def test_broker_cannot_read_other_brokers_client_by_id(client, db_session)
     assert res.status_code in (403, 404), f"Cross-broker read leak: {res.status_code} {res.text}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_broker_cannot_delete_other_brokers_client(client, db_session):
-    broker_a = await _make_broker(db_session, "iso-a3@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-b3@healthflow.test")
+    broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
+    broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id,
         full_name="A's Only Client",
@@ -98,7 +99,7 @@ async def test_broker_cannot_delete_other_brokers_client(client, db_session):
     db_session.add(a_client)
     await db_session.commit()
 
-    b_token = await _login(client, "iso-b3@healthflow.test")
+    b_token = await _login(client, "iso-b@healthflow.test")
     res = await client.delete(
         f"/clients/{a_client.id}",
         headers={"Authorization": f"Bearer {b_token}"},
@@ -106,7 +107,7 @@ async def test_broker_cannot_delete_other_brokers_client(client, db_session):
     assert res.status_code in (403, 404), f"Cross-broker delete leak: {res.status_code} {res.text}"
 
     # And A's client should still exist.
-    a_token = await _login(client, "iso-a3@healthflow.test")
+    a_token = await _login(client, "iso-a@healthflow.test")
     res = await client.get(
         f"/clients/{a_client.id}",
         headers={"Authorization": f"Bearer {a_token}"},
