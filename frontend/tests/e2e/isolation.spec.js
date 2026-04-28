@@ -15,6 +15,8 @@ async function addClient(page, name) {
   await page.getByPlaceholder('67', { exact: true }).fill('67')
   await page.getByRole('combobox').first().selectOption('low')
   await page.getByRole('button', { name: /create client/i }).click()
+  // Wait for the form to complete and navigate to the success page.
+  await page.waitForURL(/\/clients\/success/, { timeout: 10_000 })
 }
 
 test('isolation canary A: adds Probe-A and never sees Probe-B', async ({ authedPage }) => {

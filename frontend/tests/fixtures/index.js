@@ -7,17 +7,27 @@ function apiOrigin(baseURL) {
   return baseURL.replace(':5173', ':8000')
 }
 
-async function resetForWorker(api, workerId, requester = fetch) {
-  const res = await requester(`${api}/__test/reset`, {
+async function resetForWorker(api, workerId) {
+  const res = await fetch(`${api}/__test/reset`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ worker_id: workerId }),
   })
-  const ok = typeof res.ok === 'function' ? res.ok() : res.ok
-  if (!ok) {
+  if (!res.ok) {
     const text = await res.text()
-    const status = typeof res.status === 'function' ? res.status() : res.status
-    throw new Error(`DB reset failed: ${status} ${text}`)
+    throw new Error(`DB reset failed: ${res.status} ${text}`)
+  }
+}
+
+async function resetForWorkerViaPlaywright(api, workerId, request) {
+  const res = await request.fetch(`${api}/__test/reset`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    data: { worker_id: workerId },
+  })
+  if (!res.ok()) {
+    const text = await res.text()
+    throw new Error(`DB reset failed: ${res.status()} ${text}`)
   }
 }
 
@@ -36,7 +46,7 @@ export const test = base.extend({
   // Pre-authenticated page using the worker's broker identity.
   authedPage: async ({ context, baseURL, request, workerBroker }, use) => {
     const api = apiOrigin(baseURL)
-    await resetForWorker(api, workerBroker.workerId, (url, init) => request.fetch(url, init))
+    await resetForWorkerViaPlaywright(api, workerBroker.workerId, request)
 
     const loginRes = await request.post(`${api}/auth/login`, {
       data: { email: workerBroker.email, password: workerBroker.password },
