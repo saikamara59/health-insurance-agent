@@ -31,7 +31,7 @@ async def _login(client: AsyncClient, email: str, password: str = "TestWorker123
 @pytest.mark.anyio
 async def test_broker_cannot_read_other_brokers_clients(client, db_session):
     broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id,
         full_name="A's Only Client",
@@ -58,7 +58,7 @@ async def test_broker_cannot_read_other_brokers_clients(client, db_session):
 @pytest.mark.anyio
 async def test_broker_cannot_read_other_brokers_client_by_id(client, db_session):
     broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id,
         full_name="A's Only Client",
@@ -85,7 +85,7 @@ async def test_broker_cannot_read_other_brokers_client_by_id(client, db_session)
 @pytest.mark.anyio
 async def test_broker_cannot_delete_other_brokers_client(client, db_session):
     broker_a = await _make_broker(db_session, "iso-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id,
         full_name="A's Only Client",

@@ -25,3 +25,7 @@ frontend/playwright/.cache/
 
 # Worktrees
 .worktrees/
+
+# Tooling state (Claude Code, Playwright MCP)
+.claude/
+.playwright-mcp/
