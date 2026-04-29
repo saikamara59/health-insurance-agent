@@ -49,6 +49,48 @@
     "state": "NY"
   },
   {
+    "name": "Dr. Deborah Aanonsen, D.O.",
+    "npi": "1952395717",
+    "specialty": "Internal Medicine",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Fuad Abaleka, M.D",
+    "npi": "1861925596",
+    "specialty": "Internal Medicine",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Madeeha Abdul Ghaffar",
+    "npi": "1194276063",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Esayas Abebe, M.D",
+    "npi": "1427436880",
+    "specialty": "Student in an Organized Health Care Education/Training Program",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Youhern Ahn, M.D.",
+    "npi": "1447463807",
+    "specialty": "Internal Medicine, Endocrinology, Diabetes & Metabolism",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
+    "name": "Dr. Maria Ariton, MD",
+    "npi": "1750341145",
+    "specialty": "Internal Medicine, Endocrinology, Diabetes & Metabolism",
+    "city": "Staten Island",
+    "state": "NY"
+  },
+  {
     "name": "Dr. Omer Aba-Omer, MD",
     "npi": "1649702093",
     "specialty": "Family Medicine",

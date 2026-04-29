@@ -8,6 +8,9 @@ NPPES_URL = "https://npiregistry.cms.hhs.gov/api/"
 SEARCHES = [
     {"city": "New York", "state": "NY", "taxonomy_description": "Internal Medicine", "limit": 5},
     {"city": "New York", "state": "NY", "taxonomy_description": "Cardiology", "limit": 3},
+    {"city": "Staten Island", "state": "NY", "taxonomy_description": "Internal Medicine", "limit": 4},
+    {"city": "Staten Island", "state": "NY", "taxonomy_description": "Cardiology", "limit": 2},
+    {"city": "Staten Island", "state": "NY", "taxonomy_description": "Endocrinology", "limit": 2},
     {"city": "Los Angeles", "state": "CA", "taxonomy_description": "Family Medicine", "limit": 5},
     {"city": "Los Angeles", "state": "CA", "taxonomy_description": "Dermatology", "limit": 3},
     {"city": "Chicago", "state": "IL", "taxonomy_description": "Orthopedic Surgery", "limit": 3},

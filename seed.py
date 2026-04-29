@@ -55,6 +55,34 @@ CLIENTS = [
         "prescriptions": ["Eliquis", "Entresto", "Metoprolol"],
         "procedures": ["Specialist office visit", "CT scan", "Blood work"],
     },
+    # Staten Island clients (zip 10304)
+    {
+        "full_name": "Anthony Russo",
+        "zip_code": "10304",
+        "age": 71,
+        "income_level": "low",
+        "doctors": get_doctors("Staten Island", 2),
+        "prescriptions": ["Metformin", "Lisinopril", "Atorvastatin", "Aspirin"],
+        "procedures": ["Annual physical", "Blood work", "EKG"],
+    },
+    {
+        "full_name": "Maria DeLuca",
+        "zip_code": "10304",
+        "age": 64,
+        "income_level": "medium",
+        "doctors": get_doctors("Staten Island", 2),
+        "prescriptions": ["Eliquis", "Metoprolol Succinate", "Rosuvastatin"],
+        "procedures": ["Echocardiogram", "Specialist office visit", "Blood work"],
+    },
+    {
+        "full_name": "Kevin O'Sullivan",
+        "zip_code": "10304",
+        "age": 49,
+        "income_level": "medium",
+        "doctors": get_doctors("Staten Island", 1),
+        "prescriptions": ["Sertraline", "Omeprazole"],
+        "procedures": ["Mental health visit", "Annual physical"],
+    },
     # LA clients
     {
         "full_name": "Sofia Rodriguez",
