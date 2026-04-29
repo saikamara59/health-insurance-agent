@@ -2,6 +2,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+# Load .env before any module reads os.getenv (e.g., DATABASE_URL, ANTHROPIC_API_KEY).
+# Existing process env wins — useful in docker/CI where vars are passed explicitly.
+load_dotenv(override=False)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from healthflow.api.middleware import HTTPLoggingMiddleware
