@@ -1,6 +1,9 @@
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL_OPUS, extract_text
+
+# Appeals cite CFR / CMS rules and carry legal stakes; route to Opus for accuracy.
+MODEL = CLAUDE_MODEL_OPUS
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import CoverageArgument, DenialAnalysis
 from healthflow.tools.appeal_writer import AppealWriter
@@ -153,12 +156,12 @@ class AppealAgent:
 
         self.audit.log("tool_called", {
             "tool": "claude_api",
-            "model": CLAUDE_MODEL,
+            "model": MODEL,
             "task": "appeal_refine",
         })
 
         response = self.client.messages.create(
-            model=CLAUDE_MODEL,
+            model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],

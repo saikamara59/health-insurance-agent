@@ -1,6 +1,10 @@
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL_HAIKU, extract_text
+
+# Numbers are computed deterministically by CostModeler; Claude only narrates the
+# results, so Haiku is appropriate.
+MODEL = CLAUDE_MODEL_HAIKU
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanCostResult, PlanSummary, UsageInput
 from healthflow.tools.cost_modeler import CostModeler
@@ -31,11 +35,11 @@ class CostCalculatorAgent:
 
         self.audit.log(
             "tool_called",
-            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "calculate"},
+            {"tool": "claude_api", "model": MODEL, "task": "calculate"},
         )
 
         response = self.client.messages.create(
-            model=CLAUDE_MODEL,
+            model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],

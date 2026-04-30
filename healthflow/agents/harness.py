@@ -2,7 +2,16 @@ import re
 
 from healthflow.logs.audit import AuditLogger
 
-CLAUDE_MODEL = "claude-sonnet-4-6"
+# Tiered models, picked per agent based on task complexity to control token cost.
+# - OPUS: high-stakes reasoning over regulations / multi-step orchestration (appeals).
+# - SONNET: nuanced extraction from unstructured policy text (translation).
+# - HAIKU: summarization of already-computed structured data (comparison, cost, network).
+CLAUDE_MODEL_OPUS = "claude-opus-4-7"
+CLAUDE_MODEL_SONNET = "claude-sonnet-4-6"
+CLAUDE_MODEL_HAIKU = "claude-haiku-4-5-20251001"
+
+# Backwards-compatible default; new code should import the tier it needs.
+CLAUDE_MODEL = CLAUDE_MODEL_SONNET
 
 
 def extract_text(response) -> str:

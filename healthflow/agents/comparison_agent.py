@@ -2,7 +2,11 @@ import os
 
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL_HAIKU, extract_text
+
+# Comparison summarizes pre-structured plan data — Haiku is sufficient and ~70%
+# cheaper per call than Sonnet.
+MODEL = CLAUDE_MODEL_HAIKU
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanSummary
 
@@ -45,10 +49,10 @@ class ComparisonAgent:
 
         user_prompt = self._build_prompt(plans, age, income_level, medications, procedures)
 
-        self.audit.log("tool_called", {"tool": "claude_api", "model": CLAUDE_MODEL})
+        self.audit.log("tool_called", {"tool": "claude_api", "model": MODEL})
 
         response = self.client.messages.create(
-            model=CLAUDE_MODEL,
+            model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],

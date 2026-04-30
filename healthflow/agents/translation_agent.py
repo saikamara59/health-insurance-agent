@@ -1,6 +1,10 @@
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL_SONNET, extract_text
+
+# Translating insurance jargon and pulling specific dollar amounts out of policy text
+# benefits from Sonnet's nuance; cheaper than Opus, more reliable than Haiku here.
+MODEL = CLAUDE_MODEL_SONNET
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import DocumentSection
 
@@ -28,11 +32,11 @@ class TranslationAgent:
 
         self.audit.log(
             "tool_called",
-            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "translate"},
+            {"tool": "claude_api", "model": MODEL, "task": "translate"},
         )
 
         response = self.client.messages.create(
-            model=CLAUDE_MODEL,
+            model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],

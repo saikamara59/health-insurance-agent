@@ -1,6 +1,10 @@
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL_HAIKU, extract_text
+
+# Network/formulary verification is deterministic; Claude just summarizes the
+# results, so Haiku suffices.
+MODEL = CLAUDE_MODEL_HAIKU
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import (
     FormularyResult,
@@ -119,11 +123,11 @@ class NetworkAgent:
 
         self.audit.log(
             "tool_called",
-            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "network_verify"},
+            {"tool": "claude_api", "model": MODEL, "task": "network_verify"},
         )
 
         response = self.client.messages.create(
-            model=CLAUDE_MODEL,
+            model=MODEL,
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
