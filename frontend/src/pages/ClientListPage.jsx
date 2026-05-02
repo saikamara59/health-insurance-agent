@@ -88,7 +88,7 @@ export default function ClientListPage() {
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Book · {clients.length} active</div>
-            <h1 className="page-title" style={{ fontFamily: 'Georgia' }}><em>Clients</em></h1>
+            <h1 className="page-title"><em>Clients</em></h1>
             <p className="page-sub">
               Everyone you're advising. Filter by income tier or type a name, ZIP, or ID to jump to someone.
             </p>
@@ -96,7 +96,7 @@ export default function ClientListPage() {
         </div>
 
         <div className="between" style={{ marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <div className="row" style={{ gap: 6, flexWrap: 'wrap', fontFamily: 'Georgia' }}>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             {filters.map((f) => (
               <button
                 key={f.key}
@@ -108,17 +108,17 @@ export default function ClientListPage() {
               </button>
             ))}
           </div>
-          <div className="search" style={{ width: 260, fontFamily: 'Times' }}>
+          <div className="search" style={{ width: 260 }}>
             <Icon name="search" size={14} />
             <input placeholder="Search name, ZIP, or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
         </div>
 
-        <div className="card" style={{ overflow: 'hidden', fontFamily: 'Georgia' }}>
+        <div className="card" style={{ overflow: 'hidden' }}>
           <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: '28%', fontFamily: 'Georgia' }}>Client</th>
+                <th style={{ width: '28%' }}>Client</th>
                 <th>ZIP · Age</th>
                 <th>Income</th>
                 <th>Risk</th>

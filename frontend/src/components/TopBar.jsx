@@ -3,7 +3,7 @@ import { ThemeToggle } from './ui/Tweaks';
 
 export default function TopBar({ crumbs = ['Overview'], action, onMenuClick, onNotificationsClick }) {
   return (
-    <header className="topbar" style={{ fontFamily: 'Times' }}>
+    <header className="topbar">
       <div className="row" style={{ gap: 12, minWidth: 0 }}>
         <button className="menu-btn" onClick={onMenuClick} aria-label="Open menu">
           <Icon name="menu" size={18} />

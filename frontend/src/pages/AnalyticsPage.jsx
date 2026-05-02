@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <TopBar crumbs={['Review', 'Analytics']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
-      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
+      <div className="page wide">
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Book-level view</div>

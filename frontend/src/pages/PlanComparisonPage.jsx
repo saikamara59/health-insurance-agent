@@ -249,7 +249,7 @@ export default function PlanComparisonPage() {
             {result.recommendation && (
               <div className="card" style={{ marginBottom: 28, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
-                  <div style={{ padding: 28, fontFamily: 'Georgia' }}>
+                  <div style={{ padding: 28 }}>
                     <div className="eyebrow" style={{ marginBottom: 10 }}>Recommendation</div>
                     <p
                       style={{
@@ -280,7 +280,7 @@ export default function PlanComparisonPage() {
               {plans.map((p, i) => {
                 const isBest = i === cheapestIdx;
                 return (
-                  <div key={p.plan_id || i} data-testid="plan-row" className={`plan-card ${isBest ? 'best' : ''}`} style={{ fontFamily: 'Georgia' }}>
+                  <div key={p.plan_id || i} data-testid="plan-row" className={`plan-card ${isBest ? 'best' : ''}`}>
                     {isBest && <span className="best-tag">Best value</span>}
                     <div>
                       <div className="eyebrow">{p.plan_type}</div>
@@ -315,11 +315,11 @@ export default function PlanComparisonPage() {
 
             {rows.length > 0 && (
               <>
-                <div className="section-head" style={{ marginTop: 40, fontFamily: 'Georgia' }}>
+                <div className="section-head" style={{ marginTop: 40 }}>
                   <h2>Side by side</h2>
                   <div className="after">Lower bars are better</div>
                 </div>
-                <div className="card card-pad" style={{ fontFamily: 'Georgia' }}>
+                <div className="card card-pad">
                   {rows.map((row, ri) => {
                     const max = Math.max(...row.vals.map((v) => v || 0));
                     return (
