@@ -60,7 +60,7 @@ export default function ComparisonHistoryPage() {
   return (
     <>
       <TopBar crumbs={['Review', 'History']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
-      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
+      <div className="page wide">
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>{history.length} actions logged</div>

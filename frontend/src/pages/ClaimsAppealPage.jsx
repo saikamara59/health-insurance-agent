@@ -46,7 +46,7 @@ export default function ClaimsAppealPage() {
   return (
     <>
       <TopBar crumbs={['Tools', 'Claim appeals']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
-      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
+      <div className="page wide">
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Denial analysis · letter drafting</div>

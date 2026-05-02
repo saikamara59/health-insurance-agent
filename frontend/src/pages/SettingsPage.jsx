@@ -43,7 +43,7 @@ export default function SettingsPage() {
   return (
     <>
       <TopBar crumbs={['Review', 'Settings']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
-      <div className="page" style={{ fontFamily: '"Times New Roman"' }}>
+      <div className="page">
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Your account</div>
