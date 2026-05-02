@@ -74,7 +74,7 @@ export default function CostCalculatorPage() {
   return (
     <>
       <TopBar crumbs={['Tools', 'Cost calculator']} onMenuClick={openMenu} onNotificationsClick={openNotifications} />
-      <div className="page wide">
+      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Project annual spend</div>

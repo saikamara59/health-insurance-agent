@@ -70,7 +70,7 @@ export default function CoverageTranslatorPage() {
         onMenuClick={openMenu}
         onNotificationsClick={openNotifications}
       />
-      <div className="page">
+      <div className="page" style={{ fontFamily: 'Times' }}>
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>AI-assisted · citations included</div>

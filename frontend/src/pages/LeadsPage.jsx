@@ -48,7 +48,7 @@ export default function LeadsPage() {
           </button>
         }
       />
-      <div className="page wide">
+      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Pipeline</div>

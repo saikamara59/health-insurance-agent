@@ -66,7 +66,7 @@ export default function NetworkVerificationPage() {
         onMenuClick={openMenu}
         onNotificationsClick={openNotifications}
       />
-      <div className="page wide">
+      <div className="page wide" style={{ fontFamily: '"Times New Roman"' }}>
         <div className="page-head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Provider &amp; formulary check</div>

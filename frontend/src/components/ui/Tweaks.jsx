@@ -52,7 +52,7 @@ export default function Tweaks() {
         <h3>Tweaks</h3>
         <button onClick={() => setOpen(false)} className="muted" style={{ fontSize: 12 }}>hide</button>
       </header>
-      <div className="body">
+      <div className="body" style={{ fontFamily: 'Georgia' }}>
         <div>
           <label>Accent theme</label>
           <div className="swatches">

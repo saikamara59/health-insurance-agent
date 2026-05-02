@@ -84,7 +84,7 @@ export default function DashboardPage() {
       />
       <div className="page">
         <div className="page-head">
-          <div>
+          <div style={{ fontFamily: '"Trebuchet MS"' }}>
             <div className="eyebrow" style={{ marginBottom: 14 }}>{formatDate()}</div>
             <h1 className="page-title">
               Good morning, {firstName} —<br />
@@ -222,12 +222,15 @@ export default function DashboardPage() {
                   {history.slice(0, 6).map((a, i) => {
                     const tone = a.action_type === 'appeal' ? 'accent' : a.action_type === 'verify' ? 'warn' : a.action_type === 'compare' ? 'pos' : '';
                     return (
-                      <div key={a.id || i} className="act-row">
+                      <div
+                        key={a.id || i}
+                        className="act-row"
+                        onClick={() => a.client_id && navigate(`/clients/${a.client_id}`)}
+                      >
                         <span className="act-time mono">{sinceLabel(a.created_at)}</span>
                         <Chip tone={tone}>{a.action_type}</Chip>
                         <div className="act-body">
-                          <span className="who">{a.client_name || 'Unknown client'}</span>
-                          <span className="muted"> · {a.action_type} session run</span>
+                          <span className="who">{a.client_name || 'Unknown client'}</span><span className="muted what"> · {a.action_type} session run</span>
                         </div>
                         <Icon name="chev_r" size={14} className="ink-4" />
                       </div>
