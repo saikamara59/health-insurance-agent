@@ -16,8 +16,8 @@ This isn't a demo with fake data. HealthFlow integrates with real public health 
 
 - **51 real Medicare Advantage plans** from CMS (data.cms.gov) with actual premiums, deductibles, and star ratings
 - **90 real medications** from FDA (OpenFDA) with accurate formulary tiers and copays
-- **39 real doctors** with verified NPIs from the NPPES National Provider Registry (live API)
-- **26 zip codes** across 10 major metro areas
+- **45 real doctors** with verified NPIs from the NPPES National Provider Registry (live API)
+- **27 zip codes** across 11 major metro areas
 
 ---
 
@@ -27,7 +27,7 @@ This isn't a demo with fake data. HealthFlow integrates with real public health 
 
 ```bash
 cp .env.example .env          # Add your ANTHROPIC_API_KEY
-make all                       # Install deps, load data, run 407 tests
+make all                       # Install deps, load data, run 436 tests
 ```
 
 ### Option 2: Step by Step
@@ -42,7 +42,7 @@ python -m healthflow.main                     # API at http://localhost:8000
 # Frontend (separate terminal)
 cd frontend && npm install && npm run dev     # Dashboard at http://localhost:5173
 
-# Seed demo data (15 clients with real doctors)
+# Seed demo data (18 clients with real doctors)
 python seed.py                                # Login: demo@healthflow.com / healthflow123
 ```
 
@@ -59,11 +59,12 @@ App at http://localhost (frontend) and http://localhost:8000/docs (API docs).
 
 ## Demo Data
 
-The seed script creates **15 clients across 10 cities** with real NPPES-verified doctors:
+The seed script creates **18 clients across 11 cities** with real NPPES-verified doctors:
 
 | City | Clients | Real Doctors (with NPIs) |
 |------|---------|--------------------------|
 | New York | Eleanor Rigby, Julian Miller, Marcus Chen | Dr. Nivedita Aanur, Dr. Justin Aaron |
+| Staten Island | Anthony Russo, Maria DeLuca, Kevin O'Sullivan | Dr. Deborah Aanonsen, Dr. Fuad Abaleka |
 | Los Angeles | Sofia Rodriguez, David Park | Dr. Omer Aba-Omer, Dr. Allan Abbott |
 | Chicago | Sarah Hudson, Benjamin Thorne | Dr. Alexandra Aaronson, Dr. Jeff Abbott |
 | Miami | Isabella Fernandez, Carlos Gutierrez | Dr. Yasmin Akhunji, Dr. Angel Alejandro |
@@ -94,8 +95,8 @@ HealthFlow uses real public health data — no mock data in production.
 |--------|------|-------|
 | **CMS data.cms.gov** | Medicare Advantage plans (names, premiums, deductibles, star ratings) | 51 plans |
 | **FDA OpenFDA** | Drug names, NDC codes, formulary tiers, copays | 90 drugs |
-| **NPPES Registry** | Real doctor NPIs, specialties, locations (live API) | 39 doctors |
-| **Zip Mapping** | Plan availability by zip code | 26 zip codes |
+| **NPPES Registry** | Real doctor NPIs, specialties, locations (live API) | 45 doctors |
+| **Zip Mapping** | Plan availability by zip code | 27 zip codes |
 
 ```bash
 python scripts/refresh_data.py --seed-only   # Load curated seed data
@@ -166,7 +167,7 @@ Data stored in `healthflow_data.db` (gitignored). Falls back to curated mock dat
 | Login | `/login` | Broker sign-in and registration |
 | Dashboard | `/` | Overview with metrics, activity feed, system status |
 | Client Portfolios | `/clients` | Client table with filters, pagination, stats |
-| Add Client | `/clients/new` | 4-step intake wizard (Personal → Financial → Healthcare → Review) |
+| Add Client | `/clients/new` | Single-form intake with Basics, Medical, and Providers sections |
 | Onboarding Success | `/clients/success` | Post-creation confirmation with quick actions |
 | Client Profile | `/clients/:id` | Analysis workflow, profile editing, prescriptions, doctors |
 | Plan Comparison | `/compare` | Side-by-side plan cards with AI recommendation |
@@ -189,7 +190,7 @@ Data stored in `healthflow_data.db` (gitignored). Falls back to curated mock dat
 ```bash
 make help           # Show all commands
 make install        # Install backend + frontend deps
-make test           # Run all 407 tests (verbose)
+make test           # Run all 436 tests (verbose)
 make test-quick     # Tests with compact output
 make test-cov       # Tests with coverage report
 make lint           # Run ruff linter
@@ -198,7 +199,7 @@ make dead-code      # Find dead code with vulture
 make dev            # Start backend server
 make frontend       # Start frontend dev server
 make data           # Load real CMS/FDA health data
-make seed           # Seed 15 demo clients with real doctors
+make seed           # Seed 18 demo clients with real doctors
 make build          # Build frontend for production
 make check          # CI gate: lint + tests + build
 make all            # Full setup from scratch
@@ -230,7 +231,7 @@ React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → 
 ### Backend Layers
 
 - **Harness** — Input validation, medical advice output filtering, PHI regex redaction, structured audit logging
-- **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap and deductible tracking, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules and appeal arguments, appeal letter template generator, NPI client (live NPPES API), 40 curated providers, formulary checker with per-plan drug exclusions, 24h TTL provider cache
+- **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap and deductible tracking, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules and appeal arguments, appeal letter template generator, NPI client (live NPPES API), 45 NPPES-verified providers, formulary checker with per-plan drug exclusions, 24h TTL provider cache
 - **Agents** — 5 Claude-powered agents: comparison, translation, cost calculator, appeal, network verification. Each agent builds a structured prompt from data, calls Claude for plain-English analysis, and filters the output through the harness.
 - **Feedback** — RLHF loop: feedback collector (1-5 ratings), reward model (weekly scoring, flags low-quality patterns), prompt updater (few-shot generation from top-rated outputs), A/B testing (traffic-weighted variant routing)
 - **Database** — SQLAlchemy 2.0 async ORM with 6 tables: Broker, Client, ActionHistory, Feedback, PromptVariant, plus the real health data in a separate SQLite file
@@ -292,7 +293,7 @@ docker compose down                 # Stop everything
 ## Testing
 
 ```bash
-make test           # ~429 backend tests, ~25 seconds
+make test           # ~436 backend tests, ~16 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
 make check          # Full CI gate: lint + tests + frontend build
@@ -360,7 +361,7 @@ healthflow/
 │   ├── appeal_writer.py       # Appeal letter templates
 │   ├── phi_redactor.py        # PHI stripping (regex)
 │   ├── npi_client.py          # Real NPPES API
-│   ├── provider_network.py    # 40 curated providers
+│   ├── provider_network.py    # 45 NPPES-verified providers
 │   ├── provider_checker.py    # NPI + network check
 │   ├── formulary_checker.py   # Drug formulary lookup
 │   └── provider_cache.py      # 24h TTL cache
@@ -385,7 +386,7 @@ healthflow/
 │   └── session.py             # Session store (in-memory + Redis)
 ├── logs/
 │   └── audit.py               # Structured JSON logging
-└── tests/                     # 407 tests
+└── tests/                     # 436 tests
 
 frontend/                      # React SPA (18 pages)
 ├── src/
@@ -397,5 +398,5 @@ frontend/                      # React SPA (18 pages)
 scripts/
 ├── refresh_data.py            # CMS + FDA data loader
 ├── fetch_real_doctors.py      # NPPES doctor fetcher
-└── real_doctors.json          # 39 real doctors with NPIs
+└── real_doctors.json          # 45 real doctors with NPIs
 ```
