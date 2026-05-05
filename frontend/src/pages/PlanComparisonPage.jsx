@@ -36,6 +36,9 @@ export default function PlanComparisonPage() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const [expandedPlanId, setExpandedPlanId] = useState(null);
+  const [selectToast, setSelectToast] = useState('');
 
   useEffect(() => {
     api.get('/clients').then((d) => setClientOptions(Array.isArray(d) ? d : [])).catch(() => {});
@@ -51,6 +54,27 @@ export default function PlanComparisonPage() {
     setProcs(c.procedures || []);
   }
 
+  function selectPlan(plan, idx) {
+    setSelectedPlanId(plan.plan_id);
+    setSelectToast(`${plan.plan_name} selected`);
+    if (clientId) {
+      api.post('/history', {
+        client_id: clientId,
+        action_type: 'plan_selected',
+        request_data: {
+          plan_id: plan.plan_id,
+          plan_name: plan.plan_name,
+          session_id: result?.session_id,
+        },
+        response_summary: {
+          monthly_premium: plan.monthly_premium,
+          annual_estimate: Math.round(annuals[idx] || 0),
+        },
+      }).catch(() => {});
+    }
+    window.setTimeout(() => setSelectToast(''), 2400);
+  }
+
   async function run() {
     setError('');
     setRunning(true);
@@ -64,6 +88,9 @@ export default function PlanComparisonPage() {
       });
       setResult(data);
       setStep('results');
+      setSelectedPlanId(null);
+      setExpandedPlanId(null);
+      setSelectToast('');
       if (clientId) {
         api.post('/history', {
           client_id: clientId,
@@ -249,19 +276,25 @@ export default function PlanComparisonPage() {
             {result.recommendation && (
               <div className="card" style={{ marginBottom: 28, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
-                  <div style={{ padding: 28 }}>
-                    <div className="eyebrow" style={{ marginBottom: 10 }}>Recommendation</div>
-                    <p
-                      style={{
-                        fontFamily: 'var(--serif)',
-                        fontSize: 22,
-                        letterSpacing: '-0.01em',
-                        lineHeight: 1.35,
-                        maxWidth: 620,
-                      }}
-                    >
-                      {result.recommendation}
-                    </p>
+                  <div style={{ padding: '32px 36px' }}>
+                    <div className="eyebrow" style={{ marginBottom: 14 }}>Recommendation</div>
+                    {result.recommendation
+                      .split(/\n\s*\n/)
+                      .map((para, pi) => (
+                        <p
+                          key={pi}
+                          style={{
+                            fontFamily: 'var(--sans)',
+                            fontSize: 14.5,
+                            lineHeight: 1.65,
+                            color: 'var(--ink-2)',
+                            maxWidth: 640,
+                            margin: pi === 0 ? '0 0 12px' : '0 0 12px',
+                          }}
+                        >
+                          {para}
+                        </p>
+                      ))}
                   </div>
                   {cheapestIdx >= 0 && (
                     <div style={{ background: 'var(--bg-2)', borderLeft: '1px solid var(--line)', padding: 28 }}>
@@ -276,11 +309,36 @@ export default function PlanComparisonPage() {
               </div>
             )}
 
+            {selectToast && (
+              <div
+                className="notice"
+                role="status"
+                style={{
+                  marginBottom: 20,
+                  borderColor: 'var(--accent)',
+                  color: 'var(--ink)',
+                  background: 'var(--accent-soft)',
+                }}
+              >
+                <Icon name="check" size={14} /> {selectToast}
+                {clientId ? ' — saved to client history.' : ''}
+              </div>
+            )}
+
             <div className="grid-3">
               {plans.map((p, i) => {
                 const isBest = i === cheapestIdx;
+                const isSelected = selectedPlanId && p.plan_id === selectedPlanId;
+                const isExpanded = expandedPlanId && p.plan_id === expandedPlanId;
+                const rxCosts = Object.entries(p.estimated_medication_costs || {});
+                const procCosts = Object.entries(p.estimated_procedure_costs || {});
                 return (
-                  <div key={p.plan_id || i} data-testid="plan-row" className={`plan-card ${isBest ? 'best' : ''}`}>
+                  <div
+                    key={p.plan_id || i}
+                    data-testid="plan-row"
+                    className={`plan-card ${isBest ? 'best' : ''}`}
+                    style={isSelected ? { boxShadow: '0 0 0 2px var(--accent)' } : undefined}
+                  >
                     {isBest && <span className="best-tag">Best value</span>}
                     <div>
                       <div className="eyebrow">{p.plan_type}</div>
@@ -300,12 +358,66 @@ export default function PlanComparisonPage() {
                       <div className="plan-metric"><div className="k">Est. annual</div><div className="v num">{currency(annuals[i])}</div></div>
                     </div>
 
+                    {isExpanded && (
+                      <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 14, display: 'grid', gap: 14 }}>
+                        <div>
+                          <div className="eyebrow" style={{ marginBottom: 6 }}>Plan ID</div>
+                          <div className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>{p.plan_id || '—'}</div>
+                        </div>
+                        {rxCosts.length > 0 && (
+                          <div>
+                            <div className="eyebrow" style={{ marginBottom: 6 }}>Estimated Rx (annual)</div>
+                            {rxCosts.map(([name, cost]) => (
+                              <div key={name} className="between" style={{ fontSize: 12.5, padding: '3px 0' }}>
+                                <span style={{ color: 'var(--ink-2)' }}>{name}</span>
+                                <span className="mono num">{currency(cost)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {procCosts.length > 0 && (
+                          <div>
+                            <div className="eyebrow" style={{ marginBottom: 6 }}>Estimated procedures (annual)</div>
+                            {procCosts.map(([name, cost]) => (
+                              <div key={name} className="between" style={{ fontSize: 12.5, padding: '3px 0' }}>
+                                <span style={{ color: 'var(--ink-2)' }}>{name}</span>
+                                <span className="mono num">{currency(cost)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {rxCosts.length === 0 && procCosts.length === 0 && (
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            No medication or procedure cost estimates for this plan.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="row" style={{ gap: 8, marginTop: 'auto' }}>
-                      <button className={`btn ${isBest ? 'accent' : ''}`} style={{ flex: 1 }}>
-                        {isBest ? 'Recommend' : 'Select'}
+                      <button
+                        type="button"
+                        className={`btn ${isSelected ? 'primary' : (isBest ? 'accent' : '')}`}
+                        style={{ flex: 1 }}
+                        onClick={() => selectPlan(p, i)}
+                        aria-pressed={isSelected}
+                      >
+                        {isSelected
+                          ? <><Icon name="check" size={14} /> Selected</>
+                          : (isBest ? 'Recommend' : 'Select')}
                       </button>
-                      <button className="btn ghost icon" aria-label="More">
-                        <Icon name="dot3" size={14} />
+                      <button
+                        type="button"
+                        className="btn ghost icon"
+                        aria-label={isExpanded ? 'Hide details' : 'Show details'}
+                        aria-expanded={!!isExpanded}
+                        onClick={() => setExpandedPlanId(isExpanded ? null : p.plan_id)}
+                      >
+                        <Icon
+                          name="chev_d"
+                          size={14}
+                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 120ms' }}
+                        />
                       </button>
                     </div>
                   </div>
