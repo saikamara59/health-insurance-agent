@@ -108,3 +108,78 @@ def test_cache_handles_tuple_in_payload(fake_cache_dir):
     # JSON round-trip turns tuples into lists. The orchestrator handles this
     # by re-coercing the plans list back to tuples; this test just documents.
     assert result2 == [[["P1", "Foo"]], {"P1": ["36061"]}]
+
+
+# -- download_hud_zip_county ---------------------------------------------------
+
+class _MockHudResponse:
+    def __init__(self, payload, status=200):
+        self._payload = payload
+        self.status_code = status
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+    def json(self):
+        return self._payload
+
+
+def test_hud_returns_none_when_token_missing(monkeypatch):
+    monkeypatch.delenv("HUD_API_TOKEN", raising=False)
+    assert refresh_data.download_hud_zip_county() is None
+
+
+def test_hud_parses_response(monkeypatch):
+    monkeypatch.setenv("HUD_API_TOKEN", "fake-token")
+    payload = {
+        "data": {
+            "results": [
+                {"zip": "10001", "geoid": "36061"},
+                {"zip": "10001", "geoid": "36047"},  # multi-county ZIP
+                {"zip": "11201", "geoid": "36047"},
+            ]
+        }
+    }
+
+    class _Client:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url, params=None, headers=None):
+            assert "Authorization" in headers
+            assert headers["Authorization"] == "Bearer fake-token"
+            return _MockHudResponse(payload)
+
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": _Client}))
+    result = refresh_data.download_hud_zip_county()
+    assert result == {
+        "10001": {"36061", "36047"},
+        "11201": {"36047"},
+    }
+
+
+def test_hud_handles_network_error(monkeypatch):
+    monkeypatch.setenv("HUD_API_TOKEN", "fake-token")
+
+    class _Client:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, *a, **kw):
+            raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": _Client}))
+    assert refresh_data.download_hud_zip_county() is None
+
+
+def test_hud_handles_empty_results(monkeypatch):
+    monkeypatch.setenv("HUD_API_TOKEN", "fake-token")
+
+    class _Client:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, *a, **kw):
+            return _MockHudResponse({"data": {"results": []}})
+
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": _Client}))
+    assert refresh_data.download_hud_zip_county() == {}

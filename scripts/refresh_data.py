@@ -26,6 +26,11 @@ from dotenv import load_dotenv
 # env wins — useful when CI passes secrets explicitly.
 load_dotenv(override=False)
 
+try:
+    import httpx
+except ImportError:
+    httpx = None  # downloaders return None gracefully when httpx isn't installed
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -489,6 +494,57 @@ def download_fda_drugs() -> list[tuple] | None:
     except Exception as e:
         logger.warning(f"FDA download failed: {e}. Using seed data.")
         return None
+
+
+# ---------------------------------------------------------------------------
+# HUD ZIP ↔ County Crosswalk Downloader
+# ---------------------------------------------------------------------------
+
+HUD_API_URL = "https://www.huduser.gov/hudapi/public/usps"
+
+
+def download_hud_zip_county() -> dict[str, set[str]] | None:
+    """Download the HUD USPS ZIP↔county crosswalk for all US ZIPs.
+
+    Returns dict[zip_code, set[county_fips]] or None on failure.
+    Falls back silently (returns None) if HUD_API_TOKEN is not set or if
+    httpx isn't available — the orchestrator then uses SEED_ZIP_MAPPINGS.
+    """
+    token = os.environ.get("HUD_API_TOKEN")
+    if not token:
+        logger.warning(
+            "HUD_API_TOKEN not set; using seed ZIP mappings (~25 ZIPs covered). "
+            "Set the token in .env to enable nationwide ZIPs."
+        )
+        return None
+    if httpx is None:
+        logger.warning("httpx not installed — skipping HUD download. Using seed ZIP mappings.")
+        return None
+
+    logger.info("Downloading HUD ZIP↔county crosswalk (national)...")
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            resp = client.get(
+                HUD_API_URL,
+                params={"type": 2, "query": "All"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+    except Exception as e:
+        logger.warning(f"HUD download failed: {e}. Falling back to seed ZIP mappings.")
+        return None
+
+    results = (payload or {}).get("data", {}).get("results", []) or []
+    zip_county_map: dict[str, set[str]] = defaultdict(set)
+    for row in results:
+        zip_code = (row.get("zip") or "").strip()
+        county = (row.get("geoid") or "").strip()
+        if zip_code and county:
+            zip_county_map[zip_code].add(county)
+
+    logger.info(f"HUD: {len(zip_county_map)} ZIPs mapped across {sum(len(v) for v in zip_county_map.values())} ZIP-county pairs.")
+    return dict(zip_county_map)
 
 
 # ---------------------------------------------------------------------------
