@@ -13,10 +13,18 @@ Output:
 import argparse
 import json
 import logging
+import os
 import sqlite3
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env so HUD_API_TOKEN (and any other vars) are visible. Existing process
+# env wins — useful when CI passes secrets explicitly.
+load_dotenv(override=False)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
