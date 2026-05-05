@@ -443,6 +443,37 @@ def download_fda_drugs() -> list[tuple] | None:
 
 
 # ---------------------------------------------------------------------------
+# ZIP ↔ Plan Mapping Join
+# ---------------------------------------------------------------------------
+
+def build_zip_mappings(
+    plan_county_map: dict,
+    zip_county_map: dict,
+) -> dict[str, list[str]]:
+    """Join plan→counties and zip→counties into zip→plans.
+
+    Accepts any iterable (set or list) as the inner collection — the cache
+    layer may rehydrate sets as lists after a JSON round-trip.
+
+    A ZIP that maps to no served counties is omitted from the output rather
+    than mapping to an empty list.
+    """
+    county_to_plans: dict[str, set[str]] = defaultdict(set)
+    for plan_id, counties in plan_county_map.items():
+        for county in counties:
+            county_to_plans[county].add(plan_id)
+
+    zip_to_plans: dict[str, list[str]] = {}
+    for zip_code, counties in zip_county_map.items():
+        plan_ids: set[str] = set()
+        for county in counties:
+            plan_ids.update(county_to_plans.get(county, ()))
+        if plan_ids:
+            zip_to_plans[zip_code] = sorted(plan_ids)
+    return zip_to_plans
+
+
+# ---------------------------------------------------------------------------
 # Database Builder
 # ---------------------------------------------------------------------------
 
