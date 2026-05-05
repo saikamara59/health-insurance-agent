@@ -29,6 +29,55 @@ load_dotenv(override=False)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Cache helpers
+# ---------------------------------------------------------------------------
+
+CACHE_DIR = Path.home() / ".cache" / "healthflow"
+
+
+def _serialize_for_cache(obj):
+    """Convert sets to sorted lists, recursively, so the result is JSON-safe."""
+    if isinstance(obj, set):
+        return sorted(obj)
+    if isinstance(obj, dict):
+        return {k: _serialize_for_cache(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_serialize_for_cache(v) for v in obj]
+    return obj
+
+
+def _load_or_fetch(key: str, ttl_days: int, fetch_fn, *, force: bool = False):
+    """Read ~/.cache/healthflow/<key>.json if present and within TTL; else call fetch_fn().
+
+    On a fetcher hit, the result is JSON-serialized (sets → sorted lists) and written through.
+    Returns whatever fetch_fn returned, or — on a cache hit — the JSON-rehydrated equivalent.
+    Sets in the original return value come back as lists; consumers must accept iterables.
+    Returns None (and does not cache) if fetch_fn returns None.
+    """
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path = CACHE_DIR / f"{key}.json"
+
+    if not force and cache_path.exists():
+        age_seconds = time.time() - cache_path.stat().st_mtime
+        if age_seconds < ttl_days * 86400:
+            try:
+                with cache_path.open() as fh:
+                    return json.load(fh)
+            except (json.JSONDecodeError, OSError) as e:
+                logger.debug(f"Cache file {cache_path} unreadable ({e}); refetching.")
+                cache_path.unlink(missing_ok=True)
+
+    result = fetch_fn()
+    if result is not None:
+        try:
+            with cache_path.open("w") as fh:
+                json.dump(_serialize_for_cache(result), fh)
+        except OSError as e:
+            logger.warning(f"Failed to write cache {cache_path}: {e}")
+    return result
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "healthflow_data.db"
 
