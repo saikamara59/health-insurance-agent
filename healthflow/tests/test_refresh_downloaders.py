@@ -183,3 +183,132 @@ def test_hud_handles_empty_results(monkeypatch):
 
     monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": _Client}))
     assert refresh_data.download_hud_zip_county() == {}
+
+
+# -- download_cms_data --------------------------------------------------------
+
+class _MockCmsClient:
+    """Returns canned paged responses; tracks calls."""
+    def __init__(self, pages):
+        self._pages = list(pages)  # list of list[dict]
+        self.calls = []
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def get(self, url, params=None):
+        self.calls.append(params)
+        if not self._pages:
+            return _MockHudResponse([])
+        return _MockHudResponse(self._pages.pop(0))
+
+
+def _install_cms_mock(monkeypatch, client):
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": lambda *a, **kw: client}))
+
+
+def test_cms_paginates_and_dedupes(monkeypatch):
+    _row_61 = {"contract_id": "H1", "plan_id": "001", "plan_name": "Foo", "organization_name": "Aetna",
+               "plan_type": "HMO", "monthly_consolidated_premium": "0", "annual_drug_deductible": "0",
+               "out_of_pocket_maximum": "5000", "overall_star_rating": "4", "drug_coverage": "Yes",
+               "state": "NY", "county_code": "36061"}
+    _row_47 = {**_row_61, "county_code": "36047"}  # same plan, different county
+    # page1 must be exactly $limit (5000) so the loop continues to page2
+    page1 = ([_row_61, _row_47] * 2500)  # 5000 rows, alternating counties; plan dedupes to 1
+    page2 = [
+        {"contract_id": "H2", "plan_id": "002", "plan_name": "Bar", "organization_name": "Humana",
+         "plan_type": "PPO", "monthly_consolidated_premium": "45", "annual_drug_deductible": "100",
+         "out_of_pocket_maximum": "6000", "overall_star_rating": "3.5", "drug_coverage": "No",
+         "state": "FL", "county_code": "12086"},
+    ]  # short page (1 row) → loop stops after page2
+    client = _MockCmsClient([page1, page2])
+    _install_cms_mock(monkeypatch, client)
+
+    result = refresh_data.download_cms_data()
+    assert result is not None
+    plans, plan_county_map = result
+    assert len(plans) == 2
+    plan_ids = {p[0] for p in plans}
+    assert plan_ids == {"H1-001", "H2-002"}
+    assert plan_county_map == {"H1-001": {"36061", "36047"}, "H2-002": {"12086"}}
+
+
+def test_cms_stops_on_short_page(monkeypatch):
+    """A page shorter than $limit terminates pagination without a follow-up call."""
+    short_page = [
+        {"contract_id": "H1", "plan_id": "001", "plan_name": "Foo", "organization_name": "X",
+         "plan_type": "HMO", "monthly_consolidated_premium": "0", "annual_drug_deductible": "0",
+         "out_of_pocket_maximum": "5000", "overall_star_rating": "4", "drug_coverage": "Yes",
+         "state": "NY", "county_code": "36061"},
+    ]
+    client = _MockCmsClient([short_page])
+    _install_cms_mock(monkeypatch, client)
+
+    result = refresh_data.download_cms_data()
+    assert result is not None
+    assert len(client.calls) == 1  # no second call
+
+
+def test_cms_skips_malformed_rows(monkeypatch):
+    page = [
+        {"contract_id": "H1", "plan_id": "001", "plan_name": "Good", "organization_name": "X",
+         "plan_type": "HMO", "monthly_consolidated_premium": "0", "annual_drug_deductible": "0",
+         "out_of_pocket_maximum": "5000", "overall_star_rating": "4", "drug_coverage": "Yes",
+         "state": "NY", "county_code": "36061"},
+        {"contract_id": "H2", "plan_id": "BAD", "plan_name": "Bad", "organization_name": "X",
+         "plan_type": "HMO", "monthly_consolidated_premium": "not-a-number",
+         "annual_drug_deductible": "0", "out_of_pocket_maximum": "5000",
+         "overall_star_rating": "Not enough data", "drug_coverage": "Yes",
+         "state": "NY", "county_code": "36061"},
+    ]
+    client = _MockCmsClient([page])
+    _install_cms_mock(monkeypatch, client)
+
+    result = refresh_data.download_cms_data()
+    assert result is not None
+    plans, _ = result
+    plan_ids = {p[0] for p in plans}
+    # The "Bad" row has a non-numeric premium → skipped. The "Not enough data"
+    # rating is handled with a 3.0 default in the existing code.
+    assert plan_ids == {"H1-001"}
+
+
+def test_cms_returns_none_on_first_page_error(monkeypatch):
+    class _Failing:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, *a, **kw): raise RuntimeError("network is hard")
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": lambda *a, **kw: _Failing()}))
+    assert refresh_data.download_cms_data() is None
+
+
+def test_cms_partial_success_returns_what_we_have(monkeypatch):
+    """Page 1 succeeds, page 2 fails — return collected plans, don't crash."""
+    page1 = [
+        {"contract_id": "H1", "plan_id": "001", "plan_name": "Foo", "organization_name": "X",
+         "plan_type": "HMO", "monthly_consolidated_premium": "0", "annual_drug_deductible": "0",
+         "out_of_pocket_maximum": "5000", "overall_star_rating": "4", "drug_coverage": "Yes",
+         "state": "NY", "county_code": "36061"},
+    ] * 5000  # exactly $limit so the loop will try again
+
+    class _PartialClient:
+        def __init__(self): self.n = 0
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, *a, **kw):
+            self.n += 1
+            if self.n == 1:
+                return _MockHudResponse(page1)
+            raise RuntimeError("page 2 failed")
+
+    client = _PartialClient()
+    monkeypatch.setattr(refresh_data, "httpx", type("M", (), {"Client": lambda *a, **kw: client}))
+
+    result = refresh_data.download_cms_data()
+    assert result is not None
+    plans, plan_county_map = result
+    assert len(plans) == 1  # deduped
+    assert "H1-001" in plan_county_map
+
+
+def test_cms_returns_none_when_httpx_missing(monkeypatch):
+    monkeypatch.setattr(refresh_data, "httpx", None)
+    assert refresh_data.download_cms_data() is None

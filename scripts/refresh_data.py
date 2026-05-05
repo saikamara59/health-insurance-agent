@@ -370,43 +370,68 @@ SEED_DRUGS = [
 # CMS Data Downloader
 # ---------------------------------------------------------------------------
 
-def download_cms_data() -> list[tuple] | None:
-    """Attempt to download CMS plan data. Returns list of plan tuples or None on failure."""
-    try:
-        import httpx
-    except ImportError:
+def download_cms_data() -> tuple[list[tuple], dict[str, set[str]]] | None:
+    """Download CMS Medicare Advantage Plan Landscape, paged.
+
+    Returns (plans, plan_county_map) where plans is a list of tuples in the
+    column order build_database expects, and plan_county_map maps plan_id to
+    the set of county FIPS codes that plan serves. Returns None on first-page
+    failure; on later-page failure, returns what was collected.
+    """
+    if httpx is None:
         logger.warning("httpx not installed — skipping CMS download. Using seed data.")
         return None
 
-    logger.info("Downloading CMS Medicare Advantage plan data...")
-    # CMS Socrata API endpoint for plan landscape data
-    # Using the public data.cms.gov Socrata API (no auth required)
+    logger.info("Downloading CMS Medicare Advantage plan landscape (paged)...")
     url = "https://data.cms.gov/resource/jfhb-kvhx.json"
-    params = {
-        "$limit": 5000,
-        "$select": "contract_id,plan_id,plan_name,organization_name,plan_type,monthly_consolidated_premium,annual_drug_deductible,out_of_pocket_maximum,overall_star_rating,drug_coverage,state",
-    }
-    try:
-        with httpx.Client(timeout=60.0) as client:
-            resp = client.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+    select = (
+        "contract_id,plan_id,plan_name,organization_name,plan_type,"
+        "monthly_consolidated_premium,annual_drug_deductible,out_of_pocket_maximum,"
+        "overall_star_rating,drug_coverage,state,county_code"
+    )
+
+    plans_by_id: dict[str, tuple] = {}
+    plan_county_map: dict[str, set[str]] = defaultdict(set)
+    page_size = 5000
+    offset = 0
+
+    while True:
+        params = {"$limit": page_size, "$offset": offset, "$select": select}
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                resp = client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as e:
+            if not plans_by_id:
+                logger.warning(f"CMS download failed on first page ({e}). Using seed data.")
+                return None
+            logger.warning(
+                f"CMS download failed at offset {offset} ({e}). "
+                f"Using {len(plans_by_id)} plans collected so far."
+            )
+            break
 
         if not data:
-            logger.warning("CMS API returned no data. Using seed data.")
-            return None
+            break
 
-        plans = []
         for row in data:
             try:
                 plan_id = f"{row.get('contract_id', '')}-{row.get('plan_id', '')}"
+                if plan_id == "-":
+                    continue
+                county_code = (row.get("county_code") or "").strip()
+                if county_code:
+                    plan_county_map[plan_id].add(county_code)
+                if plan_id in plans_by_id:
+                    continue  # plan already captured; only county is new
                 premium = float(row.get("monthly_consolidated_premium", 0) or 0)
                 deductible = float(row.get("annual_drug_deductible", 0) or 0)
                 oop = float(row.get("out_of_pocket_maximum", 6700) or 6700)
-                star_str = row.get("overall_star_rating", "")
+                star_str = (row.get("overall_star_rating") or "").strip()
                 star = float(star_str) if star_str and star_str != "Not enough data" else 3.0
-                drug = 1 if row.get("drug_coverage", "").lower() in ("yes", "true", "1") else 0
-                plans.append((
+                drug = 1 if str(row.get("drug_coverage", "")).lower() in ("yes", "true", "1") else 0
+                plans_by_id[plan_id] = (
                     plan_id,
                     row.get("plan_name", "Unknown Plan"),
                     row.get("organization_name", "Unknown"),
@@ -417,17 +442,20 @@ def download_cms_data() -> list[tuple] | None:
                     star,
                     drug,
                     row.get("state", ""),
-                ))
+                )
             except (ValueError, TypeError) as e:
                 logger.debug(f"Skipping malformed row: {e}")
                 continue
 
-        logger.info(f"Downloaded {len(plans)} plans from CMS.")
-        return plans if plans else None
+        if len(data) < page_size:
+            break
+        offset += page_size
 
-    except Exception as e:
-        logger.warning(f"CMS download failed: {e}. Using seed data.")
-        return None
+    logger.info(
+        f"CMS: {len(plans_by_id)} plans across "
+        f"{sum(len(v) for v in plan_county_map.values())} plan-county pairs."
+    )
+    return list(plans_by_id.values()), dict(plan_county_map)
 
 
 # ---------------------------------------------------------------------------
