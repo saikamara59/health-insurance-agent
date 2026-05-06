@@ -312,3 +312,92 @@ def test_cms_partial_success_returns_what_we_have(monkeypatch):
 def test_cms_returns_none_when_httpx_missing(monkeypatch):
     monkeypatch.setattr(refresh_data, "httpx", None)
     assert refresh_data.download_cms_data() is None
+
+
+# -- build_database (atomic write + plan_counties) ----------------------------
+
+import sqlite3 as _sqlite3
+
+
+def test_build_database_writes_plan_counties_and_is_atomic(tmp_path):
+    db_path = tmp_path / "test.db"
+    plans = [
+        ("H1-001", "Foo", "Aetna", "HMO", 0.0, 0.0, 5000.0, 4.0, 1, "NY"),
+        ("H2-002", "Bar", "Humana", "PPO", 45.0, 100.0, 6000.0, 3.5, 0, "FL"),
+    ]
+    plan_county_map = {"H1-001": {"36061", "36047"}, "H2-002": {"12086"}}
+    zip_mappings = {"10001": ["H1-001"], "33101": ["H2-002"]}
+    drugs = []  # empty drugs list is fine
+
+    refresh_data.build_database(
+        plans=plans,
+        zip_mappings=zip_mappings,
+        drugs=drugs,
+        db_path=db_path,
+        plan_county_map=plan_county_map,
+    )
+
+    assert db_path.exists()
+    assert not (db_path.parent / (db_path.name + ".tmp")).exists()
+
+    conn = _sqlite3.connect(str(db_path))
+    try:
+        plan_count = conn.execute("SELECT COUNT(*) FROM plans").fetchone()[0]
+        zip_count = conn.execute("SELECT COUNT(*) FROM plan_zips").fetchone()[0]
+        county_count = conn.execute("SELECT COUNT(*) FROM plan_counties").fetchone()[0]
+        # Two plans, two ZIPs each mapped to one plan = 2 zip rows
+        assert plan_count == 2
+        assert zip_count == 2
+        # H1-001 has 2 counties + H2-002 has 1 county = 3 county rows
+        assert county_count == 3
+
+        # Verify the atomic-write path didn't leave the .tmp file
+        rows = conn.execute(
+            "SELECT plan_id, state, fips_code FROM plan_counties ORDER BY plan_id, fips_code"
+        ).fetchall()
+        assert rows == [
+            ("H1-001", "NY", "36047"),
+            ("H1-001", "NY", "36061"),
+            ("H2-002", "FL", "12086"),
+        ]
+    finally:
+        conn.close()
+
+
+def test_build_database_atomic_preserves_old_db_on_crash(tmp_path, monkeypatch):
+    """If sqlite write fails mid-stream, the existing DB is untouched."""
+    db_path = tmp_path / "test.db"
+    # Seed an existing DB
+    refresh_data.build_database(
+        plans=[("OLD-001", "Old", "X", "HMO", 0.0, 0.0, 5000.0, 4.0, 1, "NY")],
+        zip_mappings={"10001": ["OLD-001"]},
+        drugs=[],
+        db_path=db_path,
+        plan_county_map={"OLD-001": {"36061"}},
+    )
+
+    # Now force a crash inside build_database after the temp file is written
+    # but before the rename. Patch os.replace to raise.
+    real_replace = refresh_data.os.replace
+
+    def boom(*a, **kw):
+        raise RuntimeError("simulated crash")
+
+    monkeypatch.setattr(refresh_data.os, "replace", boom)
+    with pytest.raises(RuntimeError):
+        refresh_data.build_database(
+            plans=[("NEW-001", "New", "X", "HMO", 0.0, 0.0, 5000.0, 4.0, 1, "NY")],
+            zip_mappings={"10001": ["NEW-001"]},
+            drugs=[],
+            db_path=db_path,
+            plan_county_map={"NEW-001": {"36061"}},
+        )
+
+    # The old DB should still be intact
+    monkeypatch.setattr(refresh_data.os, "replace", real_replace)
+    conn = _sqlite3.connect(str(db_path))
+    try:
+        rows = conn.execute("SELECT plan_id FROM plans").fetchall()
+        assert rows == [("OLD-001",)]
+    finally:
+        conn.close()

@@ -615,56 +615,85 @@ def build_database(
     zip_mappings: dict[str, list[str]],
     drugs: list[tuple],
     db_path: Path = DB_PATH,
+    plan_county_map: dict[str, set[str]] | None = None,
 ) -> None:
-    """Build the SQLite database from plan and drug data."""
-    if db_path.exists():
-        db_path.unlink()
+    """Build the SQLite database atomically.
 
-    conn = sqlite3.connect(str(db_path))
-    conn.executescript(SCHEMA_SQL)
+    Writes to <db_path>.tmp, then os.replace()s to db_path so a mid-run
+    crash leaves any previous DB intact.
+    """
+    tmp_path = db_path.with_name(db_path.name + ".tmp")
+    if tmp_path.exists():
+        tmp_path.unlink()
 
-    # Insert plans
-    conn.executemany(
-        """
-        INSERT OR IGNORE INTO plans
-            (plan_id, plan_name, organization, plan_type, monthly_premium,
-             annual_deductible, out_of_pocket_max, star_rating, drug_coverage, state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        plans,
+    conn = sqlite3.connect(str(tmp_path))
+    try:
+        conn.executescript(SCHEMA_SQL)
+
+        conn.executemany(
+            """
+            INSERT OR IGNORE INTO plans
+                (plan_id, plan_name, organization, plan_type, monthly_premium,
+                 annual_deductible, out_of_pocket_max, star_rating, drug_coverage, state)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            plans,
+        )
+
+        # plan_zips
+        zip_rows = [
+            (plan_id, zip_code)
+            for zip_code, plan_ids in zip_mappings.items()
+            for plan_id in plan_ids
+        ]
+        conn.executemany(
+            "INSERT INTO plan_zips (plan_id, zip_code) VALUES (?, ?)",
+            zip_rows,
+        )
+
+        # plan_counties
+        if plan_county_map:
+            plan_state = {p[0]: p[9] for p in plans}  # plan_id -> state
+            county_rows = [
+                (plan_id, plan_state.get(plan_id, ""), "", fips)
+                for plan_id, counties in plan_county_map.items()
+                for fips in counties
+            ]
+            conn.executemany(
+                "INSERT INTO plan_counties (plan_id, state, county, fips_code) VALUES (?, ?, ?, ?)",
+                county_rows,
+            )
+
+        # drugs
+        conn.executemany(
+            """
+            INSERT INTO drugs
+                (name, generic_name, brand_name, ndc, dosage_form,
+                 tier_generic, copay_hmo, copay_ppo, prior_auth, quantity_limit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            drugs,
+        )
+
+        conn.commit()
+
+        plan_count = conn.execute("SELECT COUNT(*) FROM plans").fetchone()[0]
+        drug_count = conn.execute("SELECT COUNT(*) FROM drugs").fetchone()[0]
+        zip_count = conn.execute("SELECT COUNT(DISTINCT zip_code) FROM plan_zips").fetchone()[0]
+        county_count = conn.execute("SELECT COUNT(*) FROM plan_counties").fetchone()[0]
+    finally:
+        conn.close()
+
+    os.replace(str(tmp_path), str(db_path))
+
+    print(
+        f"Loaded {plan_count} plans, {drug_count} drugs, "
+        f"{zip_count} zips, {county_count} plan-county rows"
     )
-
-    # Insert zip mappings
-    zip_rows = []
-    for zip_code, plan_ids in zip_mappings.items():
-        for plan_id in plan_ids:
-            zip_rows.append((plan_id, zip_code))
-    conn.executemany(
-        "INSERT INTO plan_zips (plan_id, zip_code) VALUES (?, ?)",
-        zip_rows,
+    logger.info(
+        f"Database built: {plan_count} plans, {drug_count} drugs, "
+        f"{zip_count} zips, {county_count} plan-county rows"
     )
-
-    # Insert drugs
-    conn.executemany(
-        """
-        INSERT INTO drugs
-            (name, generic_name, brand_name, ndc, dosage_form,
-             tier_generic, copay_hmo, copay_ppo, prior_auth, quantity_limit)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        drugs,
-    )
-
-    conn.commit()
-
-    # Print summary
-    plan_count = conn.execute("SELECT COUNT(*) FROM plans").fetchone()[0]
-    drug_count = conn.execute("SELECT COUNT(*) FROM drugs").fetchone()[0]
-    zip_count = conn.execute("SELECT COUNT(DISTINCT zip_code) FROM plan_zips").fetchone()[0]
-    conn.close()
-
-    print(f"Loaded {plan_count} plans, {drug_count} drugs, {zip_count} zip mappings")
-    logger.info(f"Database built: {plan_count} plans, {drug_count} drugs, {zip_count} zip codes")
     logger.info(f"Saved to: {db_path}")
 
 
