@@ -470,9 +470,7 @@ def download_cms_data() -> tuple[list[tuple], dict[str, set[str]]] | None:
 
 def download_fda_drugs() -> list[tuple] | None:
     """Attempt to download FDA drug data. Returns list of drug tuples or None on failure."""
-    try:
-        import httpx
-    except ImportError:
+    if httpx is None:
         logger.warning("httpx not installed — skipping FDA download. Using seed data.")
         return None
 
