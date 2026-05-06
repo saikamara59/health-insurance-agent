@@ -709,6 +709,16 @@ def main():
         help="Use curated seed data only (no downloads). Good for CI/testing.",
     )
     parser.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Bypass the local cache for both CMS and HUD downloads.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable DEBUG logging (pagination, cache hits, row counts).",
+    )
+    parser.add_argument(
         "--db-path",
         type=Path,
         default=DB_PATH,
@@ -716,30 +726,67 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+
     if args.seed_only:
         logger.info("Using seed data only (--seed-only).")
         plans = SEED_PLANS
         drugs = SEED_DRUGS
         zip_mappings = SEED_ZIP_MAPPINGS
+        plan_county_map: dict[str, set[str]] | None = None
+        build_database(plans, zip_mappings, drugs, db_path=args.db_path, plan_county_map=plan_county_map)
+        return
+
+    logger.info("Attempting to download real data from CMS, HUD, and FDA...")
+
+    cms_result = _load_or_fetch(
+        "cms_landscape", ttl_days=7,
+        fetch_fn=download_cms_data, force=args.force_refresh,
+    )
+    drugs = _load_or_fetch(
+        "fda_drugs", ttl_days=30,
+        fetch_fn=download_fda_drugs, force=args.force_refresh,
+    )
+    zip_county_map = _load_or_fetch(
+        "hud_zip_county", ttl_days=30,
+        fetch_fn=download_hud_zip_county, force=args.force_refresh,
+    )
+
+    if cms_result is None:
+        logger.info("Falling back to seed plan data (CMS download failed).")
+        plans = SEED_PLANS
+        plan_county_map = None
+        zip_mappings = SEED_ZIP_MAPPINGS
     else:
-        logger.info("Attempting to download real data from CMS and FDA...")
-        plans = download_cms_data()
-        drugs = download_fda_drugs()
-
-        if plans is None:
-            logger.info("Falling back to seed plan data.")
-            plans = SEED_PLANS
-            zip_mappings = SEED_ZIP_MAPPINGS
+        plans, plan_county_map = cms_result
+        # Cache may have rehydrated tuples as lists; coerce back.
+        plans = [tuple(p) for p in plans]
+        # Cache may have rehydrated set values as lists; build_zip_mappings accepts both.
+        if zip_county_map:
+            zip_mappings = build_zip_mappings(plan_county_map, zip_county_map)
+            if not zip_mappings:
+                logger.warning(
+                    "build_zip_mappings produced empty result; "
+                    "falling back to seed ZIP mappings."
+                )
+                zip_mappings = SEED_ZIP_MAPPINGS
         else:
-            # For downloaded CMS data we don't have zip mappings,
-            # so we still use seed zip mappings as a base and add any new plan IDs
-            zip_mappings = dict(SEED_ZIP_MAPPINGS)
+            logger.info("Falling back to seed ZIP mappings (HUD unavailable).")
+            zip_mappings = SEED_ZIP_MAPPINGS
 
-        if drugs is None:
-            logger.info("Falling back to seed drug data.")
-            drugs = SEED_DRUGS
+    if drugs is None:
+        logger.info("Falling back to seed drug data.")
+        drugs = SEED_DRUGS
+    else:
+        drugs = [tuple(d) for d in drugs]  # cache JSON round-trip
 
-    build_database(plans, zip_mappings, drugs, db_path=args.db_path)
+    build_database(
+        plans, zip_mappings, drugs,
+        db_path=args.db_path,
+        plan_county_map=plan_county_map,
+    )
 
 
 if __name__ == "__main__":
