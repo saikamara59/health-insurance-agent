@@ -107,6 +107,50 @@ Data stored in `healthflow_data.db` (gitignored). Falls back to curated mock dat
 
 ---
 
+## Data refresh
+
+`make refresh-data` rebuilds `healthflow_data.db` from real public sources:
+
+- **CMS Medicare Advantage Plan Landscape** (no auth) — every active MA plan
+  in the country, ~3,000 plans across all carriers and states.
+- **HUD USPS ZIP↔county crosswalk** (free token; sign up at
+  https://www.huduser.gov/portal/dataset/uspszip-api.html) — joins CMS county
+  service areas to ~33,000 US ZIPs.
+- **FDA NDC directory** — drug catalog used by cost calculations.
+
+Set `HUD_API_TOKEN=<token>` in `.env` to enable nationwide ZIP coverage.
+Without it, the refresh still works but falls back to ~25 hand-curated demo
+ZIPs.
+
+CLI flags:
+
+```sh
+python scripts/refresh_data.py                  # default — try real data, fall back to seed
+python scripts/refresh_data.py --force-refresh  # ignore the local cache
+python scripts/refresh_data.py --seed-only      # skip network entirely
+python scripts/refresh_data.py --verbose        # debug logging
+```
+
+Cache lives in `~/.cache/healthflow/`. CMS and FDA TTL is 7/30 days; HUD is
+30 days (HUD updates quarterly).
+
+### Manual smoke check after a refresh
+
+```sh
+sqlite3 healthflow_data.db "SELECT COUNT(*) FROM plans;"           # ~3,000 with HUD token
+sqlite3 healthflow_data.db "SELECT COUNT(*) FROM plan_counties;"   # ~30,000
+sqlite3 healthflow_data.db "SELECT COUNT(*) FROM plan_zips;"       # ~400,000
+```
+
+```sql
+SELECT p.plan_name, p.organization
+FROM plans p JOIN plan_zips z ON p.plan_id = z.plan_id
+WHERE z.zip_code = '10001'
+LIMIT 20;
+```
+
+---
+
 ## Features
 
 ### AI-Powered Agents (Claude)
