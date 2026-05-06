@@ -122,6 +122,17 @@ Set `HUD_API_TOKEN=<token>` in `.env` to enable nationwide ZIP coverage.
 Without it, the refresh still works but falls back to ~25 hand-curated demo
 ZIPs.
 
+> **Note (2026-05):** CMS retired the legacy Socrata SODA API at
+> `data.cms.gov/resource/`; the `jfhb-kvhx` Plan Landscape endpoint now
+> returns HTTP 410 Gone permanently. The full pagination + county-join
+> wiring is in place and well-tested, but `download_cms_data` falls back
+> to the curated `SEED_PLANS` until we migrate to the new API or to CMS's
+> quarterly file downloads at
+> https://www.cms.gov/medicare/health-drug-plans/medicare-advantage-prescription-drug-coverage/plan-information.
+> HUD ZIP↔county still works and populates `plan_zips`; `plan_counties`
+> stays empty in this degraded mode because we have no CMS county data to
+> join against.
+
 CLI flags:
 
 ```sh

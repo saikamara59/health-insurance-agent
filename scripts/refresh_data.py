@@ -403,12 +403,18 @@ def download_cms_data() -> tuple[list[tuple], dict[str, set[str]]] | None:
                 resp.raise_for_status()
                 data = resp.json()
         except Exception as e:
+            sunset_hint = ""
+            if "410" in str(e) or "Gone" in str(e):
+                sunset_hint = (
+                    " — CMS retired the legacy Socrata SODA API in 2026; "
+                    "see README 'Data refresh' section."
+                )
             if not plans_by_id:
-                logger.warning(f"CMS download failed on first page ({e}). Using seed data.")
+                logger.warning(f"CMS download failed on first page ({e}). Using seed data.{sunset_hint}")
                 return None
             logger.warning(
                 f"CMS download failed at offset {offset} ({e}). "
-                f"Using {len(plans_by_id)} plans collected so far."
+                f"Using {len(plans_by_id)} plans collected so far.{sunset_hint}"
             )
             break
 
