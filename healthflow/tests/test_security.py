@@ -67,7 +67,13 @@ def test_invalid_token_raises():
 
 def test_tampered_token_raises():
     token = create_access_token({"sub": "broker-123", "role": "broker"})
-    # Tamper with the token by changing a character
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Tamper with the first character of the payload section (between the two
+    # dots). The HMAC signing input is the raw ASCII "header.payload" string,
+    # so changing any character there invalidates the signature regardless of
+    # base64url padding — unlike changing the last char of the signature, which
+    # can be a no-op when those bits are pure padding.
+    first_dot = token.index(".")
+    pos = first_dot + 1
+    tampered = token[:pos] + ("A" if token[pos] != "A" else "B") + token[pos + 1:]
     with pytest.raises(Exception):
         decode_token(tampered)
