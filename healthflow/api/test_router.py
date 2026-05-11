@@ -6,14 +6,15 @@ import asyncio
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from healthflow.database.config import async_session_factory
 from healthflow.database.models import (
     ActionHistory,
+    Broker,
     Feedback,
 )
-from healthflow.seed_data import seed_for_worker
+from healthflow.seed_data import seed_for_worker, worker_email
 
 
 test_router = APIRouter(prefix="/__test", tags=["test"])
@@ -37,17 +38,30 @@ async def reset_db(body: ResetRequest) -> dict:
     """
     async with _reset_lock:
         async with async_session_factory() as session:
-            broker = await seed_for_worker(session, body.worker_id)
-            # seed_for_worker already wiped + re-inserted Client rows; also
-            # wipe ActionHistory and Feedback rows owned by this broker.
-            await session.execute(
-                delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
-            )
-            await session.execute(
-                delete(Feedback).where(Feedback.broker_id == broker.id)
-            )
+            # Look up the broker first so we can delete dependent rows before
+            # seed_for_worker deletes Client rows.  On Postgres (FK enforcement
+            # on) ActionHistory.client_id → Client.id would raise if we deleted
+            # clients while action_history rows still referenced them.
+            existing_broker = (
+                await session.execute(
+                    select(Broker).where(Broker.email == worker_email(body.worker_id))
+                )
+            ).scalar_one_or_none()
+
+            if existing_broker is not None:
+                await session.execute(
+                    delete(ActionHistory).where(
+                        ActionHistory.broker_id == existing_broker.id
+                    )
+                )
+                await session.execute(
+                    delete(Feedback).where(Feedback.broker_id == existing_broker.id)
+                )
+
+            # seed_for_worker: get-or-create broker, wipe + re-seed clients.
             # PromptVariant is intentionally not wiped: it is a global table
             # (no broker_id column) — wiping it per-worker would destroy rows
             # owned by other workers.
+            await seed_for_worker(session, body.worker_id)
             await session.commit()
     return {"status": "reset", "worker_id": body.worker_id}

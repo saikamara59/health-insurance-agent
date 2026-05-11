@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,7 +40,10 @@ async def list_history(
     client_names = {}
     if client_ids:
         clients_result = await db.execute(
-            select(Client.id, Client.full_name).where(Client.id.in_(client_ids))
+            select(Client.id, Client.full_name).where(
+                Client.id.in_(client_ids),
+                Client.broker_id == broker.id,
+            )
         )
         client_names = {row.id: row.full_name for row in clients_result}
 
@@ -66,10 +69,24 @@ async def create_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Record an action in the history."""
+    try:
+        parsed_client_id = uuid.UUID(entry.client_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    client_check = await db.execute(
+        select(Client).where(
+            Client.id == parsed_client_id,
+            Client.broker_id == broker.id,
+        )
+    )
+    if client_check.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+
     action = ActionHistory(
         id=uuid.uuid4(),
         broker_id=broker.id,
-        client_id=entry.client_id,
+        client_id=parsed_client_id,
         action_type=entry.action_type,
         request_data=entry.request_data,
         response_summary=entry.response_summary,
