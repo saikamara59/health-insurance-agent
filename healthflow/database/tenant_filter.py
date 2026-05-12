@@ -87,8 +87,11 @@ def _on_do_orm_execute(orm_execute_state) -> None:
 def install_tenant_filter(factory: async_sessionmaker) -> None:
     """Register the do_orm_execute listener on this session factory.
 
-    Idempotent for distinct factories; calling twice on the same factory is a
-    bug (would fire the listener twice per query). Engine setup at startup
-    should call this exactly once.
+    Idempotent: calling repeatedly is a no-op. The listener attaches to the
+    global Session class (via AsyncSession.sync_session_class), so registering
+    once is enough — calls from test fixtures and production startup both
+    resolve to the same class.
     """
-    event.listen(factory.class_.sync_session_class, "do_orm_execute", _on_do_orm_execute)
+    target = factory.class_.sync_session_class
+    if not event.contains(target, "do_orm_execute", _on_do_orm_execute):
+        event.listen(target, "do_orm_execute", _on_do_orm_execute)

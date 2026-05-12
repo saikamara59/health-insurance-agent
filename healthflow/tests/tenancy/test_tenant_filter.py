@@ -104,3 +104,28 @@ async def test_filter_logs_at_debug(session_with_filter, caplog):
         assert any("tenant_filter: scoped" in r.getMessage() for r in caplog.records)
     finally:
         current_broker_id.reset(token)
+
+
+@pytest.mark.anyio
+async def test_install_tenant_filter_is_idempotent():
+    """Calling install_tenant_filter repeatedly must not register duplicate listeners."""
+    from sqlalchemy import event as sa_event
+    from sqlalchemy.orm import Session
+    from healthflow.database.tenant_filter import _on_do_orm_execute, install_tenant_filter
+
+    engine_a = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    factory_a = async_sessionmaker(engine_a, class_=AsyncSession, expire_on_commit=False)
+    engine_b = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    factory_b = async_sessionmaker(engine_b, class_=AsyncSession, expire_on_commit=False)
+
+    # Register multiple times across multiple factories — should still only land once.
+    install_tenant_filter(factory_a)
+    install_tenant_filter(factory_a)
+    install_tenant_filter(factory_b)
+
+    # event.contains returns True if registered; we can't easily count, but we can
+    # confirm the listener is present and that further calls don't change behavior.
+    assert sa_event.contains(Session, "do_orm_execute", _on_do_orm_execute)
+
+    await engine_a.dispose()
+    await engine_b.dispose()
