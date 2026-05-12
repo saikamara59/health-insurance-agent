@@ -76,7 +76,7 @@ If during the move a file's intent doesn't match its mapped folder, document the
 
 1. Create the 9 subfolders, each with an empty `__init__.py`.
 2. `git mv` each file per the table above. One commit per subfolder is acceptable; one commit total is also acceptable. Single PR either way.
-3. Run the full test suite. `pytest` should discover all 436 tests without configuration changes — `tests/__init__.py` already establishes package layout, and the `pyproject.toml`/`pytest.ini` test path (if any) points at `healthflow/tests/`.
+3. Run the full test suite. `pytest` should discover all 462 tests without configuration changes — `tests/__init__.py` already establishes package layout, and the `pyproject.toml`/`pytest.ini` test path (if any) points at `healthflow/tests/`.
 4. If any test fails to import or collect: fix the import path (likely a sibling import like `from .helpers import X` that needs to become absolute), do **not** revert the move. If the fix exceeds 10 lines for a single file, stop and surface — that's a sign of unanticipated coupling.
 
 ### Verification
@@ -84,7 +84,7 @@ If during the move a file's intent doesn't match its mapped folder, document the
 CI must be green after the reorg. Locally:
 
 ```
-pytest healthflow/tests/ -q --collect-only | tail -20    # confirm count ≈ 436
+pytest healthflow/tests/ -q --collect-only | tail -20    # confirm count ≈ 462
 pytest healthflow/tests/                                 # full run, all green
 make all                                                 # if there's a Makefile target, run it
 ```
@@ -113,6 +113,6 @@ The reorg is done when:
 
 1. All 9 subfolders exist with `__init__.py`.
 2. All 66 files are moved per the mapping table; `tests/` no longer contains any `test_*.py` files at the top level.
-3. `pytest healthflow/tests/` collects and passes the full 436-test suite (or whatever the current count is).
+3. `pytest healthflow/tests/` collects and passes the full 462-test suite (or whatever the current count is).
 4. CI is green on the merge.
 5. The multi-tenancy spec's references to `tests/tenancy/` are now satisfied by the new layout — that spec can proceed without modification.

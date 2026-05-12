@@ -55,7 +55,7 @@ Expected: `nothing to commit, working tree clean` and `main`. If not clean, stop
 .venv/bin/python -m pytest healthflow/tests/ --collect-only -q 2>&1 | tail -5
 ```
 
-Expected: a final line like `436 tests collected in X.XXs` (count may differ; record whatever it is). Note this number — every later verification step must match it.
+Expected: a final line like `462 tests collected in X.XXs` (count may differ; record whatever it is). Note this number — every later verification step must match it.
 
 - [ ] **Step 3: Confirm baseline is green**
 
