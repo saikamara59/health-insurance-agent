@@ -6,7 +6,7 @@
 
 ## Problem
 
-`healthflow/tests/` contains 69 flat `test_*.py` files. Finding the test for a given module requires `ls | grep`, and adding new tests (e.g. the upcoming `tests/tenancy/` suite) keeps making the problem worse. The flat layout reads as accidental rather than intentional and obscures the modular structure that already exists in the production code (`healthflow/auth/`, `healthflow/agents/`, `healthflow/api/`, etc.).
+`healthflow/tests/` contains 66 flat `test_*.py` files (plus `__init__.py` and `conftest.py`). Finding the test for a given module requires `ls | grep`, and adding new tests (e.g. the upcoming `tests/tenancy/` suite) keeps making the problem worse. The flat layout reads as accidental rather than intentional and obscures the modular structure that already exists in the production code (`healthflow/auth/`, `healthflow/agents/`, `healthflow/api/`, etc.).
 
 ## Goal
 
@@ -60,7 +60,7 @@ Each subfolder contains an `__init__.py` (matching the existing `tests/__init__.
 | `observability/` | `test_audit.py`, `test_server_log.py`, `test_server_log_middleware.py` |
 | `tenancy/` | `test_cross_broker_isolation.py` |
 
-Total: 68 files moved into 9 subfolders. (`conftest.py` and `__init__.py` stay at the top level.)
+Total: 66 files moved into 9 subfolders. (`conftest.py` and `__init__.py` stay at the top level.)
 
 ### Borderline cases — decisions made now to avoid bikeshed
 
@@ -112,7 +112,7 @@ The `tests/tenancy/__init__.py` is created with the existing `test_cross_broker_
 The reorg is done when:
 
 1. All 9 subfolders exist with `__init__.py`.
-2. All 68 files are moved per the mapping table; `tests/` no longer contains any `test_*.py` files at the top level.
+2. All 66 files are moved per the mapping table; `tests/` no longer contains any `test_*.py` files at the top level.
 3. `pytest healthflow/tests/` collects and passes the full 436-test suite (or whatever the current count is).
 4. CI is green on the merge.
 5. The multi-tenancy spec's references to `tests/tenancy/` are now satisfied by the new layout — that spec can proceed without modification.
