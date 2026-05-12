@@ -22,6 +22,7 @@ protected by the filtered SELECT that loads the related row before
 the INSERT.
 """
 import logging
+import re
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -95,3 +96,52 @@ def install_tenant_filter(factory: async_sessionmaker) -> None:
     target = factory.class_.sync_session_class
     if not event.contains(target, "do_orm_execute", _on_do_orm_execute):
         event.listen(target, "do_orm_execute", _on_do_orm_execute)
+
+
+# Tables protected by the heuristic guard. Names match the registered models'
+# __tablename__.
+_TENANT_SCOPED_TABLE_NAMES: frozenset[str] = frozenset(
+    m.__tablename__ for m in TENANT_SCOPED_MODELS
+)
+
+# Match a tenant table name appearing after FROM, JOIN, UPDATE, or INTO,
+# case-insensitive. Word boundaries prevent matching e.g. "myclients".
+_TENANT_TABLE_REGEX = re.compile(
+    r"\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:" +
+    "|".join(_TENANT_SCOPED_TABLE_NAMES) +
+    r")\b",
+    re.IGNORECASE,
+)
+_BROKER_ID_FILTER_REGEX = re.compile(r"\bbroker_id\s*=", re.IGNORECASE)
+
+
+def _on_before_execute(conn, clauseelement, multiparams, params, execution_options):
+    """Engine-level guard for raw SQL that bypasses the ORM filter.
+
+    Heuristic: if the SQL text references a tenant-scoped table and has no
+    `broker_id =` clause, raise. Not a complete defense (an attacker
+    constructing raw SQL deliberately could bypass), but catches accidental
+    `session.execute(text(...))` against PHI tables in application code.
+    """
+    sql = str(clauseelement)
+    if not _TENANT_TABLE_REGEX.search(sql):
+        return  # not touching a tenant-scoped table
+    if _BROKER_ID_FILTER_REGEX.search(sql):
+        return  # has a broker_id clause; trust the caller
+    if _in_system_context.get():
+        return  # legitimately bypassed
+    raise TenantContextMissing(
+        f"Raw SQL against a tenant-scoped table without broker_id filter. "
+        f"Use the ORM (which auto-filters) or wrap in system_context(). "
+        f"SQL: {sql[:200]}"
+    )
+
+
+def install_raw_sql_guard(engine) -> None:
+    """Register before_execute listener on the engine for raw-SQL protection.
+
+    Idempotent per engine: calling repeatedly on the same engine is a no-op.
+    """
+    target = engine.sync_engine
+    if not event.contains(target, "before_execute", _on_before_execute):
+        event.listen(target, "before_execute", _on_before_execute)

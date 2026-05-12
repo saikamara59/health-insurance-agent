@@ -129,3 +129,58 @@ async def test_install_tenant_filter_is_idempotent():
 
     await engine_a.dispose()
     await engine_b.dispose()
+
+
+@pytest.mark.anyio
+async def test_raw_sql_against_tenant_table_without_filter_raises():
+    """text('SELECT * FROM clients') with no broker_id clause should fail loud."""
+    from sqlalchemy import text
+    from healthflow.database.tenant_filter import install_raw_sql_guard
+
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    install_raw_sql_guard(engine)
+
+    async with engine.connect() as conn:
+        with pytest.raises(TenantContextMissing):
+            await conn.execute(text("SELECT * FROM clients"))
+    await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_raw_sql_with_explicit_broker_id_filter_passes():
+    """text('SELECT ... WHERE broker_id = ...') should be allowed."""
+    from sqlalchemy import text
+    from healthflow.database.tenant_filter import install_raw_sql_guard
+
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    install_raw_sql_guard(engine)
+
+    async with engine.connect() as conn:
+        # Empty result is fine; we're testing that the guard doesn't raise.
+        result = await conn.execute(
+            text("SELECT * FROM clients WHERE broker_id = :b"),
+            {"b": str(uuid.uuid4())},
+        )
+        assert result.fetchall() == []
+    await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_raw_sql_against_non_tenant_table_unaffected():
+    """SELECT against `brokers` table is fine without a broker_id clause."""
+    from sqlalchemy import text
+    from healthflow.database.tenant_filter import install_raw_sql_guard
+
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    install_raw_sql_guard(engine)
+
+    async with engine.connect() as conn:
+        result = await conn.execute(text("SELECT * FROM brokers"))
+        assert result.fetchall() == []
+    await engine.dispose()
