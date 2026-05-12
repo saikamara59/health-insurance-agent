@@ -8,8 +8,11 @@ attempting to read when unset raises `TenantContextMissing`.
 This module knows nothing about SQLAlchemy. The actual filter
 enforcement lives in `healthflow.database.tenant_filter`.
 """
+import logging
 import uuid
+from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Iterator
 
 
 class TenantContextMissing(Exception):
@@ -35,3 +38,23 @@ def require_current_broker() -> uuid.UUID:
             "under get_current_broker; system code must use system_context()."
         )
     return value
+
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def system_context() -> Iterator[None]:
+    """Temporarily clear the tenant context for legitimate cross-tenant work.
+
+    Use only at audited call sites (seeders, migrations, system-owned
+    analytics). Logs WARN on entry and exit to make any use visible in
+    the logs.
+    """
+    token = current_broker_id.set(None)
+    logger.warning("system_context: enter (caller bypassing tenant filter)")
+    try:
+        yield
+    finally:
+        current_broker_id.reset(token)
+        logger.warning("system_context: exit")
