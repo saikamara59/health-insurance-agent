@@ -42,6 +42,8 @@ def require_current_broker() -> uuid.UUID:
 
 logger = logging.getLogger(__name__)
 
+_in_system_context: ContextVar[bool] = ContextVar("_in_system_context", default=False)
+
 
 @contextmanager
 def system_context() -> Iterator[None]:
@@ -51,10 +53,12 @@ def system_context() -> Iterator[None]:
     analytics). Logs WARN on entry and exit to make any use visible in
     the logs.
     """
-    token = current_broker_id.set(None)
+    broker_token = current_broker_id.set(None)
+    flag_token = _in_system_context.set(True)
     logger.warning("system_context: enter (caller bypassing tenant filter)")
     try:
         yield
     finally:
-        current_broker_id.reset(token)
+        _in_system_context.reset(flag_token)
+        current_broker_id.reset(broker_token)
         logger.warning("system_context: exit")
