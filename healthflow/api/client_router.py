@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from healthflow.auth.dependencies import get_current_broker
@@ -83,9 +83,6 @@ async def get_client(
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    if client.broker_id != broker.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
     return _client_to_response(client)
 
 
@@ -107,9 +104,6 @@ async def update_client(
 
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
-
-    if client.broker_id != broker.id:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     # Apply only the fields that were explicitly set
     update_fields = update_data.model_dump(exclude_unset=True)
@@ -139,9 +133,8 @@ async def delete_client(
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    if client.broker_id != broker.id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    await db.delete(client)
+    await db.execute(
+        delete(Client).where(Client.id == parsed_id, Client.broker_id == broker.id)
+    )
     await db.flush()
     return Response(status_code=204)

@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import delete
 
+from healthflow.auth.tenant_context import system_context
 from healthflow.database.config import async_session_factory
 from healthflow.database.models import (
     ActionHistory,
@@ -37,17 +38,18 @@ async def reset_db(body: ResetRequest) -> dict:
     """
     async with _reset_lock:
         async with async_session_factory() as session:
-            broker = await seed_for_worker(session, body.worker_id)
-            # seed_for_worker already wiped + re-inserted Client rows; also
-            # wipe ActionHistory and Feedback rows owned by this broker.
-            await session.execute(
-                delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
-            )
-            await session.execute(
-                delete(Feedback).where(Feedback.broker_id == broker.id)
-            )
-            # PromptVariant is intentionally not wiped: it is a global table
-            # (no broker_id column) — wiping it per-worker would destroy rows
-            # owned by other workers.
-            await session.commit()
+            with system_context():
+                broker = await seed_for_worker(session, body.worker_id)
+                # seed_for_worker already wiped + re-inserted Client rows; also
+                # wipe ActionHistory and Feedback rows owned by this broker.
+                await session.execute(
+                    delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
+                )
+                await session.execute(
+                    delete(Feedback).where(Feedback.broker_id == broker.id)
+                )
+                # PromptVariant is intentionally not wiped: it is a global table
+                # (no broker_id column) — wiping it per-worker would destroy rows
+                # owned by other workers.
+                await session.commit()
     return {"status": "reset", "worker_id": body.worker_id}

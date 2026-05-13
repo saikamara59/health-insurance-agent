@@ -9,12 +9,17 @@ from healthflow.database.models import Base, Broker, Client, ActionHistory
 
 @pytest_asyncio.fixture
 async def db_session():
+    from healthflow.auth.tenant_context import system_context
+    from healthflow.database.tenant_filter import install_tenant_filter
+
     engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    install_tenant_filter(factory)
     async with factory() as session:
-        yield session
+        with system_context():
+            yield session
     await engine.dispose()
 
 

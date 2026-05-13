@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from healthflow.database.tenant_filter import install_raw_sql_guard, install_tenant_filter
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "sqlite+aiosqlite:///healthflow.db",
@@ -16,6 +18,12 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 async_session_factory = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
+
+# Install the tenant isolation listeners on the production engine and session
+# factory. Done at import time so any code path that uses the default factory
+# is automatically protected.
+install_raw_sql_guard(engine)
+install_tenant_filter(async_session_factory)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
