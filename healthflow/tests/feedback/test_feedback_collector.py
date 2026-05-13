@@ -2,6 +2,7 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from healthflow.auth.tenant_context import current_broker_id
 from healthflow.database.models import Broker
 from healthflow.feedback.collector import FeedbackCollector
 
@@ -57,8 +58,12 @@ async def test_list_feedback(db_session: AsyncSession):
             helpfulness=3,
         )
 
-    results = await collector.list_feedback(db=db_session, broker_id=broker.id)
-    assert len(results) == 3
+    token = current_broker_id.set(broker.id)
+    try:
+        results = await collector.list_feedback(db=db_session)
+        assert len(results) == 3
+    finally:
+        current_broker_id.reset(token)
 
 
 @pytest.mark.anyio
@@ -82,11 +87,15 @@ async def test_list_feedback_filter_by_agent_type(db_session: AsyncSession):
         agent_type="translate", accuracy=3, clarity=3, helpfulness=3,
     )
 
-    compare_only = await collector.list_feedback(
-        db=db_session, broker_id=broker.id, agent_type="compare"
-    )
-    assert len(compare_only) == 1
-    assert compare_only[0].agent_type == "compare"
+    token = current_broker_id.set(broker.id)
+    try:
+        compare_only = await collector.list_feedback(
+            db=db_session, agent_type="compare"
+        )
+        assert len(compare_only) == 1
+        assert compare_only[0].agent_type == "compare"
+    finally:
+        current_broker_id.reset(token)
 
 
 @pytest.mark.anyio

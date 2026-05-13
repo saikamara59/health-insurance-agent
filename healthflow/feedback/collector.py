@@ -41,14 +41,16 @@ class FeedbackCollector:
     async def list_feedback(
         self,
         db: AsyncSession,
-        broker_id: uuid.UUID,
         agent_type: str | None = None,
         limit: int = 50,
     ) -> list[Feedback]:
-        """List feedback for a broker, optionally filtered by agent_type."""
+        """List feedback for the current broker (auto-scoped by tenant filter).
+
+        Note: removed the explicit broker_id parameter — the do_orm_execute
+        hook auto-injects WHERE broker_id = current_broker_id.
+        """
         stmt = (
             select(Feedback)
-            .where(Feedback.broker_id == broker_id)
             .order_by(Feedback.created_at.desc())
             .limit(limit)
         )
