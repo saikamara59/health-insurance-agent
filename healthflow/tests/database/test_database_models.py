@@ -18,7 +18,7 @@ async def db_session():
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     install_tenant_filter(factory)
     async with factory() as session:
-        with system_context():
+        with system_context("test fixture: database_models direct session"):
             yield session
     await engine.dispose()
 

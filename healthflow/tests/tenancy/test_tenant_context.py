@@ -37,7 +37,7 @@ def test_system_context_clears_value():
     broker_id = uuid.uuid4()
     token = current_broker_id.set(broker_id)
     try:
-        with system_context():
+        with system_context("test"):
             assert current_broker_id.get() is None
         # restored after exit
         assert current_broker_id.get() == broker_id
@@ -47,18 +47,18 @@ def test_system_context_clears_value():
 
 def test_system_context_works_when_already_unset():
     assert current_broker_id.get() is None
-    with system_context():
+    with system_context("test"):
         assert current_broker_id.get() is None
     assert current_broker_id.get() is None
 
 
 def test_system_context_logs_warning_on_entry_and_exit(caplog):
     with caplog.at_level(logging.WARNING, logger="healthflow.auth.tenant_context"):
-        with system_context():
+        with system_context("test reason XYZ"):
             pass
     messages = [r.getMessage() for r in caplog.records]
-    assert any("system_context: enter" in m for m in messages)
-    assert any("system_context: exit" in m for m in messages)
+    assert any("system_context: enter" in m and "test reason XYZ" in m for m in messages)
+    assert any("system_context: exit" in m and "test reason XYZ" in m for m in messages)
 
 
 @pytest.mark.anyio

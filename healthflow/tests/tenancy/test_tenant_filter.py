@@ -31,7 +31,7 @@ async def session_with_filter():
     async with factory() as session:
         # Seed two brokers + one client per broker, inside system_context so
         # the inserts/selects during setup don't trip the filter.
-        with system_context():
+        with system_context("test fixture: tenant_filter setup"):
             broker_a = Broker(email="a@t.test", hashed_password=hash_password("x"), full_name="A")
             broker_b = Broker(email="b@t.test", hashed_password=hash_password("x"), full_name="B")
             session.add_all([broker_a, broker_b])
@@ -78,7 +78,7 @@ async def test_query_with_context_filters_to_that_broker(session_with_filter):
 @pytest.mark.anyio
 async def test_query_inside_system_context_returns_all(session_with_filter):
     session, _, _, client_a, client_b = session_with_filter
-    with system_context():
+    with system_context("test"):
         result = await session.execute(select(Client))
         ids = sorted(r.id for r in result.scalars().all())
     assert ids == sorted([client_a.id, client_b.id])

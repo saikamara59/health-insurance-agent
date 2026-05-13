@@ -26,7 +26,7 @@ class PromptUpdater:
         # RLHF aggregates feedback across all brokers to improve the
         # system-wide prompt. Cross-broker access is intentional;
         # bypasses the per-tenant filter for this read.
-        with system_context():  # TASK-9: add reason="RLHF prompt update: cross-broker feedback aggregation"
+        with system_context("RLHF prompt update: cross-broker feedback aggregation"):
             from sqlalchemy import func
 
             # Find top-rated output_ids for this agent type
