@@ -104,10 +104,13 @@ _TENANT_SCOPED_TABLE_NAMES: frozenset[str] = frozenset(
     m.__tablename__ for m in TENANT_SCOPED_MODELS
 )
 
-# Match a tenant table name appearing after FROM, JOIN, UPDATE, or INTO,
-# case-insensitive. Word boundaries prevent matching e.g. "myclients".
+# Match a tenant table name appearing after FROM, JOIN, or UPDATE — i.e.
+# the contexts where leakage is possible. INSERT INTO is intentionally
+# excluded: INSERTs scope by the broker_id column value and don't read
+# or modify existing rows, so they're not a leak vector. Word boundaries
+# prevent matching e.g. "myclients".
 _TENANT_TABLE_REGEX = re.compile(
-    r"\b(?:FROM|JOIN|UPDATE|INTO)\s+(?:" +
+    r"\b(?:FROM|JOIN|UPDATE)\s+(?:" +
     "|".join(_TENANT_SCOPED_TABLE_NAMES) +
     r")\b",
     re.IGNORECASE,

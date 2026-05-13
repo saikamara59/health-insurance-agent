@@ -184,3 +184,32 @@ async def test_raw_sql_against_non_tenant_table_unaffected():
         result = await conn.execute(text("SELECT * FROM brokers"))
         assert result.fetchall() == []
     await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_raw_sql_insert_into_tenant_table_not_guarded():
+    """INSERT INTO clients is not a leak vector; guard must not raise on it."""
+    from sqlalchemy import text
+    from healthflow.database.tenant_filter import install_raw_sql_guard
+
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    install_raw_sql_guard(engine)
+
+    broker_id = str(uuid.uuid4())
+    async with engine.begin() as conn:
+        # INSERT broker first so the FK satisfies.
+        await conn.execute(
+            text("INSERT INTO brokers (id, email, hashed_password, full_name, role, is_active, created_at) "
+                 "VALUES (:id, :email, :pw, :name, 'broker', 1, '2026-01-01')"),
+            {"id": broker_id, "email": "ins@t.test", "pw": "x", "name": "Ins"},
+        )
+        # Now INSERT INTO clients should NOT raise even with no current_broker_id.
+        await conn.execute(
+            text("INSERT INTO clients (id, broker_id, full_name, zip_code, age, income_level, "
+                 "doctors, prescriptions, procedures, created_at, updated_at) "
+                 "VALUES (:id, :bid, 'X', '10001', 40, 'medium', '[]', '[]', '[]', '2026-01-01', '2026-01-01')"),
+            {"id": str(uuid.uuid4()), "bid": broker_id},
+        )
+    await engine.dispose()
