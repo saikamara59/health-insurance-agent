@@ -16,7 +16,10 @@ def anyio_backend():
 
 @pytest_asyncio.fixture
 async def db_engine():
+    from healthflow.database.tenant_filter import install_raw_sql_guard
+
     engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    install_raw_sql_guard(engine)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -25,14 +28,28 @@ async def db_engine():
 
 @pytest_asyncio.fixture
 async def db_session_factory(db_engine):
+    from healthflow.database.tenant_filter import install_tenant_filter
+
     factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+    install_tenant_filter(factory)
     return factory
 
 
 @pytest_asyncio.fixture
 async def db_session(db_session_factory):
+    """Direct DB session for tests that bypass the auth flow.
+
+    Enters system_context() by default so test setup can insert/query
+    tenant-scoped tables without raising. Tests that want to assert
+    tenancy behavior should use the `client` fixture (which routes
+    through real auth) or explicitly set `current_broker_id` after
+    `system_context` exits.
+    """
+    from healthflow.auth.tenant_context import system_context
+
     async with db_session_factory() as session:
-        yield session
+        with system_context():
+            yield session
 
 
 @pytest_asyncio.fixture
