@@ -216,7 +216,9 @@ async def test_ownership_check_get(client):
         f"/clients/{client_id}",
         headers={"Authorization": f"Bearer {token_b}"},
     )
-    assert response.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -245,7 +247,9 @@ async def test_ownership_check_update(client):
         json={"full_name": "Hacked Name"},
         headers={"Authorization": f"Bearer {token_b}"},
     )
-    assert response.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -273,7 +277,9 @@ async def test_ownership_check_delete(client):
         f"/clients/{client_id}",
         headers={"Authorization": f"Bearer {token_b}"},
     )
-    assert response.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

@@ -199,7 +199,9 @@ async def test_multi_broker_isolation(client):
 
     # Broker B cannot access Broker A's client
     cross_resp = await client.get(f"/clients/{a_client_id}", headers=headers_b)
-    assert cross_resp.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert cross_resp.status_code == 404
 
     # Broker B cannot update Broker A's client
     cross_update = await client.put(
@@ -207,11 +209,15 @@ async def test_multi_broker_isolation(client):
         json={"full_name": "Hacked"},
         headers=headers_b,
     )
-    assert cross_update.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert cross_update.status_code == 404
 
     # Broker B cannot delete Broker A's client
     cross_delete = await client.delete(f"/clients/{a_client_id}", headers=headers_b)
-    assert cross_delete.status_code == 403
+    # 404 (not 403) per the multi-tenancy spec: don't leak existence of
+    # another broker's records.
+    assert cross_delete.status_code == 404
 
 
 @pytest.mark.asyncio
