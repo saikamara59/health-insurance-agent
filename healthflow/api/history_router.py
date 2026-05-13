@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,6 +66,16 @@ async def create_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Record an action in the history."""
+    # Load the referenced Client through the tenant filter — if it belongs to
+    # another broker (or doesn't exist), this returns None and the route 404s.
+    # Composite-write protection: prevents constructing an ActionHistory row
+    # that references a different broker's Client.
+    client_lookup = await db.execute(
+        select(Client).where(Client.id == entry.client_id)
+    )
+    if client_lookup.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+
     action = ActionHistory(
         id=uuid.uuid4(),
         broker_id=broker.id,
@@ -78,7 +88,7 @@ async def create_history(
     await db.flush()
     await db.refresh(action)
 
-    # Get client name
+    # Get client name (the load above already proved the client exists + is ours)
     client_result = await db.execute(
         select(Client.full_name).where(Client.id == action.client_id)
     )
