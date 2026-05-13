@@ -13,7 +13,7 @@ from healthflow.auth.tenant_context import (
     current_broker_id,
     system_context,
 )
-from healthflow.database.models import Base, Broker, Client, PromptVariant
+from healthflow.database.models import Base, Broker, Client
 from healthflow.database.tenant_filter import (
     TENANT_SCOPED_MODELS,
     install_tenant_filter,
