@@ -1,10 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from healthflow.auth.dependencies import get_current_broker
+from healthflow.auth.tenant_context import system_context
 from healthflow.database.config import get_db
 from healthflow.database.models import Broker, Client
 from healthflow.models.schemas import ClientCreate, ClientResponse, ClientUpdate
@@ -77,8 +78,9 @@ async def get_client(
     except ValueError:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    result = await db.execute(select(Client).where(Client.id == parsed_id))
-    client = result.scalar_one_or_none()
+    with system_context():
+        result = await db.execute(select(Client).where(Client.id == parsed_id))
+        client = result.scalar_one_or_none()
 
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -102,8 +104,9 @@ async def update_client(
     except ValueError:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    result = await db.execute(select(Client).where(Client.id == parsed_id))
-    client = result.scalar_one_or_none()
+    with system_context():
+        result = await db.execute(select(Client).where(Client.id == parsed_id))
+        client = result.scalar_one_or_none()
 
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -133,8 +136,9 @@ async def delete_client(
     except ValueError:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    result = await db.execute(select(Client).where(Client.id == parsed_id))
-    client = result.scalar_one_or_none()
+    with system_context():
+        result = await db.execute(select(Client).where(Client.id == parsed_id))
+        client = result.scalar_one_or_none()
 
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -142,6 +146,8 @@ async def delete_client(
     if client.broker_id != broker.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    await db.delete(client)
+    await db.execute(
+        delete(Client).where(Client.id == parsed_id, Client.broker_id == broker.id)
+    )
     await db.flush()
     return Response(status_code=204)
