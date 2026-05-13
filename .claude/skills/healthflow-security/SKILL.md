@@ -17,6 +17,45 @@ Five agents in `healthflow/agents/` send data to Claude: `comparison_agent`, `co
 
 **Rule:** When adding a new agent, the prompt-building function should take a typed minimal struct (e.g. `ComparisonInput`), not the full client.
 
+## Tenant isolation is enforced by infrastructure, not code review
+
+Every PHI-table query is auto-filtered by `broker_id` via a SQLAlchemy
+`do_orm_execute` listener registered at app startup
+(`healthflow/database/tenant_filter.py`). The current broker is read from
+a `ContextVar` set by the auth dependency in
+`healthflow/auth/dependencies.py:get_current_broker`. Forgetting a
+`WHERE broker_id = ...` clause in a route is now structurally impossible
+for SELECT/UPDATE/DELETE.
+
+**Rule:** When adding a new PHI table, add it to `TENANT_SCOPED_MODELS`
+in `healthflow/database/tenant_filter.py`. Adding it anywhere else
+(e.g., creating an ORM class with a `broker_id` column but forgetting
+the registry) means the table will silently bypass enforcement.
+
+**Rule:** INSERTs into tenant-scoped tables don't go through the hook
+(unit-of-work flush bypasses `do_orm_execute`). Composite writes —
+inserting a row that references another tenant-scoped row by ID
+(e.g., `ActionHistory.client_id`) — must load the referenced row through
+the filter first. If the load returns `None`, return 404. See
+`healthflow/api/history_router.py:create_history` for the canonical
+pattern.
+
+**Rule:** Cross-broker reads are legitimate only at audited call sites
+and must use `with system_context(reason="..."):`. The required `reason`
+argument shows up in the WARN-level audit log. Allowed sites today:
+`feedback/prompt_updater.py` and `feedback/reward_model.py` (RLHF needs
+all brokers' feedback), `api/test_router.py` (e2e reset endpoint),
+test fixtures in `tests/conftest.py` and `tests/database/test_database_models.py`.
+Adding a new call site requires a justification comment and code review.
+
+**Rule:** Cross-broker analytics endpoints exposed to non-admin users
+are forbidden. The `feedback/analytics`, `/reward-score`, and
+`/weekly-report` endpoints today scope to per-broker via the auto-filter
+(except for the inner aggregation steps which run in system_context()
+because RLHF needs cross-broker data). If you add an endpoint that
+returns aggregates, default to per-broker; if cross-broker is needed,
+gate on a future admin role.
+
 ## JWT_SECRET default is unsafe
 
 `healthflow/auth/security.py:7` falls back to `"healthflow-dev-secret-change-in-production"` if `JWT_SECRET` is unset. Fine for local; catastrophic in prod.
