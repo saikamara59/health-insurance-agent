@@ -213,3 +213,23 @@ async def test_raw_sql_insert_into_tenant_table_not_guarded():
             {"id": str(uuid.uuid4()), "bid": broker_id},
         )
     await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_production_factory_has_listeners_installed():
+    """Importing the production config wires the listeners onto the factory.
+
+    Smoke test: the import-time side effects in healthflow.database.config
+    should leave the production async_session_factory ready to enforce.
+    """
+    from healthflow.database.config import async_session_factory, engine
+    from sqlalchemy import event
+    from healthflow.database.tenant_filter import _on_before_execute, _on_do_orm_execute
+
+    # event.contains returns True if our specific listener function is
+    # registered for that event on that target.
+    assert event.contains(
+        async_session_factory.class_.sync_session_class, "do_orm_execute", _on_do_orm_execute
+    ), "do_orm_execute listener missing from production session factory"
+    assert event.contains(engine.sync_engine, "before_execute", _on_before_execute), \
+        "before_execute guard missing from production engine"

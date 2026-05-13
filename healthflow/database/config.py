@@ -17,6 +17,14 @@ async_session_factory = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
+# Install the tenant isolation listeners on the production engine and session
+# factory. Done at import time so any code path that uses the default factory
+# is automatically protected.
+from healthflow.database.tenant_filter import install_raw_sql_guard, install_tenant_filter
+
+install_raw_sql_guard(engine)
+install_tenant_filter(async_session_factory)
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
