@@ -4,6 +4,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from healthflow.auth.tenant_context import system_context
 from healthflow.database.models import ActionHistory, Feedback, PromptVariant
 
 
@@ -22,61 +23,65 @@ class PromptUpdater:
         pulls their request_data and response_summary from action_history to
         build few-shot examples.
         """
-        from sqlalchemy import func
+        # RLHF aggregates feedback across all brokers to improve the
+        # system-wide prompt. Cross-broker access is intentional;
+        # bypasses the per-tenant filter for this read.
+        with system_context():  # TASK-9: add reason="RLHF prompt update: cross-broker feedback aggregation"
+            from sqlalchemy import func
 
-        # Find top-rated output_ids for this agent type
-        top_stmt = (
-            select(
-                Feedback.output_id,
-                func.avg(Feedback.accuracy).label("avg_acc"),
-                func.avg(Feedback.clarity).label("avg_cla"),
-                func.avg(Feedback.helpfulness).label("avg_hlp"),
+            # Find top-rated output_ids for this agent type
+            top_stmt = (
+                select(
+                    Feedback.output_id,
+                    func.avg(Feedback.accuracy).label("avg_acc"),
+                    func.avg(Feedback.clarity).label("avg_cla"),
+                    func.avg(Feedback.helpfulness).label("avg_hlp"),
+                )
+                .where(Feedback.agent_type == agent_type)
+                .group_by(Feedback.output_id)
+                .order_by(
+                    (func.avg(Feedback.accuracy) + func.avg(Feedback.clarity) + func.avg(Feedback.helpfulness)).desc()
+                )
+                .limit(top_n)
             )
-            .where(Feedback.agent_type == agent_type)
-            .group_by(Feedback.output_id)
-            .order_by(
-                (func.avg(Feedback.accuracy) + func.avg(Feedback.clarity) + func.avg(Feedback.helpfulness)).desc()
+            result = await db.execute(top_stmt)
+            top_rows = result.all()
+
+            if not top_rows:
+                return ""
+
+            output_ids = [row.output_id for row in top_rows]
+
+            # Try to fetch corresponding action_history entries
+            # output_id may be a UUID string matching action_history.id
+            history_stmt = select(ActionHistory).where(
+                ActionHistory.action_type == agent_type
             )
-            .limit(top_n)
-        )
-        result = await db.execute(top_stmt)
-        top_rows = result.all()
+            history_result = await db.execute(history_stmt)
+            history_rows = history_result.scalars().all()
 
-        if not top_rows:
-            return ""
+            # Build a lookup by string id
+            history_by_id = {str(h.id): h for h in history_rows}
 
-        output_ids = [row.output_id for row in top_rows]
+            examples = []
+            for oid in output_ids:
+                h = history_by_id.get(oid)
+                if h:
+                    examples.append(
+                        f"### Example\n"
+                        f"**Input:** {h.request_data}\n"
+                        f"**Output:** {h.response_summary}\n"
+                    )
 
-        # Try to fetch corresponding action_history entries
-        # output_id may be a UUID string matching action_history.id
-        history_stmt = select(ActionHistory).where(
-            ActionHistory.action_type == agent_type
-        )
-        history_result = await db.execute(history_stmt)
-        history_rows = history_result.scalars().all()
-
-        # Build a lookup by string id
-        history_by_id = {str(h.id): h for h in history_rows}
-
-        examples = []
-        for oid in output_ids:
-            h = history_by_id.get(oid)
-            if h:
-                examples.append(
-                    f"### Example\n"
-                    f"**Input:** {h.request_data}\n"
-                    f"**Output:** {h.response_summary}\n"
+            if not examples:
+                # Fallback: just note the top output IDs
+                return (
+                    f"Use high-quality outputs as reference for {agent_type} agent.\n"
+                    f"Top-rated output IDs: {', '.join(output_ids)}"
                 )
 
-        if not examples:
-            # Fallback: just note the top output IDs
-            return (
-                f"Use high-quality outputs as reference for {agent_type} agent.\n"
-                f"Top-rated output IDs: {', '.join(output_ids)}"
-            )
-
-        header = f"Here are examples of high-quality {agent_type} outputs:\n\n"
-        return header + "\n".join(examples)
+            header = f"Here are examples of high-quality {agent_type} outputs:\n\n"
+            return header + "\n".join(examples)
 
     async def create_variant(
         self,
