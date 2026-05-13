@@ -21,9 +21,9 @@ async def list_history(
     db: AsyncSession = Depends(get_db),
 ):
     """List action history for the current broker."""
+    # tenant filter auto-injects WHERE ActionHistory.broker_id = current_broker_id
     stmt = (
         select(ActionHistory)
-        .where(ActionHistory.broker_id == broker.id)
         .order_by(ActionHistory.created_at.desc())
         .limit(limit)
     )
