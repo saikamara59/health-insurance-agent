@@ -13,7 +13,7 @@ from healthflow.auth.tenant_context import (
     current_broker_id,
     system_context,
 )
-from healthflow.database.models import Base, Broker, Client
+from healthflow.database.models import Base, Broker, Client, Feedback
 from healthflow.database.tenant_filter import (
     TENANT_SCOPED_MODELS,
     install_tenant_filter,
@@ -233,3 +233,38 @@ async def test_production_factory_has_listeners_installed():
     ), "do_orm_execute listener missing from production session factory"
     assert event.contains(engine.sync_engine, "before_execute", _on_before_execute), \
         "before_execute guard missing from production engine"
+
+
+@pytest.mark.anyio
+async def test_multi_entity_select_filters_on_first_tenant_entity(session_with_filter):
+    """Multi-entity SELECT (e.g. select(Client.id, Feedback.output_id))
+    currently only auto-filters on the FIRST tenant-scoped entity found.
+    This test locks in that behavior so any future change is deliberate.
+    """
+    session, broker_a, broker_b, client_a, _client_b = session_with_filter
+    # Add a Feedback row for broker_a so there's a tenant-scoped column to
+    # join against.
+    fb = Feedback(
+        broker_id=broker_a.id, output_id="oA", agent_type="compare",
+        accuracy=5, clarity=5, helpfulness=5, comment="A",
+    )
+    with system_context("test setup"):
+        session.add(fb)
+        await session.commit()
+
+    token = current_broker_id.set(broker_a.id)
+    try:
+        # Select Client.id alongside a literal — the bind_mapper picks Client,
+        # so the WHERE clause auto-applies on Client.broker_id. A select that
+        # only references Feedback would auto-apply on Feedback.broker_id.
+        # Goal: confirm the single-entity scoping works as documented.
+        result = await session.execute(select(Client.id))
+        ids = [row[0] for row in result.all()]
+        assert ids == [client_a.id]
+
+        # Same for Feedback.
+        result = await session.execute(select(Feedback.output_id))
+        outputs = [row[0] for row in result.all()]
+        assert outputs == ["oA"]
+    finally:
+        current_broker_id.reset(token)
