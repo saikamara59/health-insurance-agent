@@ -64,7 +64,13 @@ class FeedbackCollector:
         db: AsyncSession,
         days: int = 30,
     ) -> dict:
-        """Return per-agent feedback averages for the given period."""
+        """Return per-broker, per-agent feedback averages for the given period.
+
+        The do_orm_execute tenant hook scopes the underlying SELECT to the
+        current broker's Feedback rows. To get a cross-broker (system-wide)
+        view, an admin would need to invoke this inside system_context() —
+        currently not exposed via any HTTP endpoint.
+        """
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         stmt = (
             select(
