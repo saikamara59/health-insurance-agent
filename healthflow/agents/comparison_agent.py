@@ -3,6 +3,7 @@ import os
 import anthropic
 
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.prompt_inputs import ComparisonPromptInput
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanSummary
 
@@ -43,7 +44,14 @@ class ComparisonAgent:
             )
             return _TEST_MODE_RECOMMENDATION
 
-        user_prompt = self._build_prompt(plans, age, income_level, medications, procedures)
+        prompt_input = ComparisonPromptInput(
+            plans=plans,
+            age=age,
+            income_level=income_level,
+            medications=medications or [],
+            procedures=procedures or [],
+        )
+        user_prompt = self._build_prompt(prompt_input)
 
         self.audit.log("tool_called", {"tool": "claude_api", "model": CLAUDE_MODEL})
 
@@ -58,14 +66,13 @@ class ComparisonAgent:
         self.audit.log("recommendation_generated", {"length": len(recommendation)})
         return recommendation
 
-    def _build_prompt(
-        self,
-        plans: list[PlanSummary],
-        age: int,
-        income_level: str,
-        medications: list[str] | None = None,
-        procedures: list[str] | None = None,
-    ) -> str:
+    def _build_prompt(self, prompt_input: ComparisonPromptInput) -> str:
+        plans = prompt_input.plans
+        age = prompt_input.age
+        income_level = prompt_input.income_level
+        medications = prompt_input.medications
+        procedures = prompt_input.procedures
+
         lines = [
             f"Compare these Medicare Advantage plans for a {age}-year-old with {income_level} income.",
             "",
