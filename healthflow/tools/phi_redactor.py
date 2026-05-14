@@ -50,7 +50,9 @@ class PHIRedactor:
             "pattern": "phone",
             "regex": re.compile(r"\(?\d{3}\)?[\s-]\d{3}-\d{4}"),
         },
-        # Email addresses
+        # Email addresses. Heuristic — matches the common shape; may over-match
+        # strings like package coordinates or @mentions with a TLD-shaped
+        # suffix. Acceptable for insurance documents; low false-positive risk.
         {
             "placeholder": "[EMAIL]",
             "pattern": "email",

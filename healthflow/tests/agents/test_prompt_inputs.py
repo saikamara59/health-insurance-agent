@@ -57,9 +57,18 @@ def test_appeal_prompt_input_redacts_denial_and_context():
 
 
 def test_appeal_prompt_input_handles_empty_context():
-    pi = AppealPromptInput(denial_text="Claim denied for procedure.", additional_context="")
+    """Empty additional_context stays empty; denial_text still redacts normally."""
+    pi = AppealPromptInput(
+        denial_text="Patient: Walt Whitman was denied. DOB: 05/31/1819.",
+        additional_context="",
+    )
     assert pi.redacted_context == ""
-    assert pi.redaction_summary["count"] == 0
+    # denial_text still redacted — count reflects only the denial-text hits.
+    assert "Walt Whitman" not in pi.redacted_denial
+    assert "[PATIENT_NAME]" in pi.redacted_denial
+    assert "[DOB]" in pi.redacted_denial
+    assert pi.redaction_summary["count"] >= 2
+    assert set(pi.redaction_summary["types"]) >= {"[PATIENT_NAME]", "[DOB]"}
 
 
 # --- Comparison / Cost / Network: typed wrappers, no free text ---
