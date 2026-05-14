@@ -50,6 +50,14 @@ class PHIRedactor:
             "pattern": "phone",
             "regex": re.compile(r"\(?\d{3}\)?[\s-]\d{3}-\d{4}"),
         },
+        # Email addresses
+        {
+            "placeholder": "[EMAIL]",
+            "pattern": "email",
+            "regex": re.compile(
+                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+            ),
+        },
     ]
 
     def redact(self, text: str) -> tuple[str, list[dict]]:

@@ -111,3 +111,17 @@ def test_multiple_phi_instances():
     assert "123-45-6789" not in redacted
     assert "(555) 987-6543" not in redacted
     assert len(log) >= 5
+
+
+def test_redacts_email_address():
+    redactor = PHIRedactor()
+    redacted, log = redactor.redact("Contact the member at jane.doe@example.com for details.")
+    assert "jane.doe@example.com" not in redacted
+    assert "[EMAIL]" in redacted
+    assert any(entry["placeholder"] == "[EMAIL]" for entry in log)
+
+
+def test_email_redaction_leaves_non_email_text_intact():
+    redactor = PHIRedactor()
+    redacted, _ = redactor.redact("The plan covers 80% after deductible.")
+    assert redacted == "The plan covers 80% after deductible."
