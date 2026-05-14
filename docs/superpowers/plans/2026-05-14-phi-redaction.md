@@ -451,15 +451,15 @@ class NetworkPromptInput:
 .venv/bin/python -m pytest healthflow/tests/agents/test_prompt_inputs.py -v
 ```
 
-Expected: 7 passed.
+Expected: 6 passed.
 
-- [ ] **Step 5: Verify total count is now 491 + 7 = 498**
+- [ ] **Step 5: Verify total count is now 491 + 6 = 497**
 
 ```bash
 .venv/bin/python -m pytest healthflow/tests/ --collect-only -q 2>&1 | tail -1
 ```
 
-Expected: `498 tests collected`.
+Expected: `497 tests collected`.
 
 - [ ] **Step 6: Commit**
 
@@ -564,7 +564,7 @@ Expected: most tests pass. If a test fails because it asserted on raw (un-redact
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: 498 passed (no count change — only assertion updates, no new tests yet).
+Expected: 497 passed (no count change — only assertion updates, no new tests yet).
 
 - [ ] **Step 4: Commit**
 
@@ -629,7 +629,7 @@ Expected: tests pass. The redaction behavior is identical to before (same `PHIRe
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: 498 passed.
+Expected: 497 passed.
 
 - [ ] **Step 4: Commit**
 
@@ -731,7 +731,7 @@ Note: the local-variable unpacking at the top of `_build_prompt` keeps the rest 
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: all pass; full suite 498. The public `recommend()` signature is unchanged, so route-level tests are unaffected.
+Expected: all pass; full suite 497. The public `recommend()` signature is unchanged, so route-level tests are unaffected.
 
 - [ ] **Step 3: Commit**
 
@@ -787,7 +787,7 @@ Everything after that first `lines = [...]` block stays byte-for-byte identical 
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: all pass; full suite 498.
+Expected: all pass; full suite 497.
 
 - [ ] **Step 3: Commit**
 
@@ -839,7 +839,7 @@ Everything after `lines = ["Network verification results:\n"]` stays byte-for-by
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: all pass; full suite 498.
+Expected: all pass; full suite 497.
 
 - [ ] **Step 3: Commit**
 
@@ -935,7 +935,7 @@ Expected: 2 passed. If a test fails because the mock path is wrong (e.g. the age
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: 500 passed (498 + 2 new).
+Expected: 499 passed (497 + 2 new).
 
 - [ ] **Step 5: Commit**
 
@@ -1028,7 +1028,7 @@ Expected: 5 passed (one per agent file). If a file fails, either the migration i
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: 505 passed (500 + 5 new parametrized cases).
+Expected: 504 passed (499 + 5 new parametrized cases).
 
 - [ ] **Step 4: Commit**
 
@@ -1096,7 +1096,7 @@ The `---` frontmatter block must be unchanged.
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: 505 passed.
+Expected: 504 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1117,7 +1117,7 @@ git commit -m "skill: healthflow-security — document enforced PromptInput reda
 make test-quick 2>&1 | tail -3
 ```
 
-Expected: `505 passed`.
+Expected: `504 passed`.
 
 - [ ] **Step 2: Run `make check` (lint + tests + frontend build)**
 
@@ -1201,8 +1201,8 @@ Plan: [docs/superpowers/plans/2026-05-14-phi-redaction.md](./docs/superpowers/pl
 
 ## Test Plan
 
-- [x] 16 new test cases: prompt-input unit tests (7), email-pattern (2), end-to-end redaction-applied (2), ast static check (5 parametrized over the agent files)
-- [x] Full backend suite: 505/505 (was 489; +16)
+- [x] 15 new test cases: prompt-input unit tests (6), email-pattern (2), end-to-end redaction-applied (2), ast static check (5 parametrized over the agent files)
+- [x] Full backend suite: 504/504 (was 489; +15)
 - [x] No agent module imports `PHIRedactor` directly — all redaction goes through `prompt_inputs.py`
 - [x] `ast` static check enforces no raw-text path to any `_build_prompt`
 - [ ] CI green on this PR
