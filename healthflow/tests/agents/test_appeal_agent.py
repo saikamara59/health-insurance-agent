@@ -88,3 +88,23 @@ def test_unknown_code_uses_fallback(mock_anthropic):
     assert argument.cms_rule != ""
     assert len(argument.common_appeal_grounds) > 0
     assert "[PATIENT_NAME]" in letter
+
+
+def test_process_appeal_sends_redacted_text_to_claude():
+    """The denial text reaching client.messages.create must be redacted."""
+    agent = AppealAgent()
+
+    with patch.object(agent.client.messages, "create") as mock_create:
+        mock_create.return_value = MagicMock(
+            content=[MagicMock(type="text", text="Refined advice.")]
+        )
+        agent.process_appeal(
+            denial_text="Patient: Emily Dickinson denied. DOB: 03/04/1950.",
+            additional_context="",
+        )
+
+    sent_prompt = mock_create.call_args.kwargs["messages"][0]["content"]
+    assert "Emily Dickinson" not in sent_prompt
+    assert "[PATIENT_NAME]" in sent_prompt
+    assert "03/04/1950" not in sent_prompt
+    assert "[DOB]" in sent_prompt
