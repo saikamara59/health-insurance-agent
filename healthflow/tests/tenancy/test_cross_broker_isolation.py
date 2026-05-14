@@ -119,7 +119,7 @@ async def test_broker_cannot_delete_other_brokers_client(client, db_session):
 async def test_broker_cannot_read_other_brokers_action_history(client, db_session):
     """GET /history must show only the current broker's actions."""
     broker_a = await _make_broker(db_session, "iso-ah-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-ah-b@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-ah-b@healthflow.test")
     a_client = Client(
         broker_id=broker_a.id, full_name="A's client",
         zip_code="10001", age=40, income_level="medium",
@@ -149,7 +149,7 @@ async def test_broker_cannot_read_other_brokers_action_history(client, db_sessio
 async def test_broker_cannot_read_other_brokers_feedback(client, db_session):
     """GET /feedback must show only the current broker's feedback."""
     broker_a = await _make_broker(db_session, "iso-fb-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "iso-fb-b@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-fb-b@healthflow.test")
 
     a_fb = Feedback(
         broker_id=broker_a.id, output_id="oA", agent_type="compare",
@@ -165,3 +165,34 @@ async def test_broker_cannot_read_other_brokers_feedback(client, db_session):
     assert res.status_code == 200
     items = res.json()
     assert items == [], f"Broker B saw broker A's feedback: {items}"
+
+
+@pytest.mark.anyio
+async def test_broker_cannot_update_other_brokers_client(client, db_session):
+    """PUT /clients/{id} on another broker's client_id must return 404."""
+    broker_a = await _make_broker(db_session, "iso-put-a@healthflow.test")
+    _broker_b = await _make_broker(db_session, "iso-put-b@healthflow.test")
+    a_client = Client(
+        broker_id=broker_a.id, full_name="A's Original Name",
+        zip_code="10001", age=40, income_level="medium",
+        doctors=[], prescriptions=[], procedures=[],
+    )
+    db_session.add(a_client)
+    await db_session.commit()
+
+    b_token = await _login(client, "iso-put-b@healthflow.test")
+    res = await client.put(
+        f"/clients/{a_client.id}",
+        headers={"Authorization": f"Bearer {b_token}"},
+        json={"full_name": "B's Hijack Attempt"},
+    )
+    assert res.status_code == 404, f"Cross-broker PUT leak: {res.status_code} {res.text}"
+
+    # Sanity: A's client name is unchanged.
+    a_token = await _login(client, "iso-put-a@healthflow.test")
+    res = await client.get(
+        f"/clients/{a_client.id}",
+        headers={"Authorization": f"Bearer {a_token}"},
+    )
+    assert res.status_code == 200
+    assert res.json()["full_name"] == "A's Original Name"

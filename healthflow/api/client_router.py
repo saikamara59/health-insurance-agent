@@ -54,13 +54,12 @@ async def create_client(
 
 @client_router.get("", response_model=list[ClientResponse])
 async def list_clients(
-    broker: Broker = Depends(get_current_broker),
+    _broker: Broker = Depends(get_current_broker),
     db: AsyncSession = Depends(get_db),
 ) -> list[ClientResponse]:
     """List all clients belonging to the current broker."""
-    result = await db.execute(
-        select(Client).where(Client.broker_id == broker.id)
-    )
+    # tenant filter auto-injects WHERE Client.broker_id = current_broker_id
+    result = await db.execute(select(Client))
     clients = result.scalars().all()
     return [_client_to_response(c) for c in clients]
 
@@ -133,8 +132,7 @@ async def delete_client(
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    await db.execute(
-        delete(Client).where(Client.id == parsed_id, Client.broker_id == broker.id)
-    )
+    # tenant filter auto-injects AND Client.broker_id = current_broker_id
+    await db.execute(delete(Client).where(Client.id == parsed_id))
     await db.flush()
     return Response(status_code=204)

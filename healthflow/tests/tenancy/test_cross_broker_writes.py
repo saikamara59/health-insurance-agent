@@ -52,8 +52,8 @@ async def test_broker_cannot_create_history_for_other_brokers_client(client, db_
 @pytest.mark.anyio
 async def test_analytics_endpoint_returns_only_current_brokers_aggregates(client, db_session):
     """GET /feedback/analytics must aggregate only the requesting broker's feedback."""
-    broker_a = await _make_broker(db_session, "ana-a@healthflow.test")
-    broker_b = await _make_broker(db_session, "ana-b@healthflow.test")
+    _broker_a = await _make_broker(db_session, "ana-a@healthflow.test")
+    _broker_b = await _make_broker(db_session, "ana-b@healthflow.test")
     await db_session.commit()
 
     a_token = await _login(client, "ana-a@healthflow.test")

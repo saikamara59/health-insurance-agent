@@ -238,33 +238,42 @@ async def test_production_factory_has_listeners_installed():
 @pytest.mark.anyio
 async def test_multi_entity_select_filters_on_first_tenant_entity(session_with_filter):
     """Multi-entity SELECT (e.g. select(Client.id, Feedback.output_id))
-    currently only auto-filters on the FIRST tenant-scoped entity found.
-    This test locks in that behavior so any future change is deliberate.
+    currently auto-filters on whichever tenant-scoped entity the loop in
+    `_statement_targets_tenant_model` returns first. This test locks in
+    the current single-entity-fall-through behavior so any future change
+    is deliberate.
     """
     session, broker_a, broker_b, client_a, _client_b = session_with_filter
-    # Add a Feedback row for broker_a so there's a tenant-scoped column to
-    # join against.
-    fb = Feedback(
-        broker_id=broker_a.id, output_id="oA", agent_type="compare",
-        accuracy=5, clarity=5, helpfulness=5, comment="A",
-    )
+    # Add Feedback rows for BOTH brokers so the multi-entity select would
+    # find broker_b's row if it weren't filtering on something.
     with system_context("test setup"):
-        session.add(fb)
+        session.add_all([
+            Feedback(broker_id=broker_a.id, output_id="oA", agent_type="compare",
+                     accuracy=5, clarity=5, helpfulness=5, comment="A"),
+            Feedback(broker_id=broker_b.id, output_id="oB", agent_type="compare",
+                     accuracy=3, clarity=3, helpfulness=3, comment="B"),
+        ])
         await session.commit()
 
     token = current_broker_id.set(broker_a.id)
     try:
-        # Select Client.id alongside a literal — the bind_mapper picks Client,
-        # so the WHERE clause auto-applies on Client.broker_id. A select that
-        # only references Feedback would auto-apply on Feedback.broker_id.
-        # Goal: confirm the single-entity scoping works as documented.
-        result = await session.execute(select(Client.id))
-        ids = [row[0] for row in result.all()]
-        assert ids == [client_a.id]
-
-        # Same for Feedback.
-        result = await session.execute(select(Feedback.output_id))
-        outputs = [row[0] for row in result.all()]
-        assert outputs == ["oA"]
+        # Real multi-entity select against two tenant-scoped tables.
+        # The current implementation in `_statement_targets_tenant_model`
+        # iterates TENANT_SCOPED_MODELS and returns the first match —
+        # so the WHERE clause is applied to ONE of the two entities.
+        # Whichever entity gets filtered, the other is exposed to all
+        # brokers' rows via the join. This test asserts that A's queries
+        # do not leak B's data via this fall-through.
+        result = await session.execute(
+            select(Client.id, Feedback.output_id)
+            .join(Feedback, Feedback.broker_id == Client.broker_id)
+        )
+        rows = result.all()
+        # Either Client or Feedback is filtered to broker_a; the join condition
+        # then constrains the other side. Either way, B's data must not appear.
+        assert all(c_id == client_a.id for c_id, _ in rows), \
+            f"Cross-broker leak via multi-entity select: {rows}"
+        assert all(out == "oA" for _, out in rows), \
+            f"Cross-broker leak via multi-entity select: {rows}"
     finally:
         current_broker_id.reset(token)

@@ -49,12 +49,16 @@ test fixtures in `tests/conftest.py` and `tests/database/test_database_models.py
 Adding a new call site requires a justification comment and code review.
 
 **Rule:** Cross-broker analytics endpoints exposed to non-admin users
-are forbidden. The `feedback/analytics`, `/reward-score`, and
-`/weekly-report` endpoints today scope to per-broker via the auto-filter
-(except for the inner aggregation steps which run in system_context()
-because RLHF needs cross-broker data). If you add an endpoint that
-returns aggregates, default to per-broker; if cross-broker is needed,
-gate on a future admin role.
+are forbidden. Today: `feedback/analytics` is per-broker (no
+`system_context`, the auto-filter scopes the underlying SELECT).
+`/reward-score` and `/weekly-report` currently return *system-wide*
+aggregates because their underlying `reward_model.score_outputs`
+runs entirely in `system_context()` — RLHF needs cross-broker data
+and there is no admin-role gate yet. Adding admin RBAC and gating
+those two endpoints on it is a tracked follow-up. If you add a new
+endpoint that returns aggregates, default to per-broker; if
+cross-broker is needed, gate on the future admin role rather than
+exposing it to any authenticated broker.
 
 ## JWT_SECRET default is unsafe
 
