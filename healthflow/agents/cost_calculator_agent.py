@@ -1,6 +1,7 @@
 import anthropic
 
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.prompt_inputs import CostPromptInput
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import PlanCostResult, PlanSummary, UsageInput
 from healthflow.tools.cost_modeler import CostModeler
@@ -27,7 +28,8 @@ class CostCalculatorAgent:
         results = [self.modeler.calculate(plan, usage) for plan in plans]
         results.sort(key=lambda r: r.total_annual_cost)
 
-        user_prompt = self._build_prompt(results, usage)
+        prompt_input = CostPromptInput(results=results, usage=usage)
+        user_prompt = self._build_prompt(prompt_input)
 
         self.audit.log(
             "tool_called",
@@ -49,11 +51,10 @@ class CostCalculatorAgent:
 
         return results, recommendation
 
-    def _build_prompt(
-        self,
-        results: list[PlanCostResult],
-        usage: UsageInput,
-    ) -> str:
+    def _build_prompt(self, prompt_input: CostPromptInput) -> str:
+        results = prompt_input.results
+        usage = prompt_input.usage
+
         lines = [
             "Compare these Medicare Advantage plans by estimated annual out-of-pocket cost.",
             "",
