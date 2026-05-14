@@ -6,7 +6,7 @@ from healthflow.models.schemas import CoverageArgument, DenialAnalysis
 from healthflow.tools.appeal_writer import AppealWriter
 from healthflow.tools.denial_codes import DenialCodeDB
 from healthflow.tools.denial_parser import DenialParser
-from healthflow.tools.phi_redactor import PHIRedactor
+from healthflow.agents.prompt_inputs import AppealPromptInput
 
 SYSTEM_PROMPT = (
     "You are a health insurance claims appeal assistant. Review denial details and "
@@ -42,7 +42,6 @@ class AppealAgent:
     def __init__(self) -> None:
         self.client = anthropic.Anthropic()
         self.audit = AuditLogger()
-        self.redactor = PHIRedactor()
         self.parser = DenialParser()
         self.code_db = DenialCodeDB()
         self.writer = AppealWriter()
@@ -57,15 +56,15 @@ class AppealAgent:
         Returns:
             (analysis, coverage_argument, appeal_letter, refined_recommendation)
         """
-        # Step 1: Redact PHI
-        redacted_denial, denial_log = self.redactor.redact(denial_text)
-        redacted_context, context_log = self.redactor.redact(additional_context)
+        # Step 1: Redact PHI — AppealPromptInput is the single redaction boundary.
+        prompt_input = AppealPromptInput(
+            denial_text=denial_text,
+            additional_context=additional_context,
+        )
+        redacted_denial = prompt_input.redacted_denial
+        redacted_context = prompt_input.redacted_context
 
-        self.audit.log("phi_redacted", {
-            "denial_redactions": len(denial_log),
-            "context_redactions": len(context_log),
-            "phi_types": list({entry["placeholder"] for entry in denial_log + context_log}),
-        })
+        self.audit.log("phi_redacted", prompt_input.redaction_summary)
 
         # Step 2: Parse denial details
         analysis = self.parser.parse(redacted_denial)

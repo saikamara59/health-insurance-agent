@@ -99,3 +99,21 @@ def test_agent_includes_question_in_prompt(mock_anthropic):
     call_kwargs = mock_client.messages.create.call_args
     user_msg = call_kwargs.kwargs["messages"][0]["content"]
     assert "What is the ER copay?" in user_msg
+
+
+def test_translate_sends_redacted_prompt_to_claude():
+    """The user_prompt reaching client.messages.create must be redacted."""
+    agent = TranslationAgent()
+    sections = [
+        DocumentSection(title="Eligibility", content="Patient: Robert Frost is eligible."),
+    ]
+
+    with patch.object(agent.client.messages, "create") as mock_create:
+        mock_create.return_value = MagicMock(
+            content=[MagicMock(type="text", text="Answer.")]
+        )
+        agent.translate(sections=sections, question="Dear Robert Frost, what is the copay?")
+
+    sent_prompt = mock_create.call_args.kwargs["messages"][0]["content"]
+    assert "Robert Frost" not in sent_prompt
+    assert "[PATIENT_NAME]" in sent_prompt

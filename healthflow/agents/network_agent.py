@@ -1,6 +1,7 @@
 import anthropic
 
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.prompt_inputs import NetworkPromptInput
 from healthflow.logs.audit import AuditLogger
 from healthflow.models.schemas import (
     FormularyResult,
@@ -82,7 +83,9 @@ class NetworkAgent:
 
         return plan_results, recommendation
 
-    def _build_prompt(self, plan_results: list[PlanNetworkResult]) -> str:
+    def _build_prompt(self, prompt_input: NetworkPromptInput) -> str:
+        plan_results = prompt_input.plan_results
+
         lines = ["Network verification results:\n"]
         for pr in plan_results:
             in_net = sum(1 for p in pr.provider_results if p.in_network)
@@ -115,7 +118,8 @@ class NetworkAgent:
         return "\n".join(lines)
 
     def _get_recommendation(self, plan_results: list[PlanNetworkResult]) -> str:
-        user_prompt = self._build_prompt(plan_results)
+        prompt_input = NetworkPromptInput(plan_results=plan_results)
+        user_prompt = self._build_prompt(prompt_input)
 
         self.audit.log(
             "tool_called",

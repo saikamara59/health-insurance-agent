@@ -9,13 +9,31 @@ Project-specific traps. Generic OWASP advice (parameterize SQL, sanitize HTML, e
 
 ## PHI on the wire to Anthropic
 
-Five agents in `healthflow/agents/` send data to Claude: `comparison_agent`, `cost_calculator_agent`, `network_agent`, `translation_agent`, `appeal_agent`. Client records contain medications, conditions, doctors, NPIs — all PHI.
+Five agents in `healthflow/agents/` send data to Claude: `comparison_agent`, `cost_calculator_agent`, `network_agent`, `translation_agent`, `appeal_agent`. Client records contain medications, conditions, doctors, NPIs — all PHI. The convention is now enforced by the type system and AST tests.
 
-**Rule:** Pass only the fields the prompt actually needs. Never pass a whole `Client` ORM object or `client.dict()` into a prompt template.
+**Rule:** Never call an agent's `_build_prompt` directly with raw arguments.
+Construct the agent's `PromptInput` dataclass (in `healthflow/agents/prompt_inputs.py`)
+and pass that. `_build_prompt` is type-annotated to accept only the
+`PromptInput` — there is no path from a raw string to a prompt body that
+skips the redaction boundary. A static `ast` test
+(`tests/agents/test_no_raw_prompt_path.py`) enforces this.
 
-**Rule:** Don't log prompt payloads at INFO. If you must log for debugging, redact medication names, NPIs, and free-text symptom fields before logging — and gate it behind DEBUG.
+**Rule:** Free-text fields on a `PromptInput` (denial text, document content,
+questions) are redacted by the dataclass constructor via `PHIRedactor`.
+Structured fields — medication names, procedure names, doctor names + NPIs —
+pass through by design. Under the no-BAA threat model, medication/procedure
+names are de-identified content (not among HIPAA's 18 identifiers) and doctor
+NPIs are public NPPES registry data, not patient PHI.
 
-**Rule:** When adding a new agent, the prompt-building function should take a typed minimal struct (e.g. `ComparisonInput`), not the full client.
+**Rule:** When adding a new agent, add a `PromptInput` dataclass for it in
+`prompt_inputs.py`. If it has free-text fields, redact them in `__post_init__`
+using the `_redact_field` helper (frozen dataclass — reassigning a field needs
+`object.__setattr__`; appending to `_redaction_log` does not). Emit the
+`phi_redacted` audit event with `prompt_input.redaction_summary`.
+
+**Rule:** Don't log raw prompt payloads. The `phi_redacted` audit event logs
+only counts and placeholder types (`prompt_input.redaction_summary`), never
+the redacted-or-raw text itself.
 
 ## Tenant isolation is enforced by infrastructure, not code review
 
