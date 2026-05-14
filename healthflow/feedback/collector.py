@@ -41,14 +41,16 @@ class FeedbackCollector:
     async def list_feedback(
         self,
         db: AsyncSession,
-        broker_id: uuid.UUID,
         agent_type: str | None = None,
         limit: int = 50,
     ) -> list[Feedback]:
-        """List feedback for a broker, optionally filtered by agent_type."""
+        """List feedback for the current broker (auto-scoped by tenant filter).
+
+        Note: removed the explicit broker_id parameter — the do_orm_execute
+        hook auto-injects WHERE broker_id = current_broker_id.
+        """
         stmt = (
             select(Feedback)
-            .where(Feedback.broker_id == broker_id)
             .order_by(Feedback.created_at.desc())
             .limit(limit)
         )
@@ -62,7 +64,13 @@ class FeedbackCollector:
         db: AsyncSession,
         days: int = 30,
     ) -> dict:
-        """Return per-agent feedback averages for the given period."""
+        """Return per-broker, per-agent feedback averages for the given period.
+
+        The do_orm_execute tenant hook scopes the underlying SELECT to the
+        current broker's Feedback rows. To get a cross-broker (system-wide)
+        view, an admin would need to invoke this inside system_context() —
+        currently not exposed via any HTTP endpoint.
+        """
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         stmt = (
             select(

@@ -38,7 +38,7 @@ async def reset_db(body: ResetRequest) -> dict:
     """
     async with _reset_lock:
         async with async_session_factory() as session:
-            with system_context():
+            with system_context(f"e2e reset for worker {body.worker_id}"):
                 broker = await seed_for_worker(session, body.worker_id)
                 # seed_for_worker already wiped + re-inserted Client rows; also
                 # wipe ActionHistory and Feedback rows owned by this broker.

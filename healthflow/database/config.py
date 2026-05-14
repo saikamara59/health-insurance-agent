@@ -27,6 +27,16 @@ install_tenant_filter(async_session_factory)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Yield an AsyncSession scoped to the request, commit on success.
+
+    Cleanup contract: this generator's teardown (commit + close) runs
+    AFTER any auth dependency's teardown, including `get_current_broker`'s
+    ContextVar reset. Code in this teardown must NOT emit SELECTs against
+    tenant-scoped tables (Client, ActionHistory, Feedback) — there's no
+    current_broker_id at that point. With `expire_on_commit=False` (set
+    on the session factory above), commit does not fire SELECTs, so the
+    contract holds.
+    """
     async with async_session_factory() as session:
         try:
             yield session

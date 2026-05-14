@@ -28,6 +28,16 @@ async def get_current_broker(
     Raises:
         HTTPException 401: If the token is invalid, expired, or the broker
             is not found or inactive.
+
+    Teardown ordering (FastAPI LIFO): the ContextVar reset here runs BEFORE
+    `get_db`'s teardown (commit + close). With `expire_on_commit=False`
+    (the project default in `database/config.py`), commit does not fire
+    SELECTs, so this is fine. If `expire_on_commit` is ever flipped to
+    True or any cleanup path emits a query against a tenant-scoped table,
+    queries during teardown will raise `TenantContextMissing`. In that
+    case, restructure: have `get_db` enter `system_context()` for its
+    cleanup phase (and add a comment justifying the new system_context
+    call site).
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

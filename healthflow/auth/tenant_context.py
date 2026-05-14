@@ -46,19 +46,22 @@ _in_system_context: ContextVar[bool] = ContextVar("_in_system_context", default=
 
 
 @contextmanager
-def system_context() -> Iterator[None]:
+def system_context(reason: str) -> Iterator[None]:
     """Temporarily clear the tenant context for legitimate cross-tenant work.
 
-    Use only at audited call sites (seeders, migrations, system-owned
-    analytics). Logs WARN on entry and exit to make any use visible in
-    the logs.
+    Use only at audited call sites. The required `reason` argument forces
+    each caller to justify the bypass and makes the WARN log entries
+    self-explanatory.
+
+    Args:
+        reason: Human-readable justification, e.g. "RLHF prompt update".
     """
     broker_token = current_broker_id.set(None)
     flag_token = _in_system_context.set(True)
-    logger.warning("system_context: enter (caller bypassing tenant filter)")
+    logger.warning("system_context: enter — %s", reason)
     try:
         yield
     finally:
         _in_system_context.reset(flag_token)
         current_broker_id.reset(broker_token)
-        logger.warning("system_context: exit")
+        logger.warning("system_context: exit — %s", reason)

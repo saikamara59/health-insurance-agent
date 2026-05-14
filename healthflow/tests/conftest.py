@@ -48,7 +48,7 @@ async def db_session(db_session_factory):
     from healthflow.auth.tenant_context import system_context
 
     async with db_session_factory() as session:
-        with system_context():
+        with system_context("test fixture: direct db_session"):
             yield session
 
 

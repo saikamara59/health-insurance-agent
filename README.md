@@ -21,13 +21,27 @@ This isn't a demo with fake data. HealthFlow integrates with real public health 
 
 ---
 
+## Security & Multi-Tenancy
+
+HealthFlow enforces **per-broker tenant isolation at the SQLAlchemy layer**: every query against a PHI table (`clients`, `action_history`, `feedback`) is auto-filtered to the current broker via a `do_orm_execute` event listener. Forgetting a `WHERE broker_id = ...` clause in a route is structurally impossible — the filter is a property of the database session, not of every developer remembering to add it.
+
+- **Foundation:** `healthflow/auth/tenant_context.py` (request-scoped `ContextVar`), `healthflow/database/tenant_filter.py` (the filter + raw-SQL guard).
+- **Enforcement:** `healthflow/auth/dependencies.py:get_current_broker` sets the `ContextVar` for the duration of an authenticated request; the filter consumes it.
+- **Composite writes** (e.g. `ActionHistory.client_id` referencing a Client) load the related row through the filter first; cross-broker references return 404 instead of writing.
+- **Cross-broker reads** (RLHF analytics, e2e reset) are gated behind `system_context(reason="...")` with WARN-level audit logging. Each call site documents *why* it bypasses isolation.
+- **Test coverage:** `healthflow/tests/tenancy/` proves cross-broker access is impossible across every PHI route, including a concurrent `asyncio.gather` test for ContextVar isolation.
+
+This is the first sub-project of an in-flight HIPAA-readiness foundation. See `docs/superpowers/specs/2026-05-12-multi-tenancy-design.md` and `.claude/skills/healthflow-security/SKILL.md` for the design rationale and the per-rule guidance.
+
+---
+
 ## Quick Start
 
 ### Option 1: Full Setup (recommended)
 
 ```bash
 cp .env.example .env          # Add your ANTHROPIC_API_KEY
-make all                       # Install deps, load data, run 436 tests
+make all                       # Install deps, load data, run 489 tests
 ```
 
 ### Option 2: Step by Step

@@ -59,7 +59,6 @@ async def list_feedback(
     """List feedback for the current broker."""
     items = await collector.list_feedback(
         db=db,
-        broker_id=broker.id,
         agent_type=agent_type,
         limit=limit,
     )

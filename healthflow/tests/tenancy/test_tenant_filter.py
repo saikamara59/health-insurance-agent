@@ -13,7 +13,7 @@ from healthflow.auth.tenant_context import (
     current_broker_id,
     system_context,
 )
-from healthflow.database.models import Base, Broker, Client
+from healthflow.database.models import Base, Broker, Client, Feedback
 from healthflow.database.tenant_filter import (
     TENANT_SCOPED_MODELS,
     install_tenant_filter,
@@ -31,7 +31,7 @@ async def session_with_filter():
     async with factory() as session:
         # Seed two brokers + one client per broker, inside system_context so
         # the inserts/selects during setup don't trip the filter.
-        with system_context():
+        with system_context("test fixture: tenant_filter setup"):
             broker_a = Broker(email="a@t.test", hashed_password=hash_password("x"), full_name="A")
             broker_b = Broker(email="b@t.test", hashed_password=hash_password("x"), full_name="B")
             session.add_all([broker_a, broker_b])
@@ -78,7 +78,7 @@ async def test_query_with_context_filters_to_that_broker(session_with_filter):
 @pytest.mark.anyio
 async def test_query_inside_system_context_returns_all(session_with_filter):
     session, _, _, client_a, client_b = session_with_filter
-    with system_context():
+    with system_context("test"):
         result = await session.execute(select(Client))
         ids = sorted(r.id for r in result.scalars().all())
     assert ids == sorted([client_a.id, client_b.id])
@@ -233,3 +233,47 @@ async def test_production_factory_has_listeners_installed():
     ), "do_orm_execute listener missing from production session factory"
     assert event.contains(engine.sync_engine, "before_execute", _on_before_execute), \
         "before_execute guard missing from production engine"
+
+
+@pytest.mark.anyio
+async def test_multi_entity_select_filters_on_first_tenant_entity(session_with_filter):
+    """Multi-entity SELECT (e.g. select(Client.id, Feedback.output_id))
+    currently auto-filters on whichever tenant-scoped entity the loop in
+    `_statement_targets_tenant_model` returns first. This test locks in
+    the current single-entity-fall-through behavior so any future change
+    is deliberate.
+    """
+    session, broker_a, broker_b, client_a, _client_b = session_with_filter
+    # Add Feedback rows for BOTH brokers so the multi-entity select would
+    # find broker_b's row if it weren't filtering on something.
+    with system_context("test setup"):
+        session.add_all([
+            Feedback(broker_id=broker_a.id, output_id="oA", agent_type="compare",
+                     accuracy=5, clarity=5, helpfulness=5, comment="A"),
+            Feedback(broker_id=broker_b.id, output_id="oB", agent_type="compare",
+                     accuracy=3, clarity=3, helpfulness=3, comment="B"),
+        ])
+        await session.commit()
+
+    token = current_broker_id.set(broker_a.id)
+    try:
+        # Real multi-entity select against two tenant-scoped tables.
+        # The current implementation in `_statement_targets_tenant_model`
+        # iterates TENANT_SCOPED_MODELS and returns the first match —
+        # so the WHERE clause is applied to ONE of the two entities.
+        # Whichever entity gets filtered, the other is exposed to all
+        # brokers' rows via the join. This test asserts that A's queries
+        # do not leak B's data via this fall-through.
+        result = await session.execute(
+            select(Client.id, Feedback.output_id)
+            .join(Feedback, Feedback.broker_id == Client.broker_id)
+        )
+        rows = result.all()
+        # Either Client or Feedback is filtered to broker_a; the join condition
+        # then constrains the other side. Either way, B's data must not appear.
+        assert all(c_id == client_a.id for c_id, _ in rows), \
+            f"Cross-broker leak via multi-entity select: {rows}"
+        assert all(out == "oA" for _, out in rows), \
+            f"Cross-broker leak via multi-entity select: {rows}"
+    finally:
+        current_broker_id.reset(token)
