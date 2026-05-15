@@ -146,3 +146,29 @@ class PromptVariant(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
+
+
+class PhiAccessLog(Base):
+    """Append-only audit trail: one row per PHI query.
+
+    System table — NOT tenant-scoped (it records everyone's access) and
+    NOT watched by the audit listeners themselves (writing an entry is a
+    DB write; watching this table would recurse forever). See
+    healthflow/database/phi_audit.py.
+    """
+    __tablename__ = "phi_access_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    broker_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), index=True, nullable=True
+    )
+    table_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    operation: Mapped[str] = mapped_column(String(10), nullable=False)
+    row_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True, nullable=False
+    )
