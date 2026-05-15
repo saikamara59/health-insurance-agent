@@ -186,3 +186,53 @@ async def test_read_listener_ignores_non_phi_tables(audited_session):
         await session.execute(select(Broker))
         log = (await session.execute(select(PhiAccessLog))).scalars().all()
     assert log == []
+
+
+from sqlalchemy import delete as sa_delete, update as sa_update
+
+
+@pytest.mark.anyio
+async def test_delete_listener_logs_affected_id(audited_session):
+    session, broker, c1, _c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("DELETE /clients/{id}")
+    try:
+        await session.execute(sa_delete(Client).where(Client.id == c1.id))
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("verify"):
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.operation == "delete")
+        )).scalars().all()
+    assert len(log) == 1
+    assert log[0].table_name == "clients"
+    assert log[0].row_ids == [str(c1.id)]
+    assert log[0].row_count == 1
+    assert log[0].endpoint == "DELETE /clients/{id}"
+
+
+@pytest.mark.anyio
+async def test_update_listener_logs_affected_id(audited_session):
+    session, broker, c1, _c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("PUT /clients/{id}")
+    try:
+        await session.execute(
+            sa_update(Client).where(Client.id == c1.id).values(age=99)
+        )
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("verify"):
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.operation == "update")
+        )).scalars().all()
+    assert len(log) == 1
+    assert log[0].table_name == "clients"
+    assert log[0].row_ids == [str(c1.id)]
+    assert log[0].operation == "update"

@@ -85,6 +85,37 @@ def _extract_ids_from_orm_rows(rows: list) -> list[str]:
     return ids
 
 
+def _extract_ids_from_where(orm_execute_state, model: type) -> list[str]:
+    """Pull id-equality values out of an UPDATE/DELETE statement's WHERE clause.
+
+    HealthFlow's PHI UPDATE/DELETE are id-based (WHERE id = :x). We walk the
+    statement's WHERE clause looking for `<model>.id == <bound value>`
+    comparisons and read the bound value.
+
+    The tenant filter appends `AND broker_id = :tenant`, so the WHERE clause is
+    typically a flat AND of two comparisons — `getattr(whereclause, "clauses",
+    [whereclause])` handles both the single-comparison and flat-AND shapes. A
+    deeply nested WHERE (AND/OR of AND/OR) is not recursed into; if a future
+    UPDATE/DELETE uses one, row_ids will be empty but table/operation/endpoint
+    are still recorded — documented limitation.
+    """
+    stmt = orm_execute_state.statement
+    whereclause = getattr(stmt, "whereclause", None)
+    if whereclause is None:
+        return []
+    # A single comparison has no `.clauses`; a flat AND/OR exposes its leaves there.
+    candidates = getattr(whereclause, "clauses", [whereclause])
+    ids: list[str] = []
+    for clause in candidates:
+        left = getattr(clause, "left", None)
+        right = getattr(clause, "right", None)
+        # left should be the `id` column; right a bound parameter carrying .value.
+        if left is not None and getattr(left, "key", None) == "id" and hasattr(right, "value"):
+            if right.value is not None:
+                ids.append(str(right.value))
+    return ids
+
+
 def _on_do_orm_execute_audit(orm_execute_state):
     """do_orm_execute listener: audit SELECT (this task). UPDATE/DELETE added in Task 5."""
     model = _audited_model_for_statement(orm_execute_state)
@@ -106,7 +137,17 @@ def _on_do_orm_execute_audit(orm_execute_state):
         )
         return frozen()
 
-    return None  # UPDATE/DELETE handled in Task 5
+    # UPDATE / DELETE: no result set to inspect — capture the affected id(s)
+    # from the WHERE clause bind parameters and let execution proceed.
+    operation = "update" if orm_execute_state.is_update else "delete"
+    row_ids = _extract_ids_from_where(orm_execute_state, model)
+    _write_audit_entry(
+        orm_execute_state.session,
+        table_name=_AUDITED_TABLE_NAMES[model],
+        operation=operation,
+        row_ids=row_ids,
+    )
+    return None  # let SQLAlchemy run the UPDATE/DELETE normally
 
 
 def install_phi_audit(factory: async_sessionmaker) -> None:
