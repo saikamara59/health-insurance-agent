@@ -82,3 +82,107 @@ def test_system_context_restores_prior_endpoint():
         assert current_endpoint.get() == "GET /clients"
     finally:
         current_endpoint.reset(token)
+
+
+from healthflow.auth.security import hash_password
+from healthflow.auth.tenant_context import current_broker_id
+from healthflow.database.models import Broker, Client
+from healthflow.database.phi_audit import install_phi_audit
+from healthflow.database.tenant_filter import install_tenant_filter
+
+
+@pytest_asyncio.fixture
+async def audited_session():
+    """In-memory engine + session with BOTH the tenant filter and the audit
+    listeners installed, in the required order (tenant filter first)."""
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    install_tenant_filter(factory)   # MUST be installed before the audit listener
+    install_phi_audit(factory)
+    async with factory() as session:
+        with system_context("test setup"):
+            broker = Broker(email="ra@t.test", hashed_password=hash_password("x"), full_name="RA")
+            session.add(broker)
+            await session.flush()
+            c1 = Client(
+                broker_id=broker.id, full_name="C One", zip_code="10001",
+                age=40, income_level="medium", doctors=[], prescriptions=[], procedures=[],
+            )
+            c2 = Client(
+                broker_id=broker.id, full_name="C Two", zip_code="10002",
+                age=50, income_level="high", doctors=[], prescriptions=[], procedures=[],
+            )
+            session.add_all([c1, c2])
+            await session.commit()
+        yield session, broker, c1, c2
+    await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_read_listener_logs_single_row_select(audited_session):
+    session, broker, c1, _c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients/{id}")
+    try:
+        result = await session.execute(select(Client).where(Client.id == c1.id))
+        rows = result.scalars().all()
+        assert len(rows) == 1  # result still usable after the listener observed it
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("verify"):
+        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+    assert len(log) == 1
+    assert log[0].broker_id == broker.id
+    assert log[0].table_name == "clients"
+    assert log[0].operation == "read"
+    assert log[0].row_ids == [str(c1.id)]
+    assert log[0].row_count == 1
+    assert log[0].endpoint == "GET /clients/{id}"
+
+
+@pytest.mark.anyio
+async def test_read_listener_logs_all_ids_for_a_list_query(audited_session):
+    session, broker, c1, c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients")
+    try:
+        result = await session.execute(select(Client))
+        rows = result.scalars().all()
+        assert len(rows) == 2
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("verify"):
+        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+    assert len(log) == 1
+    assert log[0].operation == "read"
+    assert log[0].row_count == 2
+    assert set(log[0].row_ids) == {str(c1.id), str(c2.id)}
+
+
+@pytest.mark.anyio
+async def test_read_listener_uses_system_endpoint_under_system_context(audited_session):
+    session, _broker, _c1, _c2 = audited_session
+    with system_context("nightly recompute"):
+        await session.execute(select(Client))
+        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+    # one entry for the Client read; the PhiAccessLog read itself is self-excluded
+    client_entries = [e for e in log if e.table_name == "clients"]
+    assert len(client_entries) == 1
+    assert client_entries[0].broker_id is None
+    assert client_entries[0].endpoint == "system:nightly recompute"
+
+
+@pytest.mark.anyio
+async def test_read_listener_ignores_non_phi_tables(audited_session):
+    session, _broker, _c1, _c2 = audited_session
+    with system_context("verify"):
+        # Broker is not a PHI table — querying it must not create an audit entry.
+        await session.execute(select(Broker))
+        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+    assert log == []
