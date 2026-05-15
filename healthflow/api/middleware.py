@@ -6,6 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from healthflow.auth.tenant_context import current_endpoint
 from healthflow.logs.server import ServerLogger, get_server_logger
 
 
@@ -109,3 +110,20 @@ class HTTPLoggingMiddleware(BaseHTTPMiddleware):
 
 async def _replay_iterator(body: bytes):
     yield body
+
+
+class EndpointContextMiddleware(BaseHTTPMiddleware):
+    """Set `current_endpoint` for the duration of each HTTP request.
+
+    The PHI access audit listener (healthflow/database/phi_audit.py) reads
+    this ContextVar to record WHICH request triggered a PHI query. Background
+    work has no request — it runs inside `system_context(reason=...)`, which
+    sets `current_endpoint` to `system:<reason>` instead.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        token = current_endpoint.set(f"{request.method} {request.url.path}")
+        try:
+            return await call_next(request)
+        finally:
+            current_endpoint.reset(token)

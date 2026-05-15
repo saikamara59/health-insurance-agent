@@ -6,6 +6,7 @@ import pytest_asyncio
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from healthflow.auth.tenant_context import current_endpoint, system_context
 from healthflow.database.models import Base, PhiAccessLog
 
 
@@ -59,3 +60,25 @@ async def test_phi_access_log_row_roundtrips(raw_engine):
     assert rows[0].row_count == 1
     assert rows[0].endpoint == "GET /clients"
     assert rows[0].created_at is not None
+
+
+def test_current_endpoint_default_is_none():
+    assert current_endpoint.get() is None
+
+
+def test_system_context_sets_endpoint_to_system_reason():
+    assert current_endpoint.get() is None
+    with system_context("RLHF reward scoring"):
+        assert current_endpoint.get() == "system:RLHF reward scoring"
+    # restored on exit
+    assert current_endpoint.get() is None
+
+
+def test_system_context_restores_prior_endpoint():
+    token = current_endpoint.set("GET /clients")
+    try:
+        with system_context("nested system work"):
+            assert current_endpoint.get() == "system:nested system work"
+        assert current_endpoint.get() == "GET /clients"
+    finally:
+        current_endpoint.reset(token)
