@@ -365,3 +365,52 @@ async def test_audit_listener_sees_tenant_scoped_results(audited_session):
     assert len(log) == 1
     assert set(log[0].row_ids) == {str(c1.id), str(c2.id)}
     assert str(cb.id) not in log[0].row_ids  # broker B's client was filtered out
+
+
+from healthflow.database.phi_audit import query_by_broker, query_by_patient
+
+
+@pytest.mark.anyio
+async def test_query_by_patient_finds_entries_mentioning_that_patient(audited_session):
+    session, broker, c1, c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients (qbp)")
+    try:
+        await session.execute(select(Client))  # logs c1 + c2
+        await session.execute(select(Client).where(Client.id == c1.id))  # logs c1
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("audit query"):
+        c1_hits = await query_by_patient(session, str(c1.id))
+        c2_hits = await query_by_patient(session, str(c2.id))
+    # Filter to entries from this test (other tests may share the audited_session
+    # fixture-scope semantics in some pytest configs); use endpoint to scope.
+    c1_test_hits = [e for e in c1_hits if e.endpoint == "GET /clients (qbp)"]
+    c2_test_hits = [e for e in c2_hits if e.endpoint == "GET /clients (qbp)"]
+    # c1 appears in both the list read and the single read; c2 only in the list.
+    assert len(c1_test_hits) == 2
+    assert len(c2_test_hits) == 1
+    assert all(str(c1.id) in e.row_ids for e in c1_test_hits)
+
+
+@pytest.mark.anyio
+async def test_query_by_broker_finds_that_brokers_entries(audited_session):
+    session, broker, c1, _c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients/{id} (qbb)")
+    try:
+        await session.execute(select(Client).where(Client.id == c1.id))
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("audit query"):
+        hits = await query_by_broker(session, str(broker.id))
+    # Filter to this test's entries by endpoint.
+    test_hits = [e for e in hits if e.endpoint == "GET /clients/{id} (qbb)"]
+    assert len(test_hits) >= 1
+    assert all(e.broker_id == broker.id for e in test_hits)

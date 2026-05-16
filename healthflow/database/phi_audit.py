@@ -24,7 +24,7 @@ at import time without blocking on DDL.
 """
 import logging
 
-from sqlalchemy import event
+from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from healthflow.auth.tenant_context import current_broker_id, current_endpoint
@@ -188,3 +188,37 @@ def install_phi_audit(factory: async_sessionmaker) -> None:
         event.listen(target, "do_orm_execute", _on_do_orm_execute_audit)
     if not event.contains(target, "after_flush", _on_after_flush_audit):
         event.listen(target, "after_flush", _on_after_flush_audit)
+
+
+async def query_by_patient(session, patient_id: str) -> list[PhiAccessLog]:
+    """Every audit entry whose row_ids list mentions this patient UUID.
+
+    Loads candidate rows (those with non-empty row_ids) and filters in Python
+    against the JSON list. At portfolio data volumes this is acceptable; a
+    json_each / json_contains query would be the move at real scale.
+
+    Caller must run this inside system_context() — phi_access_log is a system
+    table and reading it is a legitimate cross-tenant operation.
+    """
+    stmt = (
+        select(PhiAccessLog)
+        .where(func.json_array_length(PhiAccessLog.row_ids) > 0)
+        .order_by(PhiAccessLog.created_at)
+    )
+    result = await session.execute(stmt)
+    candidates = list(result.scalars().all())
+    return [e for e in candidates if patient_id in e.row_ids]
+
+
+async def query_by_broker(session, broker_id: str) -> list[PhiAccessLog]:
+    """Every audit entry for this broker, oldest first.
+
+    Caller must run this inside system_context() — see query_by_patient.
+    """
+    stmt = (
+        select(PhiAccessLog)
+        .where(PhiAccessLog.broker_id == broker_id)
+        .order_by(PhiAccessLog.created_at)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
