@@ -78,6 +78,39 @@ endpoint that returns aggregates, default to per-broker; if
 cross-broker is needed, gate on the future admin role rather than
 exposing it to any authenticated broker.
 
+## Every PHI access is audited automatically
+
+Every query against a PHI table (`clients`, `action_history`, `feedback`)
+writes an append-only row to `phi_access_log` — who (broker), what (table +
+operation), which patients (result row IDs), how/why (request endpoint), and
+when. Enforced by two SQLAlchemy listeners in `healthflow/database/phi_audit.py`
+(`do_orm_execute` for read/update/delete, `after_flush` for inserts), installed
+at startup *after* the tenant filter. You never call an audit function — it
+fires on its own.
+
+**Rule:** `phi_access_log` is a system table — NOT in `TENANT_SCOPED_MODELS`,
+NOT audited by its own listeners (writing an entry is a DB write; auditing the
+audit table would recurse forever). When adding a new PHI table, add it to
+`_AUDITED_MODELS` in `phi_audit.py` AND `TENANT_SCOPED_MODELS` in
+`tenant_filter.py` — they are deliberately separate lists but a new PHI table
+belongs in both.
+
+**Rule:** Background/system code that touches PHI must run inside
+`system_context(reason="...")` — the reason becomes the audit entry's
+`endpoint` as `system:<reason>`, so the audit trail explains itself. Code that
+runs with no broker and no `system_context` records `endpoint="unknown"` —
+that is a smell worth investigating.
+
+**Rule:** Listener ordering is load-bearing. `install_phi_audit` MUST be
+called after `install_tenant_filter` (in `config.py` and the test conftest) —
+the audit listener invokes the statement and must observe it already
+tenant-scoped, so `row_ids` reflects what the broker could actually see.
+
+**Rule:** Read the audit log via `scripts/audit_query.py` (`--patient` /
+`--broker`). It runs inside `system_context()` because reading the whole audit
+trail is a legitimate cross-tenant operation. An admin API endpoint is a
+follow-up that depends on admin RBAC.
+
 ## JWT_SECRET default is unsafe
 
 `healthflow/auth/security.py:7` falls back to `"healthflow-dev-secret-change-in-production"` if `JWT_SECRET` is unset. Fine for local; catastrophic in prod.
