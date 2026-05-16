@@ -29,9 +29,11 @@ async def db_engine():
 @pytest_asyncio.fixture
 async def db_session_factory(db_engine):
     from healthflow.database.tenant_filter import install_tenant_filter
+    from healthflow.database.phi_audit import install_phi_audit
 
     factory = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
     install_tenant_filter(factory)
+    install_phi_audit(factory)  # MUST come after install_tenant_filter
     return factory
 
 

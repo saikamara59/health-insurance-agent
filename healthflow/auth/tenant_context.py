@@ -44,24 +44,29 @@ logger = logging.getLogger(__name__)
 
 _in_system_context: ContextVar[bool] = ContextVar("_in_system_context", default=False)
 
+current_endpoint: ContextVar[str | None] = ContextVar("current_endpoint", default=None)
+
 
 @contextmanager
 def system_context(reason: str) -> Iterator[None]:
     """Temporarily clear the tenant context for legitimate cross-tenant work.
 
     Use only at audited call sites. The required `reason` argument forces
-    each caller to justify the bypass and makes the WARN log entries
-    self-explanatory.
+    each caller to justify the bypass, makes the WARN log entries
+    self-explanatory, and is recorded as the `endpoint` on any PHI access
+    audit entry written during the block (`system:<reason>`).
 
     Args:
         reason: Human-readable justification, e.g. "RLHF prompt update".
     """
     broker_token = current_broker_id.set(None)
     flag_token = _in_system_context.set(True)
+    endpoint_token = current_endpoint.set(f"system:{reason}")
     logger.warning("system_context: enter — %s", reason)
     try:
         yield
     finally:
+        current_endpoint.reset(endpoint_token)
         _in_system_context.reset(flag_token)
         current_broker_id.reset(broker_token)
         logger.warning("system_context: exit — %s", reason)

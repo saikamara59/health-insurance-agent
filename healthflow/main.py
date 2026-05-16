@@ -10,7 +10,7 @@ load_dotenv(override=False)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from healthflow.api.middleware import HTTPLoggingMiddleware
+from healthflow.api.middleware import EndpointContextMiddleware, HTTPLoggingMiddleware
 
 from healthflow.api.routes import router
 from healthflow.auth.router import auth_router
@@ -46,6 +46,7 @@ app.add_middleware(
 )
 
 app.add_middleware(HTTPLoggingMiddleware)
+app.add_middleware(EndpointContextMiddleware)
 
 app.include_router(router)
 app.include_router(auth_router)
