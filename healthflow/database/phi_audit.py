@@ -18,9 +18,11 @@ Identity comes from two request-scoped ContextVars:
   * current_broker_id — who (None for system operations)
   * current_endpoint  — the request path, or system:<reason> for background work
 
-NOTE: If phi_access_log table does not exist (before create_all runs),
-audit entries are silently skipped. This allows the listeners to be installed
-at import time without blocking on DDL.
+If phi_access_log is missing (DDL hasn't run), the audit listener fails loud — the same
+fail-loud philosophy as TenantContextMissing. Application startup must ensure tables exist
+via Base.metadata.create_all before any PHI access; for tests that bypass the FastAPI
+lifespan (e.g. those that reload main.py via ASGITransport), call create_all directly on
+the test engine.
 """
 import logging
 

@@ -3,11 +3,18 @@ import uuid
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import inspect, select
+from sqlalchemy import delete as sa_delete, inspect, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from healthflow.auth.tenant_context import current_endpoint, system_context
-from healthflow.database.models import Base, PhiAccessLog
+from healthflow.auth.security import hash_password
+from healthflow.auth.tenant_context import (
+    current_broker_id,
+    current_endpoint,
+    system_context,
+)
+from healthflow.database.models import Base, Broker, Client, PhiAccessLog
+from healthflow.database.phi_audit import install_phi_audit, query_by_broker, query_by_patient
+from healthflow.database.tenant_filter import install_tenant_filter
 
 
 @pytest_asyncio.fixture
@@ -82,13 +89,6 @@ def test_system_context_restores_prior_endpoint():
         assert current_endpoint.get() == "GET /clients"
     finally:
         current_endpoint.reset(token)
-
-
-from healthflow.auth.security import hash_password
-from healthflow.auth.tenant_context import current_broker_id
-from healthflow.database.models import Broker, Client
-from healthflow.database.phi_audit import install_phi_audit
-from healthflow.database.tenant_filter import install_tenant_filter
 
 
 @pytest_asyncio.fixture
@@ -193,9 +193,6 @@ async def test_read_listener_ignores_non_phi_tables(audited_session):
             select(PhiAccessLog).where(PhiAccessLog.endpoint == "system:verify")
         )).scalars().all()
     assert log == []
-
-
-from sqlalchemy import delete as sa_delete, update as sa_update
 
 
 @pytest.mark.anyio
@@ -365,9 +362,6 @@ async def test_audit_listener_sees_tenant_scoped_results(audited_session):
     assert len(log) == 1
     assert set(log[0].row_ids) == {str(c1.id), str(c2.id)}
     assert str(cb.id) not in log[0].row_ids  # broker B's client was filtered out
-
-
-from healthflow.database.phi_audit import query_by_broker, query_by_patient
 
 
 @pytest.mark.anyio
