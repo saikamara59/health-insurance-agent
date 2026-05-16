@@ -150,6 +150,29 @@ def _on_do_orm_execute_audit(orm_execute_state):
     return None  # let SQLAlchemy run the UPDATE/DELETE normally
 
 
+def _on_after_flush_audit(session, flush_context):
+    """after_flush listener: audit INSERTs of PHI rows.
+
+    do_orm_execute does not fire for unit-of-work flushes, so freshly-inserted
+    PHI rows are caught here via session.new. PhiAccessLog rows are skipped —
+    they are not in _AUDITED_MODELS — so writing an audit entry does not
+    recurse. Entries are grouped by model into one `create` entry per table.
+    """
+    by_model: dict[type, list[str]] = {}
+    for obj in session.new:
+        model = type(obj)
+        if model in _AUDITED_MODELS and hasattr(obj, "id"):
+            by_model.setdefault(model, []).append(str(obj.id))
+
+    for model, row_ids in by_model.items():
+        _write_audit_entry(
+            session,
+            table_name=_AUDITED_TABLE_NAMES[model],
+            operation="create",
+            row_ids=row_ids,
+        )
+
+
 def install_phi_audit(factory: async_sessionmaker) -> None:
     """Register the PHI audit listeners on this session factory.
 
@@ -159,3 +182,5 @@ def install_phi_audit(factory: async_sessionmaker) -> None:
     target = factory.class_.sync_session_class
     if not event.contains(target, "do_orm_execute", _on_do_orm_execute_audit):
         event.listen(target, "do_orm_execute", _on_do_orm_execute_audit)
+    if not event.contains(target, "after_flush", _on_after_flush_audit):
+        event.listen(target, "after_flush", _on_after_flush_audit)

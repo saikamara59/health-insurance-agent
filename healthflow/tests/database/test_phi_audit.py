@@ -134,7 +134,9 @@ async def test_read_listener_logs_single_row_select(audited_session):
         current_broker_id.reset(token)
 
     with system_context("verify"):
-        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients/{id}")
+        )).scalars().all()
     assert len(log) == 1
     assert log[0].broker_id == broker.id
     assert log[0].table_name == "clients"
@@ -158,7 +160,9 @@ async def test_read_listener_logs_all_ids_for_a_list_query(audited_session):
         current_broker_id.reset(token)
 
     with system_context("verify"):
-        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients")
+        )).scalars().all()
     assert len(log) == 1
     assert log[0].operation == "read"
     assert log[0].row_count == 2
@@ -170,12 +174,13 @@ async def test_read_listener_uses_system_endpoint_under_system_context(audited_s
     session, _broker, _c1, _c2 = audited_session
     with system_context("nightly recompute"):
         await session.execute(select(Client))
-        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "system:nightly recompute")
+        )).scalars().all()
     # one entry for the Client read; the PhiAccessLog read itself is self-excluded
-    client_entries = [e for e in log if e.table_name == "clients"]
-    assert len(client_entries) == 1
-    assert client_entries[0].broker_id is None
-    assert client_entries[0].endpoint == "system:nightly recompute"
+    assert len(log) == 1
+    assert log[0].broker_id is None
+    assert log[0].endpoint == "system:nightly recompute"
 
 
 @pytest.mark.anyio
@@ -184,7 +189,9 @@ async def test_read_listener_ignores_non_phi_tables(audited_session):
     with system_context("verify"):
         # Broker is not a PHI table — querying it must not create an audit entry.
         await session.execute(select(Broker))
-        log = (await session.execute(select(PhiAccessLog))).scalars().all()
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "system:verify")
+        )).scalars().all()
     assert log == []
 
 
@@ -236,3 +243,51 @@ async def test_update_listener_logs_affected_id(audited_session):
     assert log[0].table_name == "clients"
     assert log[0].row_ids == [str(c1.id)]
     assert log[0].operation == "update"
+
+
+@pytest.mark.anyio
+async def test_insert_listener_logs_created_phi_rows(audited_session):
+    session, broker, _c1, _c2 = audited_session
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("POST /clients")
+    try:
+        new_client = Client(
+            broker_id=broker.id, full_name="Created Client", zip_code="33101",
+            age=70, income_level="low", doctors=[], prescriptions=[], procedures=[],
+        )
+        session.add(new_client)
+        await session.flush()
+        created_id = new_client.id
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("verify"):
+        log = (await session.execute(
+            select(PhiAccessLog).where(
+                (PhiAccessLog.operation == "create") & (PhiAccessLog.endpoint == "POST /clients")
+            )
+        )).scalars().all()
+    assert len(log) == 1
+    assert log[0].table_name == "clients"
+    assert log[0].row_ids == [str(created_id)]
+    assert log[0].operation == "create"
+    assert log[0].endpoint == "POST /clients"
+
+
+@pytest.mark.anyio
+async def test_insert_listener_ignores_non_phi_inserts(audited_session):
+    session, _broker, _c1, _c2 = audited_session
+    with system_context("verify"):
+        # Inserting a Broker (not a PHI table) must not create a 'create' entry.
+        b = Broker(email="ignored@t.test", hashed_password=hash_password("x"), full_name="X")
+        session.add(b)
+        await session.flush()
+        await session.commit()
+        log = (await session.execute(
+            select(PhiAccessLog).where(
+                (PhiAccessLog.operation == "create") & (PhiAccessLog.endpoint == "system:verify")
+            )
+        )).scalars().all()
+    assert log == []
