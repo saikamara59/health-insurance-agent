@@ -39,29 +39,17 @@ async def reset_db(body: ResetRequest) -> dict:
     async with _reset_lock:
         async with async_session_factory() as session:
             with system_context(f"e2e reset for worker {body.worker_id}"):
-                try:
-                    broker = await seed_for_worker(session, body.worker_id)
-                    # seed_for_worker already wiped + re-inserted Client rows; also
-                    # wipe ActionHistory and Feedback rows owned by this broker.
-                    await session.execute(
-                        delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
-                    )
-                    await session.execute(
-                        delete(Feedback).where(Feedback.broker_id == broker.id)
-                    )
-                    # PromptVariant is intentionally not wiped: it is a global table
-                    # (no broker_id column) — wiping it per-worker would destroy rows
-                    # owned by other workers.
-                    await session.commit()
-                except Exception as e:
-                    # If phi_access_log table doesn't exist yet (before create_all
-                    # runs during app startup), the audit listener will try to insert
-                    # audit entries and fail. This is expected during early testing.
-                    # Suppress this error and allow the reset to proceed.
-                    if "phi_access_log" in str(e) and "no such table" in str(e):
-                        await session.rollback()
-                        # Try again without the audit listeners by disabling them
-                        # temporarily. Re-create the session without listeners.
-                        return {"status": "reset", "worker_id": body.worker_id}
-                    raise
+                broker = await seed_for_worker(session, body.worker_id)
+                # seed_for_worker already wiped + re-inserted Client rows; also
+                # wipe ActionHistory and Feedback rows owned by this broker.
+                await session.execute(
+                    delete(ActionHistory).where(ActionHistory.broker_id == broker.id)
+                )
+                await session.execute(
+                    delete(Feedback).where(Feedback.broker_id == broker.id)
+                )
+                # PromptVariant is intentionally not wiped: it is a global table
+                # (no broker_id column) — wiping it per-worker would destroy rows
+                # owned by other workers.
+                await session.commit()
     return {"status": "reset", "worker_id": body.worker_id}
