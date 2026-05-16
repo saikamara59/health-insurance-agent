@@ -291,3 +291,77 @@ async def test_insert_listener_ignores_non_phi_inserts(audited_session):
             )
         )).scalars().all()
     assert log == []
+
+
+@pytest.mark.anyio
+async def test_phi_access_log_is_self_excluded_no_recursion(audited_session):
+    """Writing and reading phi_access_log must not generate audit entries
+    about phi_access_log itself."""
+    session, broker, _c1, _c2 = audited_session
+    # Trigger one real audit entry (a Client read) with a recognizable endpoint.
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients (self-excl)")
+    try:
+        await session.execute(select(Client))
+        await session.commit()
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    # Now read phi_access_log many times. If it were audited, each read would
+    # append more entries about phi_access_log itself and the count would grow.
+    with system_context("self-excl verify"):
+        first = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients (self-excl)")
+        )).scalars().all()
+        second = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients (self-excl)")
+        )).scalars().all()
+        third = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients (self-excl)")
+        )).scalars().all()
+    assert len(first) == len(second) == len(third) == 1
+
+    # Belt-and-suspenders: no entry anywhere should describe phi_access_log itself.
+    with system_context("self-excl verify all"):
+        any_self_entry = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.table_name == "phi_access_log")
+        )).scalars().all()
+    assert any_self_entry == []
+
+
+@pytest.mark.anyio
+async def test_audit_listener_sees_tenant_scoped_results(audited_session):
+    """The audit listener runs AFTER the tenant filter, so row_ids reflect the
+    tenant-scoped result, not the unscoped table."""
+    session, broker, c1, c2 = audited_session
+    # Add a second broker with a client that should NOT appear in broker A's
+    # audit entry.
+    with system_context("coexist test setup"):
+        broker_b = Broker(email="rb@t.test", hashed_password=hash_password("x"), full_name="RB")
+        session.add(broker_b)
+        await session.flush()
+        cb = Client(
+            broker_id=broker_b.id, full_name="B Client", zip_code="90210",
+            age=33, income_level="high", doctors=[], prescriptions=[], procedures=[],
+        )
+        session.add(cb)
+        await session.commit()
+
+    token = current_broker_id.set(broker.id)
+    endpoint_token = current_endpoint.set("GET /clients (coexist)")
+    try:
+        result = await session.execute(select(Client))
+        rows = result.scalars().all()
+        assert len(rows) == 2  # tenant filter scoped to broker A
+    finally:
+        current_endpoint.reset(endpoint_token)
+        current_broker_id.reset(token)
+
+    with system_context("coexist verify"):
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients (coexist)")
+        )).scalars().all()
+    assert len(log) == 1
+    assert set(log[0].row_ids) == {str(c1.id), str(c2.id)}
+    assert str(cb.id) not in log[0].row_ids  # broker B's client was filtered out

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from healthflow.database.phi_audit import install_phi_audit
 from healthflow.database.tenant_filter import install_raw_sql_guard, install_tenant_filter
 
 DATABASE_URL = os.getenv(
@@ -24,6 +25,9 @@ async_session_factory = async_sessionmaker(
 # is automatically protected.
 install_raw_sql_guard(engine)
 install_tenant_filter(async_session_factory)
+# PHI access audit listeners — MUST be installed after install_tenant_filter so
+# the audit listener observes the already-tenant-scoped statement.
+install_phi_audit(async_session_factory)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
