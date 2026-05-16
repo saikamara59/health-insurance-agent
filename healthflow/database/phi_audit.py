@@ -17,6 +17,10 @@ phi_access_log is also NOT in TENANT_SCOPED_MODELS — it is a system table.
 Identity comes from two request-scoped ContextVars:
   * current_broker_id — who (None for system operations)
   * current_endpoint  — the request path, or system:<reason> for background work
+
+NOTE: If phi_access_log table does not exist (before create_all runs),
+audit entries are silently skipped. This allows the listeners to be installed
+at import time without blocking on DDL.
 """
 import logging
 

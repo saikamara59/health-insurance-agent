@@ -21,8 +21,13 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 
-def _build_client(db_session_factory):
-    """Reload healthflow.main and return an AsyncClient against the fresh app."""
+async def _build_client(db_session_factory):
+    """Reload healthflow.main and return an AsyncClient against the fresh app.
+
+    Calls create_all on the reloaded engine to mirror what the app's startup
+    lifespan does — ASGITransport bypasses lifespan, so listener-required
+    tables (especially phi_access_log) need to be created here directly.
+    """
     import healthflow.database.config as db_config
     reload(db_config)
     import healthflow.api.test_router as test_router_module
@@ -31,6 +36,10 @@ def _build_client(db_session_factory):
     reload(main_module)
     app = main_module.app
 
+    from healthflow.database.models import Base
+    async with db_config.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     transport = ASGITransport(app=app)
     return AsyncClient(transport=transport, base_url="http://test"), app
 
@@ -38,7 +47,7 @@ def _build_client(db_session_factory):
 @pytest.mark.anyio
 async def test_reset_endpoint_returns_404_when_test_mode_off(monkeypatch, db_session_factory):
     monkeypatch.delenv("HEALTHFLOW_TEST_MODE", raising=False)
-    client_, app = _build_client(db_session_factory)
+    client_, app = await _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset", json={"worker_id": "e2e-worker-0"})
         assert response.status_code == 404
@@ -50,7 +59,7 @@ async def test_reset_endpoint_returns_404_when_test_mode_off(monkeypatch, db_ses
 @pytest.mark.anyio
 async def test_reset_endpoint_returns_200_with_valid_worker_id(monkeypatch, db_session_factory):
     monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
-    client_, app = _build_client(db_session_factory)
+    client_, app = await _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset", json={"worker_id": "e2e-worker-0"})
         assert response.status_code == 200
@@ -63,7 +72,7 @@ async def test_reset_endpoint_returns_200_with_valid_worker_id(monkeypatch, db_s
 @pytest.mark.anyio
 async def test_reset_endpoint_rejects_missing_body(monkeypatch, db_session_factory):
     monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
-    client_, app = _build_client(db_session_factory)
+    client_, app = await _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset")
         assert response.status_code == 422
@@ -75,7 +84,7 @@ async def test_reset_endpoint_rejects_missing_body(monkeypatch, db_session_facto
 @pytest.mark.anyio
 async def test_reset_endpoint_rejects_malformed_worker_id(monkeypatch, db_session_factory):
     monkeypatch.setenv("HEALTHFLOW_TEST_MODE", "1")
-    client_, app = _build_client(db_session_factory)
+    client_, app = await _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset", json={"worker_id": "not-a-worker"})
         assert response.status_code == 422
