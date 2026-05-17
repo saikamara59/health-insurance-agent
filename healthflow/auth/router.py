@@ -150,7 +150,7 @@ async def refresh(
 
     try:
         payload = decode_token(refresh_data.refresh_token)
-    except (ValueError, Exception):
+    except ValueError:
         raise credentials_exception
 
     if payload.get("type") != "refresh":
@@ -232,7 +232,7 @@ async def logout(
 
     try:
         payload = decode_token(refresh_data.refresh_token)
-    except (ValueError, Exception):
+    except ValueError:
         return  # silently accept — no info leak
 
     jti = payload.get("jti")

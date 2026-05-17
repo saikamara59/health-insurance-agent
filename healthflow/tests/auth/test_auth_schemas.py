@@ -22,7 +22,7 @@ def test_broker_create_valid():
 
 
 def test_broker_create_short_password():
-    with pytest.raises(ValueError, match="8"):
+    with pytest.raises(ValueError, match="12"):
         BrokerCreate(
             email="broker@example.com",
             password="short",

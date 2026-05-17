@@ -329,7 +329,7 @@ class VerifyResponse(BaseModel):
 
 class BrokerCreate(BaseModel):
     email: str = Field(..., description="Broker email address")
-    password: str = Field(..., min_length=8, description="Password (min 12 chars, with letter+digit+symbol; not on block-list)")
+    password: str = Field(..., min_length=12, description="Password (min 12 chars, with letter+digit+symbol; not on block-list)")
     full_name: str = Field(..., description="Broker full name")
 
     @field_validator("email")

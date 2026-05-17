@@ -1,4 +1,5 @@
 import os
+import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -51,9 +52,6 @@ def create_access_token(
     )
     to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-
-import uuid as _uuid
 
 
 async def create_refresh_token(

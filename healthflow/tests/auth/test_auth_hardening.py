@@ -2,11 +2,23 @@
 account lockout, and refresh-token rotation.
 """
 import importlib
-import os
+import uuid as _uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
+from jose import jwt as _jwt
+from sqlalchemy import select
 
 import healthflow.auth.security as security
+from healthflow.auth.security import (
+    JWT_ALGORITHM,
+    JWT_SECRET,
+    create_refresh_token,
+    hash_password,
+    validate_password,
+)
+from healthflow.auth.tenant_context import system_context
+from healthflow.database.models import Broker, RefreshToken
 
 
 def test_jwt_secret_fail_loud_raises_when_unset(monkeypatch):
@@ -37,9 +49,6 @@ def test_jwt_secret_accepts_any_other_value(monkeypatch):
     # Restore the test default for the rest of the suite.
     monkeypatch.setenv("JWT_SECRET", "test-secret-not-for-production")
     importlib.reload(security)
-
-
-from healthflow.auth.security import validate_password
 
 
 def test_validate_password_accepts_compliant_password():
@@ -82,7 +91,7 @@ async def test_register_endpoint_rejects_weak_password(client):
     assert response.status_code == 422
     body = response.json()
     # The Pydantic error message must surface the policy reason.
-    assert "12 characters" in str(body) or "min_length" in str(body)
+    assert "12 characters" in str(body)
 
 
 @pytest.mark.anyio
@@ -102,9 +111,6 @@ async def test_register_endpoint_accepts_compliant_password(client):
 async def test_existing_broker_with_old_weak_password_can_still_login(client, db_session):
     """Existing accounts whose passwords predate the new policy still log in.
     Only register (and future change-password) enforce the policy."""
-    from healthflow.auth.security import hash_password
-    from healthflow.database.models import Broker
-
     # Insert a broker with a password that wouldn't pass the new policy.
     broker = Broker(
         email="legacy@healthflow.test",
@@ -119,12 +125,6 @@ async def test_existing_broker_with_old_weak_password_can_still_login(client, db
         json={"email": "legacy@healthflow.test", "password": "short1"},
     )
     assert response.status_code == 200, response.text
-
-
-from datetime import datetime, timedelta, timezone
-
-from healthflow.auth.security import hash_password
-from healthflow.database.models import Broker
 
 
 async def _make_broker_with_known_password(db_session, email: str) -> Broker:
@@ -237,10 +237,6 @@ async def test_lock_response_message_does_not_reveal_lock_state(client, db_sessi
     assert locked_res.json() == wrong_email_res.json()
 
 
-from healthflow.database.models import RefreshToken
-from sqlalchemy import select
-
-
 @pytest.mark.anyio
 async def test_login_creates_unrevoked_refresh_token_row(client, db_session):
     await _make_broker_with_known_password(db_session, "rot1@healthflow.test")
@@ -250,7 +246,6 @@ async def test_login_creates_unrevoked_refresh_token_row(client, db_session):
     )
     assert res.status_code == 200
 
-    from healthflow.auth.tenant_context import system_context
     with system_context("test verify"):
         rows = (await db_session.execute(select(RefreshToken))).scalars().all()
     assert len(rows) == 1
@@ -274,7 +269,6 @@ async def test_refresh_rotates_token_and_revokes_old(client, db_session):
     new_refresh = refresh_res.json()["refresh_token"]
     assert new_refresh != old_refresh
 
-    from healthflow.auth.tenant_context import system_context
     with system_context("test verify"):
         rows = (await db_session.execute(
             select(RefreshToken).order_by(RefreshToken.created_at)
@@ -325,7 +319,6 @@ async def test_replaying_revoked_token_revokes_all_brokers_tokens(client, db_ses
     assert after_theft.status_code == 401
 
     # All RefreshToken rows for this broker should now be revoked.
-    from healthflow.auth.tenant_context import system_context
     with system_context("test verify"):
         rows = (await db_session.execute(
             select(RefreshToken).where(RefreshToken.broker_id == broker.id)
@@ -357,10 +350,6 @@ async def test_expired_refresh_token_does_not_trigger_theft_signal(client, db_se
     Constructs a refresh JWT with exp in the past — decoded JWT will fail the
     expiry check, so the token never reaches the theft-signal codepath.
     """
-    from healthflow.auth.security import JWT_SECRET, JWT_ALGORITHM, create_refresh_token
-    from jose import jwt as _jwt
-    import uuid as _uuid
-
     broker = await _make_broker_with_known_password(db_session, "rot6@healthflow.test")
 
     # Create one legitimate (active) refresh token via the normal flow.
