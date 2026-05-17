@@ -119,3 +119,119 @@ async def test_existing_broker_with_old_weak_password_can_still_login(client, db
         json={"email": "legacy@healthflow.test", "password": "short1"},
     )
     assert response.status_code == 200, response.text
+
+
+from datetime import datetime, timedelta, timezone
+
+from healthflow.auth.security import hash_password
+from healthflow.database.models import Broker
+
+
+async def _make_broker_with_known_password(db_session, email: str) -> Broker:
+    broker = Broker(
+        email=email,
+        hashed_password=hash_password("Cromulent42!"),
+        full_name="Lockout Test",
+    )
+    db_session.add(broker)
+    await db_session.commit()
+    return broker
+
+
+@pytest.mark.anyio
+async def test_login_increments_counter_on_failed_attempt(client, db_session):
+    await _make_broker_with_known_password(db_session, "lock1@healthflow.test")
+    for _ in range(4):
+        res = await client.post(
+            "/auth/login",
+            json={"email": "lock1@healthflow.test", "password": "wrong!"},
+        )
+        assert res.status_code == 401
+
+    # 4 failures: account NOT yet locked, 5th attempt with correct password works.
+    res = await client.post(
+        "/auth/login",
+        json={"email": "lock1@healthflow.test", "password": "Cromulent42!"},
+    )
+    assert res.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_five_failed_attempts_locks_account(client, db_session):
+    await _make_broker_with_known_password(db_session, "lock2@healthflow.test")
+    for _ in range(5):
+        res = await client.post(
+            "/auth/login",
+            json={"email": "lock2@healthflow.test", "password": "wrong!"},
+        )
+        assert res.status_code == 401
+
+    # 6th attempt with CORRECT password still 401 — locked.
+    res = await client.post(
+        "/auth/login",
+        json={"email": "lock2@healthflow.test", "password": "Cromulent42!"},
+    )
+    assert res.status_code == 401
+    # No mention of "lock" in the response — generic message only.
+    assert "lock" not in res.text.lower()
+
+
+@pytest.mark.anyio
+async def test_successful_login_resets_lockout_state(client, db_session):
+    broker = await _make_broker_with_known_password(db_session, "lock3@healthflow.test")
+    # Force partial-failure state.
+    broker.failed_login_count = 3
+    await db_session.commit()
+
+    res = await client.post(
+        "/auth/login",
+        json={"email": "lock3@healthflow.test", "password": "Cromulent42!"},
+    )
+    assert res.status_code == 200
+
+    await db_session.refresh(broker)
+    assert broker.failed_login_count == 0
+    assert broker.locked_until is None
+
+
+@pytest.mark.anyio
+async def test_lock_auto_expires_after_15_minutes(client, db_session, monkeypatch):
+    broker = await _make_broker_with_known_password(db_session, "lock4@healthflow.test")
+    # Force a lock that "ended" 1 minute ago in real time.
+    past = datetime.now(timezone.utc) - timedelta(minutes=1)
+    broker.locked_until = past
+    broker.failed_login_count = 5
+    await db_session.commit()
+
+    res = await client.post(
+        "/auth/login",
+        json={"email": "lock4@healthflow.test", "password": "Cromulent42!"},
+    )
+    assert res.status_code == 200, res.text
+
+
+@pytest.mark.anyio
+async def test_lock_response_message_does_not_reveal_lock_state(client, db_session):
+    """Locked account returns the SAME error body as wrong-password — no enumeration."""
+    await _make_broker_with_known_password(db_session, "lock5@healthflow.test")
+    # 5 failures to lock.
+    for _ in range(5):
+        await client.post(
+            "/auth/login",
+            json={"email": "lock5@healthflow.test", "password": "wrong!"},
+        )
+
+    # 6th attempt: locked.
+    locked_res = await client.post(
+        "/auth/login",
+        json={"email": "lock5@healthflow.test", "password": "Cromulent42!"},
+    )
+    # Comparison: a totally wrong email gets the same shape.
+    wrong_email_res = await client.post(
+        "/auth/login",
+        json={"email": "nobody@healthflow.test", "password": "wrong!"},
+    )
+
+    assert locked_res.status_code == 401
+    assert wrong_email_res.status_code == 401
+    assert locked_res.json() == wrong_email_res.json()

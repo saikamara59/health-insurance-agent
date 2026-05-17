@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -70,16 +72,36 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Authenticate a broker and return access + refresh tokens."""
+    generic_error = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid email or password",
+    )
+
     result = await db.execute(
         select(Broker).where(Broker.email == login_data.email)
     )
     broker = result.scalar_one_or_none()
 
-    if broker is None or not verify_password(login_data.password, broker.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+    if broker is None:
+        raise generic_error
+
+    now = datetime.now(timezone.utc)
+
+    # Lock check — generic 401, never leak lock state to the client.
+    # SQLite returns naive datetimes; treat them as UTC for comparison.
+    if broker.locked_until is not None:
+        locked_until = broker.locked_until
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if locked_until > now:
+            raise generic_error
+
+    if not verify_password(login_data.password, broker.hashed_password):
+        broker.failed_login_count += 1
+        if broker.failed_login_count >= 5:
+            broker.locked_until = now + timedelta(minutes=15)
+        await db.commit()
+        raise generic_error
 
     if not broker.is_active:
         raise HTTPException(
@@ -87,10 +109,16 @@ async def login(
             detail="Account is deactivated",
         )
 
+    # Success — reset lockout state.
+    broker.failed_login_count = 0
+    broker.locked_until = None
+
     access_token = create_access_token(
         {"sub": str(broker.id), "role": broker.role}
     )
     refresh_token = create_refresh_token({"sub": str(broker.id)})
+
+    await db.commit()
 
     return TokenResponse(
         access_token=access_token,
