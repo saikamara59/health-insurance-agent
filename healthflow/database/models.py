@@ -178,3 +178,28 @@ class PhiAccessLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, index=True, nullable=False
     )
+
+
+class RefreshToken(Base):
+    """Per-token revocation state for refresh-token rotation.
+
+    System table — same pattern as PhiAccessLog: not in TENANT_SCOPED_MODELS
+    (no broker-ownership semantics; broker_id is "who issued," not "who owns"),
+    not in _AUDITED_MODELS (refresh-token CRUD is operational metadata, not
+    patient-data access). The theft-signal mass-revoke is logged via the
+    WARN-level AuditLogger, not phi_access_log.
+    """
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    broker_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=True
+    )

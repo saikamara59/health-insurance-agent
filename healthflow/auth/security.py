@@ -53,11 +53,32 @@ def create_access_token(
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> str:
-    """Create a JWT refresh token with a longer expiry."""
-    to_encode = data.copy()
+import uuid as _uuid
+
+
+async def create_refresh_token(
+    db,  # AsyncSession; untyped to avoid circular imports
+    broker_id: _uuid.UUID,
+) -> str:
+    """Create a refresh token. Persists a RefreshToken row and embeds its id as the JWT jti.
+
+    The DB row is the authoritative revocation state; the JWT signature is the
+    authentication mechanism. /auth/refresh looks the row up by jti, rejects
+    if revoked, then revokes the row before issuing a new token.
+    """
+    from healthflow.database.models import RefreshToken
+
+    row = RefreshToken(id=_uuid.uuid4(), broker_id=broker_id)
+    db.add(row)
+    await db.flush()  # need the row in the DB so the jti exists when the JWT is decoded
+
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode = {
+        "sub": str(broker_id),
+        "exp": expire,
+        "type": "refresh",
+        "jti": str(row.id),
+    }
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 

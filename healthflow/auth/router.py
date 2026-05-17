@@ -116,7 +116,7 @@ async def login(
     access_token = create_access_token(
         {"sub": str(broker.id), "role": broker.role}
     )
-    refresh_token = create_refresh_token({"sub": str(broker.id)})
+    refresh_token = await create_refresh_token(db, broker.id)
 
     await db.commit()
 
@@ -132,7 +132,17 @@ async def refresh(
     refresh_data: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Exchange a valid refresh token for a new access token."""
+    """Exchange a valid refresh token for a new access + refresh token pair.
+
+    Rotation + theft signal: every refresh revokes the presented token and
+    issues a new one. Replaying a revoked token revokes ALL of that broker's
+    active refresh tokens (force re-login).
+    """
+    from healthflow.database.models import RefreshToken
+    from healthflow.logs.audit import AuditLogger
+    from sqlalchemy import update as sa_update
+    import uuid as _uuid
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired refresh token",
@@ -146,25 +156,101 @@ async def refresh(
     if payload.get("type") != "refresh":
         raise credentials_exception
 
-    broker_id = payload.get("sub")
-    if broker_id is None:
+    broker_id_str = payload.get("sub")
+    jti = payload.get("jti")
+    if broker_id_str is None or jti is None:
         raise credentials_exception
 
-    result = await db.execute(
+    try:
+        broker_id = _uuid.UUID(broker_id_str)
+        jti_uuid = _uuid.UUID(jti)
+    except ValueError:
+        raise credentials_exception
+
+    # Look up the refresh-token row by jti.
+    row_result = await db.execute(
+        select(RefreshToken).where(RefreshToken.id == jti_uuid)
+    )
+    row = row_result.scalar_one_or_none()
+    if row is None:
+        raise credentials_exception
+
+    if row.revoked_at is not None:
+        # THEFT SIGNAL — revoked token replayed.
+        now = datetime.now(timezone.utc)
+        await db.execute(
+            sa_update(RefreshToken)
+            .where(
+                RefreshToken.broker_id == row.broker_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        await db.commit()
+        AuditLogger().log(
+            "refresh_token_replay_revoke_all",
+            {"broker_id": str(row.broker_id), "presented_jti": str(jti_uuid)},
+        )
+        raise credentials_exception
+
+    # Load the broker.
+    broker_result = await db.execute(
         select(Broker).where(Broker.id == broker_id)
     )
-    broker = result.scalar_one_or_none()
+    broker = broker_result.scalar_one_or_none()
     if broker is None or not broker.is_active:
         raise credentials_exception
 
+    # Revoke the presented token, then issue a new pair.
+    row.revoked_at = datetime.now(timezone.utc)
     new_access_token = create_access_token(
         {"sub": str(broker.id), "role": broker.role}
     )
+    new_refresh_token = await create_refresh_token(db, broker.id)
+    await db.commit()
 
     return {
         "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer",
     }
+
+
+@auth_router.post("/logout", status_code=204)
+async def logout(
+    refresh_data: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Revoke the presented refresh token. Access token expires naturally.
+
+    Idempotent: revoking an already-revoked token is a no-op. Invalid tokens
+    are silently accepted to avoid the endpoint becoming a probe for valid
+    token shapes.
+    """
+    from healthflow.database.models import RefreshToken
+    import uuid as _uuid
+
+    try:
+        payload = decode_token(refresh_data.refresh_token)
+    except (ValueError, Exception):
+        return  # silently accept — no info leak
+
+    jti = payload.get("jti")
+    if jti is None:
+        return
+
+    try:
+        jti_uuid = _uuid.UUID(jti)
+    except ValueError:
+        return
+
+    row_result = await db.execute(
+        select(RefreshToken).where(RefreshToken.id == jti_uuid)
+    )
+    row = row_result.scalar_one_or_none()
+    if row is not None and row.revoked_at is None:
+        row.revoked_at = datetime.now(timezone.utc)
+        await db.commit()
 
 
 @auth_router.get("/profile", response_model=BrokerResponse)
