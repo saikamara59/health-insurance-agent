@@ -7,13 +7,13 @@ async def _register_and_login(client, email="crud@example.com"):
         "/auth/register",
         json={
             "email": email,
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "CRUD Broker",
         },
     )
     login_resp = await client.post(
         "/auth/login",
-        json={"email": email, "password": "securepass123"},
+        json={"email": email, "password": "securepass123!"},
     )
     return login_resp.json()["access_token"]
 

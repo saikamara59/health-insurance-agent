@@ -111,11 +111,36 @@ tenant-scoped, so `row_ids` reflects what the broker could actually see.
 trail is a legitimate cross-tenant operation. An admin API endpoint is a
 follow-up that depends on admin RBAC.
 
-## JWT_SECRET default is unsafe
+## Auth hardening rules (enforced)
 
-`healthflow/auth/security.py:7` falls back to `"healthflow-dev-secret-change-in-production"` if `JWT_SECRET` is unset. Fine for local; catastrophic in prod.
+**Rule:** `JWT_SECRET` is read fail-loud in `healthflow/auth/security.py`.
+A missing env var OR the legacy value `"healthflow-dev-secret-change-in-production"`
+raises `RuntimeError` at module import. There is no default. Generate one with
+`python -c "import secrets; print(secrets.token_urlsafe(32))"` and set it in
+your `.env` or deploy environment.
 
-**Rule:** Any deploy/Docker change must verify `JWT_SECRET` is set from the environment with no string default. If you touch this file, consider raising on missing env var instead of defaulting.
+**Rule:** New broker registration goes through `validate_password` (in
+`healthflow/auth/security.py`): ≥12 chars, letter + digit + non-alphanumeric,
+not in the bundled common-passwords block-list (`common_passwords.txt`).
+Existing accounts with weaker passwords keep working — only registration
+(and the future change-password endpoint) enforces the policy.
+
+**Rule:** `/auth/login` enforces an account lockout — 5 failed attempts in
+a row → 15-minute timed lock on the `brokers` row (`failed_login_count`
+and `locked_until` columns). Lock auto-expires; successful login resets
+both columns. The response body for a locked account is identical to the
+wrong-password response — never leak lock state to the client (brute-force
+aid).
+
+**Rule:** Refresh tokens rotate on every `/auth/refresh` and persist their
+revocation state in the `refresh_tokens` table. Replaying a revoked
+refresh token is treated as theft — ALL of that broker's active refresh
+tokens get revoked and a WARN-level `refresh_token_replay_revoke_all`
+audit event is emitted via `AuditLogger`. `/auth/logout` revokes the
+presented refresh token (access tokens expire naturally within 60 minutes).
+`refresh_tokens` is a system table — NOT in `TENANT_SCOPED_MODELS` and
+NOT in `_AUDITED_MODELS` (per-token CRUD would just create audit noise;
+the one notable event goes through `AuditLogger`).
 
 ## Two databases — don't cross them
 

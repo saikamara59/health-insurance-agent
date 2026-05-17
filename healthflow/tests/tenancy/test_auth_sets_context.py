@@ -10,7 +10,7 @@ async def test_authenticated_request_sees_broker_in_context_var(client, db_sessi
         "/auth/register",
         json={
             "email": "ctx@healthflow.test",
-            "password": "Ctx123!Pass",
+            "password": "Ctx123!Pass1",
             "full_name": "Context Test",
         },
     )
@@ -18,7 +18,7 @@ async def test_authenticated_request_sees_broker_in_context_var(client, db_sessi
 
     res = await client.post(
         "/auth/login",
-        json={"email": "ctx@healthflow.test", "password": "Ctx123!Pass"},
+        json={"email": "ctx@healthflow.test", "password": "Ctx123!Pass1"},
     )
     assert res.status_code == 200
     token = res.json()["access_token"]
@@ -46,13 +46,13 @@ async def test_concurrent_authenticated_requests_do_not_leak_data(client, db_ses
     for label, email in (("a", "leak-a@healthflow.test"), ("b", "leak-b@healthflow.test")):
         res = await client.post(
             "/auth/register",
-            json={"email": email, "password": "Leak123!Pass", "full_name": label.upper()},
+            json={"email": email, "password": "Leak123!Pass1", "full_name": label.upper()},
         )
         assert res.status_code == 201, res.text
 
     async def login(email):
         res = await client.post(
-            "/auth/login", json={"email": email, "password": "Leak123!Pass"}
+            "/auth/login", json={"email": email, "password": "Leak123!Pass1"}
         )
         assert res.status_code == 200
         return res.json()["access_token"]

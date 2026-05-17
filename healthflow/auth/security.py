@@ -1,10 +1,30 @@
 import os
+import uuid as _uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-JWT_SECRET = os.getenv("JWT_SECRET", "healthflow-dev-secret-change-in-production")
+_LEGACY_DEFAULT = "healthflow-dev-secret-change-in-production"
+
+
+def _load_jwt_secret() -> str:
+    value = os.getenv("JWT_SECRET")
+    if not value:
+        raise RuntimeError(
+            "JWT_SECRET environment variable is required. "
+            "Generate a long random string and set it in .env or your deploy environment."
+        )
+    if value == _LEGACY_DEFAULT:
+        raise RuntimeError(
+            "JWT_SECRET is set to the legacy default. "
+            "Replace it with a real secret — the legacy value is in source control."
+        )
+    return value
+
+
+JWT_SECRET = _load_jwt_secret()
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -34,11 +54,29 @@ def create_access_token(
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> str:
-    """Create a JWT refresh token with a longer expiry."""
-    to_encode = data.copy()
+async def create_refresh_token(
+    db,  # AsyncSession; untyped to avoid circular imports
+    broker_id: _uuid.UUID,
+) -> str:
+    """Create a refresh token. Persists a RefreshToken row and embeds its id as the JWT jti.
+
+    The DB row is the authoritative revocation state; the JWT signature is the
+    authentication mechanism. /auth/refresh looks the row up by jti, rejects
+    if revoked, then revokes the row before issuing a new token.
+    """
+    from healthflow.database.models import RefreshToken
+
+    row = RefreshToken(id=_uuid.uuid4(), broker_id=broker_id)
+    db.add(row)
+    await db.flush()  # need the row in the DB so the jti exists when the JWT is decoded
+
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode = {
+        "sub": str(broker_id),
+        "exp": expire,
+        "type": "refresh",
+        "jti": str(row.id),
+    }
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -53,3 +91,26 @@ def decode_token(token: str) -> dict:
         return payload
     except JWTError as e:
         raise ValueError(f"Invalid token: {e}") from e
+
+
+_COMMON_PASSWORDS: frozenset[str] = frozenset(
+    line.strip().lower()
+    for line in (Path(__file__).parent / "common_passwords.txt").read_text().splitlines()
+    if line.strip()
+)
+
+
+def validate_password(password: str) -> None:
+    """Raise ValueError if the password fails policy: ≥12 chars, has letter +
+    digit + non-alphanumeric, and is not in the common-passwords block-list.
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not any(c.isalpha() for c in password):
+        raise ValueError("Password must contain a letter")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must contain a digit")
+    if all(c.isalnum() for c in password):
+        raise ValueError("Password must contain a non-alphanumeric character")
+    if password.lower() in _COMMON_PASSWORDS:
+        raise ValueError("Password is too common — choose something less guessable")

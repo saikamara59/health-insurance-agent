@@ -1,3 +1,10 @@
+import os
+
+# Set JWT_SECRET before any healthflow.* module imports it. Required because
+# healthflow.auth.security raises at import time if JWT_SECRET is unset or set
+# to the known-bad legacy value — see docs/superpowers/specs/2026-05-16-auth-hardening-design.md.
+os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport

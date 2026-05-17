@@ -43,11 +43,15 @@ def test_create_access_token_custom_expiry():
     assert payload["sub"] == "broker-123"
 
 
-def test_create_and_decode_refresh_token():
-    token = create_refresh_token({"sub": "broker-123"})
+@pytest.mark.anyio
+async def test_create_and_decode_refresh_token(db_session):
+    import uuid as _uuid
+    broker_id = _uuid.uuid4()
+    token = await create_refresh_token(db_session, broker_id)
     payload = decode_token(token)
-    assert payload["sub"] == "broker-123"
+    assert payload["sub"] == str(broker_id)
     assert payload["type"] == "refresh"
+    assert payload["jti"] is not None
     assert "exp" in payload
 
 
