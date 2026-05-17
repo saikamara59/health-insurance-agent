@@ -4,7 +4,25 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-JWT_SECRET = os.getenv("JWT_SECRET", "healthflow-dev-secret-change-in-production")
+_LEGACY_DEFAULT = "healthflow-dev-secret-change-in-production"
+
+
+def _load_jwt_secret() -> str:
+    value = os.getenv("JWT_SECRET")
+    if not value:
+        raise RuntimeError(
+            "JWT_SECRET environment variable is required. "
+            "Generate a long random string and set it in .env or your deploy environment."
+        )
+    if value == _LEGACY_DEFAULT:
+        raise RuntimeError(
+            "JWT_SECRET is set to the legacy default. "
+            "Replace it with a real secret — the legacy value is in source control."
+        )
+    return value
+
+
+JWT_SECRET = _load_jwt_secret()
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
