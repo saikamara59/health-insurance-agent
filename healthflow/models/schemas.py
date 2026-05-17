@@ -329,7 +329,7 @@ class VerifyResponse(BaseModel):
 
 class BrokerCreate(BaseModel):
     email: str = Field(..., description="Broker email address")
-    password: str = Field(..., min_length=8, description="Password (min 8 chars)")
+    password: str = Field(..., min_length=8, description="Password (min 12 chars, with letter+digit+symbol; not on block-list)")
     full_name: str = Field(..., description="Broker full name")
 
     @field_validator("email")
@@ -339,6 +339,13 @@ class BrokerCreate(BaseModel):
         pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
         if not re.match(pattern, v):
             raise ValueError("Invalid email address")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_field(cls, v: str) -> str:
+        from healthflow.auth.security import validate_password
+        validate_password(v)
         return v
 
 

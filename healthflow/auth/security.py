@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -71,3 +72,26 @@ def decode_token(token: str) -> dict:
         return payload
     except JWTError as e:
         raise ValueError(f"Invalid token: {e}") from e
+
+
+_COMMON_PASSWORDS: frozenset[str] = frozenset(
+    line.strip().lower()
+    for line in (Path(__file__).parent / "common_passwords.txt").read_text().splitlines()
+    if line.strip()
+)
+
+
+def validate_password(password: str) -> None:
+    """Raise ValueError if the password fails policy: ≥12 chars, has letter +
+    digit + non-alphanumeric, and is not in the common-passwords block-list.
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not any(c.isalpha() for c in password):
+        raise ValueError("Password must contain a letter")
+    if not any(c.isdigit() for c in password):
+        raise ValueError("Password must contain a digit")
+    if all(c.isalnum() for c in password):
+        raise ValueError("Password must contain a non-alphanumeric character")
+    if password.lower() in _COMMON_PASSWORDS:
+        raise ValueError("Password is too common — choose something less guessable")

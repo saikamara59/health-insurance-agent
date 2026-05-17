@@ -7,7 +7,7 @@ async def test_register_success(client):
         "/auth/register",
         json={
             "email": "newbroker@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "New Broker",
         },
     )
@@ -29,7 +29,7 @@ async def test_register_duplicate_email(client):
         "/auth/register",
         json={
             "email": "dup@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "First Broker",
         },
     )
@@ -37,7 +37,7 @@ async def test_register_duplicate_email(client):
         "/auth/register",
         json={
             "email": "dup@example.com",
-            "password": "anotherpass123",
+            "password": "anotherpass123!",
             "full_name": "Second Broker",
         },
     )
@@ -65,14 +65,14 @@ async def test_login_success(client):
         "/auth/register",
         json={
             "email": "login@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Login Broker",
         },
     )
     # Login
     response = await client.post(
         "/auth/login",
-        json={"email": "login@example.com", "password": "securepass123"},
+        json={"email": "login@example.com", "password": "securepass123!"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -87,7 +87,7 @@ async def test_login_wrong_password(client):
         "/auth/register",
         json={
             "email": "wrongpw@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Wrong PW Broker",
         },
     )
@@ -103,7 +103,7 @@ async def test_login_wrong_password(client):
 async def test_login_nonexistent_email(client):
     response = await client.post(
         "/auth/login",
-        json={"email": "nobody@example.com", "password": "securepass123"},
+        json={"email": "nobody@example.com", "password": "securepass123!"},
     )
     assert response.status_code == 401
 
@@ -115,13 +115,13 @@ async def test_refresh_token_flow(client):
         "/auth/register",
         json={
             "email": "refresh@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Refresh Broker",
         },
     )
     login_response = await client.post(
         "/auth/login",
-        json={"email": "refresh@example.com", "password": "securepass123"},
+        json={"email": "refresh@example.com", "password": "securepass123!"},
     )
     refresh_token = login_response.json()["refresh_token"]
 
@@ -152,13 +152,13 @@ async def test_refresh_with_access_token_fails(client):
         "/auth/register",
         json={
             "email": "noaccess@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "No Access Broker",
         },
     )
     login_response = await client.post(
         "/auth/login",
-        json={"email": "noaccess@example.com", "password": "securepass123"},
+        json={"email": "noaccess@example.com", "password": "securepass123!"},
     )
     access_token = login_response.json()["access_token"]
 

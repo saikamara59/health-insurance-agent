@@ -13,11 +13,11 @@ from healthflow.models.schemas import (
 def test_broker_create_valid():
     b = BrokerCreate(
         email="broker@example.com",
-        password="securepass123",
+        password="securepass123!",
         full_name="Test Broker",
     )
     assert b.email == "broker@example.com"
-    assert b.password == "securepass123"
+    assert b.password == "securepass123!"
     assert b.full_name == "Test Broker"
 
 
@@ -34,7 +34,7 @@ def test_broker_create_invalid_email():
     with pytest.raises(ValueError):
         BrokerCreate(
             email="not-an-email",
-            password="securepass123",
+            password="securepass123!",
             full_name="Test Broker",
         )
 
@@ -53,9 +53,9 @@ def test_broker_response():
 
 
 def test_login_request():
-    req = LoginRequest(email="broker@example.com", password="securepass123")
+    req = LoginRequest(email="broker@example.com", password="securepass123!")
     assert req.email == "broker@example.com"
-    assert req.password == "securepass123"
+    assert req.password == "securepass123!"
 
 
 def test_token_response():

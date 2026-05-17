@@ -14,7 +14,7 @@ async def test_full_broker_workflow(client):
         "/auth/register",
         json={
             "email": "e2e@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "E2E Broker",
         },
     )
@@ -24,7 +24,7 @@ async def test_full_broker_workflow(client):
     # Step 2: Login
     login_resp = await client.post(
         "/auth/login",
-        json={"email": "e2e@example.com", "password": "securepass123"},
+        json={"email": "e2e@example.com", "password": "securepass123!"},
     )
     assert login_resp.status_code == 200
     tokens = login_resp.json()
@@ -127,13 +127,13 @@ async def test_multi_broker_isolation(client):
         "/auth/register",
         json={
             "email": "isolation-a@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Broker A",
         },
     )
     login_a = await client.post(
         "/auth/login",
-        json={"email": "isolation-a@example.com", "password": "securepass123"},
+        json={"email": "isolation-a@example.com", "password": "securepass123!"},
     )
     token_a = login_a.json()["access_token"]
     headers_a = {"Authorization": f"Bearer {token_a}"}
@@ -143,13 +143,13 @@ async def test_multi_broker_isolation(client):
         "/auth/register",
         json={
             "email": "isolation-b@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Broker B",
         },
     )
     login_b = await client.post(
         "/auth/login",
-        json={"email": "isolation-b@example.com", "password": "securepass123"},
+        json={"email": "isolation-b@example.com", "password": "securepass123!"},
     )
     token_b = login_b.json()["access_token"]
     headers_b = {"Authorization": f"Bearer {token_b}"}
@@ -229,13 +229,13 @@ async def test_expired_token_returns_401(client):
         "/auth/register",
         json={
             "email": "expired@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Expired Broker",
         },
     )
     login_resp = await client.post(
         "/auth/login",
-        json={"email": "expired@example.com", "password": "securepass123"},
+        json={"email": "expired@example.com", "password": "securepass123!"},
     )
     assert login_resp.status_code == 200
 

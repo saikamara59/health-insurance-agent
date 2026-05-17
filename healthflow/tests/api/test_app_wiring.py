@@ -16,7 +16,7 @@ async def test_auth_register_route_exists(client):
         "/auth/register",
         json={
             "email": "wiring@example.com",
-            "password": "securepass123",
+            "password": "securepass123!",
             "full_name": "Wiring Test",
         },
     )
@@ -29,7 +29,7 @@ async def test_auth_login_route_exists(client):
     """The /auth/login route should be registered."""
     response = await client.post(
         "/auth/login",
-        json={"email": "nobody@example.com", "password": "securepass123"},
+        json={"email": "nobody@example.com", "password": "securepass123!"},
     )
     assert response.status_code != 404
 
