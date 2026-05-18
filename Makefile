@@ -57,8 +57,13 @@ lint-fix: ## Auto-fix lint issues
 	.venv/bin/ruff check healthflow/ --select F401 --fix
 
 dead-code: ## Find dead code with vulture
+	# --ignore-names silences framework-callback params that ARE required by the API
+	# but never used in the body: `cls`/`__context` (Pydantic validators),
+	# `dialect` (SQLAlchemy TypeDecorator), `multiparams`/`execution_options`/`flush_context`
+	# (SQLAlchemy event listener signatures). Removing them breaks the framework integration.
 	.venv/bin/pip install vulture -q
-	.venv/bin/vulture healthflow/ --min-confidence 90
+	.venv/bin/vulture healthflow/ --min-confidence 90 \
+		--ignore-names "cls,__context,dialect,multiparams,execution_options,flush_context"
 
 # ─── Development ──────────────────────────────────────────────────────────────
 
