@@ -5,6 +5,16 @@ import os
 # to the known-bad legacy value — see docs/superpowers/specs/2026-05-16-auth-hardening-design.md.
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
 
+import base64 as _base64
+
+# Set PHI_ENCRYPTION_KEY before any healthflow.* module imports it. Required because
+# healthflow.auth.phi_crypto raises at import time if PHI_ENCRYPTION_KEY is unset.
+# A deterministic test key — safe to commit because it's only used in tests.
+os.environ.setdefault(
+    "PHI_ENCRYPTION_KEY",
+    _base64.b64encode(b"\x00" * 32).decode(),
+)
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport

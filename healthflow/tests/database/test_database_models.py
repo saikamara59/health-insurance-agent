@@ -153,8 +153,9 @@ async def test_jsonb_stores_complex_data(db_session):
     )
     db_session.add(client)
     await db_session.commit()
+    client_id = client.id
 
-    result = await db_session.execute(select(Client).where(Client.full_name == "Complex Client"))
+    result = await db_session.execute(select(Client).where(Client.id == client_id))
     saved = result.scalar_one()
     assert len(saved.doctors) == 2
     assert saved.doctors[0]["npi"] == "1234567890"
