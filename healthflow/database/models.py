@@ -108,8 +108,8 @@ class ActionHistory(Base):
         GUID(), ForeignKey("clients.id"), index=True, nullable=False
     )
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    request_data: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
-    response_summary: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    request_data: Mapped[dict] = mapped_column(EncryptedJSON(), default=dict, nullable=False)
+    response_summary: Mapped[dict] = mapped_column(EncryptedJSON(), default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
