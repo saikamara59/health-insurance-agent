@@ -132,7 +132,7 @@ class Feedback(Base):
     accuracy: Mapped[int] = mapped_column(Integer, nullable=False)
     clarity: Mapped[int] = mapped_column(Integer, nullable=False)
     helpfulness: Mapped[int] = mapped_column(Integer, nullable=False)
-    comment: Mapped[str] = mapped_column(String(2000), default="", nullable=False)
+    comment: Mapped[str] = mapped_column(EncryptedString(4000), default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
