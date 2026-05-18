@@ -8,6 +8,7 @@ import pytest_asyncio
 from sqlalchemy import Column, Integer, MetaData, Table, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from healthflow.auth.phi_crypto import PhiDecryptionError
 from healthflow.database.encrypted_types import EncryptedJSON, EncryptedString
 
 
@@ -149,3 +150,54 @@ async def test_client_full_name_encrypted_at_rest_with_tenant_filter_and_audit_l
         )).scalars().all()
     assert len(log) == 1
     assert str(client_id) in log[0].row_ids
+
+
+@pytest.mark.anyio
+async def test_plaintext_read_raises_in_strict_mode(encrypted_session, monkeypatch):
+    """Strict mode (default): a stored plaintext value raises on read."""
+    # Explicitly set to empty string to ensure it's not "1" from another test
+    monkeypatch.setenv("PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ", "")
+    session, test_table = encrypted_session
+    # Insert a plaintext value via raw SQL, bypassing the TypeDecorator
+    await session.execute(
+        text("INSERT INTO enc_test (id, secret_str, secret_json) VALUES (4, 'plaintext-value', NULL)")
+    )
+    await session.commit()
+
+    with pytest.raises(PhiDecryptionError):
+        result = await session.execute(select(test_table).where(test_table.c.id == 4))
+        # Force result materialisation (the decrypt happens when the value is consumed)
+        _ = result.first().secret_str
+
+
+@pytest.mark.anyio
+async def test_plaintext_read_allowed_with_toggle(encrypted_session, monkeypatch):
+    """Migration mode (toggle=1): a stored plaintext value reads back as plaintext."""
+    monkeypatch.setenv("PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ", "1")
+    session, test_table = encrypted_session
+    await session.execute(
+        text("INSERT INTO enc_test (id, secret_str, secret_json) VALUES (5, 'legacy-plaintext', NULL)")
+    )
+    await session.commit()
+
+    result = await session.execute(select(test_table).where(test_table.c.id == 5))
+    assert result.first().secret_str == "legacy-plaintext"
+
+
+@pytest.mark.anyio
+async def test_ciphertext_reads_regardless_of_toggle(encrypted_session, monkeypatch):
+    """Round-tripped values work whether the toggle is on or off."""
+    session, test_table = encrypted_session
+    # Write via the ORM (encrypts)
+    await session.execute(test_table.insert().values(id=6, secret_str="ciphered", secret_json=None))
+    await session.commit()
+
+    # Read with toggle off (explicit empty string to ensure it's not "1")
+    monkeypatch.setenv("PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ", "")
+    result = await session.execute(select(test_table).where(test_table.c.id == 6))
+    assert result.first().secret_str == "ciphered"
+
+    # Read with toggle on
+    monkeypatch.setenv("PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ", "1")
+    result = await session.execute(select(test_table).where(test_table.c.id == 6))
+    assert result.first().secret_str == "ciphered"
