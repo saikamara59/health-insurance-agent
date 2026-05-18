@@ -31,6 +31,8 @@ jobs:
           CI: true
           ANTHROPIC_API_KEY: test-key-not-used
           JWT_SECRET: test-secret
+          # All-zeros 32-byte test key (base64). Real prod uses a random key in secrets manager.
+          PHI_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
         run: npm run test:e2e
 
       - name: Upload Playwright report on failure
