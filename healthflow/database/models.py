@@ -11,7 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON, TypeDecorator
 
-from healthflow.database.encrypted_types import EncryptedString
+from healthflow.database.encrypted_types import EncryptedJSON, EncryptedString
 
 
 class Base(DeclarativeBase):
@@ -81,9 +81,9 @@ class Client(Base):
     zip_code: Mapped[str] = mapped_column(String(5), nullable=False)
     age: Mapped[int] = mapped_column(Integer, nullable=False)
     income_level: Mapped[str] = mapped_column(String(10), nullable=False)
-    doctors: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
-    prescriptions: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
-    procedures: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    doctors: Mapped[list] = mapped_column(EncryptedJSON(), default=list, nullable=False)
+    prescriptions: Mapped[list] = mapped_column(EncryptedJSON(), default=list, nullable=False)
+    procedures: Mapped[list] = mapped_column(EncryptedJSON(), default=list, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, nullable=False
     )
