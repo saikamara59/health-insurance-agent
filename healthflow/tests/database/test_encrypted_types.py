@@ -74,3 +74,78 @@ async def test_encrypted_columns_store_ciphertext_on_disk(encrypted_session):
     assert "Walt Whitman" not in secret_str
     assert secret_json.startswith("v1:")
     assert "dx" not in secret_json
+
+
+import uuid
+
+from healthflow.auth.security import hash_password
+from healthflow.auth.tenant_context import current_broker_id, current_endpoint, system_context
+from healthflow.database.models import Base, Broker, Client, PhiAccessLog
+from healthflow.database.phi_audit import install_phi_audit
+from healthflow.database.tenant_filter import install_tenant_filter
+
+
+@pytest_asyncio.fixture
+async def app_db():
+    """The real app's Base.metadata + tenant filter + audit listener installed.
+    Mirrors the production session factory."""
+    engine = create_async_engine("sqlite+aiosqlite:///", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    install_tenant_filter(factory)
+    install_phi_audit(factory)
+    async with factory() as session:
+        yield session
+    await engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_client_full_name_encrypted_at_rest_with_tenant_filter_and_audit_log(app_db):
+    """Cross-sub-project sanity: encryption + tenant filter + PHI audit all work together."""
+    session = app_db
+
+    # Seed a broker + client under system_context
+    with system_context("test setup"):
+        broker = Broker(
+            email="enc1@t.test", hashed_password=hash_password("xPass-1234!"), full_name="EncBroker",
+        )
+        session.add(broker)
+        await session.flush()
+        client_a = Client(
+            broker_id=broker.id, full_name="Eleanor Rigby", zip_code="10001",
+            age=67, income_level="low",
+            doctors=[], prescriptions=[], procedures=[],
+        )
+        session.add(client_a)
+        await session.commit()
+        client_id = client_a.id
+
+    # Read via the ORM under broker's context — full_name decrypts transparently
+    token = current_broker_id.set(broker.id)
+    ep = current_endpoint.set("GET /clients/{id}")
+    try:
+        result = await session.execute(select(Client).where(Client.id == client_id))
+        client = result.scalar_one()
+        assert client.full_name == "Eleanor Rigby"
+        # Tenant filter still applied; zip_code (plaintext column) still readable
+        assert client.zip_code == "10001"
+    finally:
+        current_endpoint.reset(ep)
+        current_broker_id.reset(token)
+
+    # Raw SELECT bypasses the TypeDecorator — confirms ciphertext on disk
+    with system_context("test verify"):
+        raw = await session.execute(text("SELECT full_name FROM clients WHERE id = :id"),
+                                     {"id": str(client_id)})
+        on_disk = raw.scalar_one()
+    assert on_disk.startswith("v1:")
+    assert "Eleanor Rigby" not in on_disk
+
+    # Audit log row_ids capture still works (UUIDs are plaintext)
+    with system_context("test verify"):
+        log = (await session.execute(
+            select(PhiAccessLog).where(PhiAccessLog.endpoint == "GET /clients/{id}")
+        )).scalars().all()
+    assert len(log) == 1
+    assert str(client_id) in log[0].row_ids

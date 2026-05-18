@@ -11,6 +11,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON, TypeDecorator
 
+from healthflow.database.encrypted_types import EncryptedString
+
 
 class Base(DeclarativeBase):
     pass
@@ -75,7 +77,7 @@ class Client(Base):
     broker_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("brokers.id"), index=True, nullable=False
     )
-    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(EncryptedString(2000), nullable=False)
     zip_code: Mapped[str] = mapped_column(String(5), nullable=False)
     age: Mapped[int] = mapped_column(Integer, nullable=False)
     income_level: Mapped[str] = mapped_column(String(10), nullable=False)
