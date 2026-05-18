@@ -9,7 +9,12 @@ from sqlalchemy import Column, Integer, MetaData, Table, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from healthflow.auth.phi_crypto import PhiDecryptionError
+from healthflow.auth.security import hash_password
+from healthflow.auth.tenant_context import current_broker_id, current_endpoint, system_context
 from healthflow.database.encrypted_types import EncryptedJSON, EncryptedString
+from healthflow.database.models import Base, Broker, Client, PhiAccessLog
+from healthflow.database.phi_audit import install_phi_audit
+from healthflow.database.tenant_filter import install_tenant_filter
 
 
 @pytest_asyncio.fixture
@@ -75,15 +80,6 @@ async def test_encrypted_columns_store_ciphertext_on_disk(encrypted_session):
     assert "Walt Whitman" not in secret_str
     assert secret_json.startswith("v1:")
     assert "dx" not in secret_json
-
-
-import uuid
-
-from healthflow.auth.security import hash_password
-from healthflow.auth.tenant_context import current_broker_id, current_endpoint, system_context
-from healthflow.database.models import Base, Broker, Client, PhiAccessLog
-from healthflow.database.phi_audit import install_phi_audit
-from healthflow.database.tenant_filter import install_tenant_filter
 
 
 @pytest_asyncio.fixture
