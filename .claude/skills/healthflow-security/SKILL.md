@@ -142,6 +142,52 @@ presented refresh token (access tokens expire naturally within 60 minutes).
 NOT in `_AUDITED_MODELS` (per-token CRUD would just create audit noise;
 the one notable event goes through `AuditLogger`).
 
+## Encryption at rest (enforced)
+
+PHI columns on `Client`, `ActionHistory`, and `Feedback` are stored as
+AES-256-GCM ciphertext at rest. Eight columns total:
+`Client.full_name`, `doctors`, `prescriptions`, `procedures`;
+`ActionHistory.request_data`, `response_summary`; `Feedback.comment`.
+Encryption is enforced via SQLAlchemy `TypeDecorator`s (`EncryptedString`,
+`EncryptedJSON` in `healthflow/database/encrypted_types.py`) — application
+code never sees ciphertext. The math lives in `healthflow/auth/phi_crypto.py`.
+
+**Rule:** `PHI_ENCRYPTION_KEY` is read fail-loud at module import (same pattern
+as `JWT_SECRET`). A missing env var OR a known placeholder value raises
+`RuntimeError`. Generate a real key with:
+`python -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"`
+
+**Rule:** Wire format is `vN:<base64-nonce>:<base64-ciphertext+tag>` where
+`vN` is the key version (`v1`, `v2`, …). New writes use `_CURRENT_VERSION`
+(the highest configured key). Reads dispatch on the prefix. This makes
+rotation additive: add `PHI_ENCRYPTION_KEY_V2`, restart the app, new writes
+go through v2, old `v1:` rows still decrypt with the v1 key.
+
+**Rule:** **Never delete a key version while any row exists encrypted under
+it.** Practical rotation sequence: add `v2`, run a (future) v1→v2 sweep
+script, *then* drop the `v1` env var.
+
+**Rule:** `PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ=1` opens a migration window —
+`EncryptedString`/`EncryptedJSON` columns may contain plaintext, which reads
+back unchanged (with a WARN log). MUST be unset in production. Used only
+during a one-time `scripts/encrypt_existing_phi.py` run at deploy time.
+Strict mode (the default) raises `PhiDecryptionError` on plaintext in an
+encrypted column — surfaces an incomplete migration loudly, not silently.
+
+**Rule:** Searchable queries (`WHERE full_name = 'X'`) do NOT work on
+encrypted columns — AES-GCM uses a random nonce per encryption, so the same
+plaintext produces different ciphertext each time. If a search-by-PHI flow
+becomes necessary, add a blind index (HMAC of the value) in a sibling
+column. Today no such queries exist on encrypted columns; the quasi-
+identifiers that ARE queried (`zip_code`, `age`, `income_level`) stay plain
+text by design.
+
+**Rule:** When adding a new PHI column, decide explicitly:
+encrypted (use `EncryptedString` or `EncryptedJSON`), or plaintext quasi-
+identifier (queried by value). Add it to `_ENCRYPTED_FIELDS` in
+`scripts/encrypt_existing_phi.py` if encrypted, so any future re-encryption
+sweep covers it.
+
 ## Two databases — don't cross them
 
 - `healthflow.db` → brokers, clients, prescriptions (PHI/PII)
