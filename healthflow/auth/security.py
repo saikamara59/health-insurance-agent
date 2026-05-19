@@ -28,6 +28,7 @@ JWT_SECRET = _load_jwt_secret()
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+PASSWORD_RESET_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -114,3 +115,23 @@ def validate_password(password: str) -> None:
         raise ValueError("Password must contain a non-alphanumeric character")
     if password.lower() in _COMMON_PASSWORDS:
         raise ValueError("Password is too common — choose something less guessable")
+
+
+def create_password_reset_token(broker_id: _uuid.UUID, jti: _uuid.UUID) -> str:
+    """Create a single-use password-reset JWT bound to a PasswordResetToken row.
+
+    The DB row is the authoritative state (single-use via `used_at`, expiry via
+    `expires_at`); the JWT signature is the authentication mechanism. The router
+    looks the row up by `jti` and asserts `used_at IS NULL` and not expired.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(broker_id),
+        "type": "reset",
+        "jti": str(jti),
+        "iat": int(now.timestamp()),
+        "exp": int(
+            (now + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)).timestamp()
+        ),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)

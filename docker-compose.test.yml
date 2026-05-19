@@ -5,6 +5,8 @@ services:
       - JWT_SECRET=test-secret
       # All-zeros 32-byte test key (base64). Real prod uses a random key in secrets manager.
       - PHI_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      - EMAIL_PROVIDER=console
+      - FRONTEND_BASE_URL=https://test.example.com
       - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
       - HEALTHFLOW_TEST_MODE=1
     volumes:
@@ -19,6 +21,8 @@ services:
       - JWT_SECRET=test-secret
       # All-zeros 32-byte test key (base64). Real prod uses a random key in secrets manager.
       - PHI_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      - EMAIL_PROVIDER=console
+      - FRONTEND_BASE_URL=https://test.example.com
       - DATABASE_URL=sqlite+aiosqlite:////data/healthflow_test.db
       - HEALTHFLOW_TEST_MODE=1
       - PYTHONPATH=/app

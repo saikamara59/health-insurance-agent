@@ -371,6 +371,38 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., description="Current password (re-auth)")
+    new_password: str = Field(..., description="New password (must satisfy policy)")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        from healthflow.auth.security import validate_password
+        validate_password(v)
+        return v
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., description="Email address to send a reset link to")
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., description="Reset token from the email")
+    new_password: str = Field(..., description="New password (must satisfy policy)")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        from healthflow.auth.security import validate_password
+        validate_password(v)
+        return v
+
+
 class ClientCreate(BaseModel):
     full_name: str = Field(..., description="Client full name")
     zip_code: str = Field(..., description="5-digit US zip code")
