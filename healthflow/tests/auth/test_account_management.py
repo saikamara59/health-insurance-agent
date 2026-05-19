@@ -70,3 +70,21 @@ def test_get_mailer_raises_when_ses_provider_missing_from_address(monkeypatch):
 
     with pytest.raises(RuntimeError, match="EMAIL_FROM_ADDRESS is required"):
         mailer_module.get_mailer()
+
+
+# ── Templates ────────────────────────────────────────────────────────────────
+
+
+def test_render_password_reset_returns_subject_text_html():
+    """render_password_reset returns (subject, text_body, html_body) with the reset URL."""
+    from healthflow.email.templates import render_password_reset
+
+    subject, text, html = render_password_reset(
+        email="alice@example.com",
+        reset_url="https://app.example.com/reset-password?token=abc.def.ghi",
+    )
+
+    assert subject == "Reset your HealthFlow password"
+    assert "https://app.example.com/reset-password?token=abc.def.ghi" in text
+    assert "https://app.example.com/reset-password?token=abc.def.ghi" in html
+    assert "<a href=" in html
