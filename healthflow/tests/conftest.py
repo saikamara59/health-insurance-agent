@@ -15,6 +15,12 @@ os.environ.setdefault(
     _base64.b64encode(b"\x00" * 32).decode(),
 )
 
+# Default the email provider to the no-network ConsoleMailer for tests, and
+# set FRONTEND_BASE_URL so the forgot-password router can build a reset link.
+# Setting via setdefault keeps any explicit env override working.
+os.environ.setdefault("EMAIL_PROVIDER", "console")
+os.environ.setdefault("FRONTEND_BASE_URL", "https://test.example.com")
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
