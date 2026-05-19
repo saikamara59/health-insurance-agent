@@ -111,3 +111,13 @@ def isolate_server_log(tmp_path):
     )
     yield
     server_log_module.reset_server_logger_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def reset_mailer_singleton():
+    """Each test starts with a fresh Mailer so EMAIL_PROVIDER overrides don't leak."""
+    from healthflow.email import mailer as _mailer_module
+
+    _mailer_module._INSTANCE = None
+    yield
+    _mailer_module._INSTANCE = None
