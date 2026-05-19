@@ -77,3 +77,17 @@ async def get_current_broker(
         yield broker
     finally:
         current_broker_id.reset(context_token)
+
+
+async def require_admin(broker: Broker = Depends(get_current_broker)) -> Broker:
+    """Yield the current broker if they are an admin, else raise HTTP 403.
+
+    Returns the broker so the route can use the admin's id for audit logging.
+    No bearer → 401 propagates from get_current_broker. Wrong role → 403.
+    """
+    if broker.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+    return broker

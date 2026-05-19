@@ -136,3 +136,31 @@ def test_create_password_reset_token_embeds_jti_and_type():
     assert payload["jti"] == str(jti)
     assert payload["type"] == "reset"
     assert "exp" in payload
+
+
+# ── require_admin dependency ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_require_admin_returns_admin_broker():
+    """When the current broker has role='admin', require_admin returns them."""
+    from healthflow.auth.dependencies import require_admin
+    from healthflow.database.models import Broker
+
+    admin = Broker(email="a@x", hashed_password="h", full_name="A", role="admin")
+    result = await require_admin(broker=admin)
+    assert result is admin
+
+
+@pytest.mark.asyncio
+async def test_require_admin_raises_403_for_non_admin():
+    """When the current broker has role='broker', require_admin raises HTTP 403."""
+    from fastapi import HTTPException
+    from healthflow.auth.dependencies import require_admin
+    from healthflow.database.models import Broker
+
+    broker = Broker(email="b@x", hashed_password="h", full_name="B", role="broker")
+    with pytest.raises(HTTPException) as exc:
+        await require_admin(broker=broker)
+    assert exc.value.status_code == 403
+    assert "admin" in exc.value.detail.lower()
