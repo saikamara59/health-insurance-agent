@@ -2,7 +2,6 @@
 forgot-password + reset-password + admin force-unlock + promote_admin CLI.
 """
 import logging
-import os
 from unittest.mock import MagicMock
 
 import pytest
