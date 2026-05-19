@@ -479,7 +479,6 @@ async def test_forgot_password_mailer_failure_still_returns_200(client, db_sessi
 
 async def _request_reset_token(client, db_session, email):
     """Helper: trigger forgot-password and return (broker_id, reset_jwt)."""
-    import uuid as _uuid
     from sqlalchemy import select
     from healthflow.auth.security import create_password_reset_token
     from healthflow.database.models import Broker, PasswordResetToken
@@ -588,7 +587,6 @@ async def test_reset_password_expired_token_returns_401(client, db_session):
 @pytest.mark.asyncio
 async def test_reset_password_replay_returns_401(client, db_session):
     """Using a token twice → second call returns 401; password stays the first rotation."""
-    import uuid as _uuid
     from sqlalchemy import select
     from healthflow.auth.security import verify_password
     from healthflow.database.models import Broker
@@ -620,7 +618,7 @@ async def test_reset_password_revokes_refresh_tokens(client, db_session):
     """Successful reset revokes all of the broker's active refresh tokens."""
     import uuid as _uuid
     from sqlalchemy import select
-    from healthflow.database.models import Broker, RefreshToken
+    from healthflow.database.models import RefreshToken
 
     await _register_and_login(client, email="rrev@example.com")
     broker_id, token = await _request_reset_token(client, db_session, "rrev@example.com")
@@ -647,8 +645,7 @@ async def test_reset_password_revokes_refresh_tokens(client, db_session):
 
 async def _make_admin(client, db_session, email="admin@example.com"):
     """Helper: register a broker, promote them to admin, return access token."""
-    import uuid as _uuid
-    from sqlalchemy import select, update as sa_update
+    from sqlalchemy import update as sa_update
     from healthflow.database.models import Broker
 
     _, access, _ = await _register_and_login(client, email=email)
@@ -665,7 +662,6 @@ async def _make_admin(client, db_session, email="admin@example.com"):
 
 async def _create_locked_broker(client, db_session, email="locked@example.com"):
     """Helper: register a broker and set failed_login_count=5 + locked_until in the future."""
-    import uuid as _uuid
     from datetime import datetime, timedelta, timezone
     from sqlalchemy import select, update as sa_update
     from healthflow.database.models import Broker
@@ -749,7 +745,6 @@ async def test_admin_unlock_unknown_broker_returns_404(client, db_session):
 @pytest.mark.asyncio
 async def test_admin_unlock_already_unlocked_is_idempotent(client, db_session):
     """Unlocking an already-unlocked broker → 200; same response shape."""
-    import uuid as _uuid
     from sqlalchemy import select
     from healthflow.database.models import Broker
 
@@ -780,7 +775,6 @@ async def test_admin_unlock_no_bearer_returns_401(client):
 async def test_admin_unlock_emits_audit_event(client, db_session, caplog):
     """admin_force_unlock event includes both admin_id and target_broker_id."""
     import json
-    import uuid as _uuid
     from sqlalchemy import select
     from healthflow.database.models import Broker
 
