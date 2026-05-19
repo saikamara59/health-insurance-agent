@@ -640,3 +640,166 @@ async def test_reset_password_revokes_refresh_tokens(client, db_session):
     for r in pre:
         await db_session.refresh(r)
     assert all(r.revoked_at is not None for r in pre)
+
+
+# ── /admin/brokers/{id}/unlock ───────────────────────────────────────────────
+
+
+async def _make_admin(client, db_session, email="admin@example.com"):
+    """Helper: register a broker, promote them to admin, return access token."""
+    import uuid as _uuid
+    from sqlalchemy import select, update as sa_update
+    from healthflow.database.models import Broker
+
+    _, access, _ = await _register_and_login(client, email=email)
+    await db_session.execute(
+        sa_update(Broker).where(Broker.email == email).values(role="admin")
+    )
+    await db_session.commit()
+    # Re-login so the new access token carries role="admin".
+    login = await client.post(
+        "/auth/login", json={"email": email, "password": "Cromulent42!"}
+    )
+    return login.json()["access_token"]
+
+
+async def _create_locked_broker(client, db_session, email="locked@example.com"):
+    """Helper: register a broker and set failed_login_count=5 + locked_until in the future."""
+    import uuid as _uuid
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select, update as sa_update
+    from healthflow.database.models import Broker
+
+    await _register_and_login(client, email=email)
+    locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+    await db_session.execute(
+        sa_update(Broker).where(Broker.email == email).values(
+            failed_login_count=5, locked_until=locked_until
+        )
+    )
+    await db_session.commit()
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.email == email)
+    )).scalar_one()
+    return str(broker.id)
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_clears_lock_state(client, db_session):
+    """Admin unlocks a locked broker → 200; counter+lock cleared; locked user can log in."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import Broker
+
+    admin_access = await _make_admin(client, db_session)
+    target_id = await _create_locked_broker(client, db_session)
+
+    resp = await client.post(
+        f"/admin/brokers/{target_id}/unlock",
+        headers={"Authorization": f"Bearer {admin_access}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"unlocked": True}
+
+    target = (await db_session.execute(
+        select(Broker).where(Broker.id == _uuid.UUID(target_id))
+    )).scalar_one()
+    assert target.failed_login_count == 0
+    assert target.locked_until is None
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_rejects_non_admin(client, db_session):
+    """Non-admin caller gets 403; target state unchanged."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import Broker
+
+    _, broker_access, _ = await _register_and_login(client, email="plain@example.com")
+    target_id = await _create_locked_broker(client, db_session)
+
+    resp = await client.post(
+        f"/admin/brokers/{target_id}/unlock",
+        headers={"Authorization": f"Bearer {broker_access}"},
+    )
+    assert resp.status_code == 403
+
+    target = (await db_session.execute(
+        select(Broker).where(Broker.id == _uuid.UUID(target_id))
+    )).scalar_one()
+    assert target.failed_login_count == 5
+    assert target.locked_until is not None
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_unknown_broker_returns_404(client, db_session):
+    """Unknown broker_id → 404."""
+    import uuid as _uuid
+
+    admin_access = await _make_admin(client, db_session)
+    ghost = _uuid.uuid4()
+
+    resp = await client.post(
+        f"/admin/brokers/{ghost}/unlock",
+        headers={"Authorization": f"Bearer {admin_access}"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_already_unlocked_is_idempotent(client, db_session):
+    """Unlocking an already-unlocked broker → 200; same response shape."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import Broker
+
+    admin_access = await _make_admin(client, db_session)
+    _, _, _ = await _register_and_login(client, email="already-fine@example.com")
+    target = (await db_session.execute(
+        select(Broker).where(Broker.email == "already-fine@example.com")
+    )).scalar_one()
+
+    resp = await client.post(
+        f"/admin/brokers/{target.id}/unlock",
+        headers={"Authorization": f"Bearer {admin_access}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"unlocked": True}
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_no_bearer_returns_401(client):
+    """No Authorization header → 401 from get_current_broker (not 403)."""
+    import uuid as _uuid
+
+    resp = await client.post(f"/admin/brokers/{_uuid.uuid4()}/unlock")
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_unlock_emits_audit_event(client, db_session, caplog):
+    """admin_force_unlock event includes both admin_id and target_broker_id."""
+    import json
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import Broker
+
+    admin_access = await _make_admin(client, db_session)
+    admin = (await db_session.execute(
+        select(Broker).where(Broker.email == "admin@example.com")
+    )).scalar_one()
+    target_id = await _create_locked_broker(client, db_session)
+
+    with caplog.at_level(logging.INFO, logger="healthflow.audit"):
+        resp = await client.post(
+            f"/admin/brokers/{target_id}/unlock",
+            headers={"Authorization": f"Bearer {admin_access}"},
+        )
+    assert resp.status_code == 200
+
+    entries = [json.loads(r.getMessage()) for r in caplog.records if r.getMessage().startswith("{")]
+    unlocks = [e for e in entries if e.get("event_type") == "admin_force_unlock"]
+    assert len(unlocks) == 1
+    details = unlocks[0]["details"]
+    assert details["admin_id"] == str(admin.id)
+    assert details["target_broker_id"] == target_id

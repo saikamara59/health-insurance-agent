@@ -14,6 +14,7 @@ from healthflow.api.middleware import EndpointContextMiddleware, HTTPLoggingMidd
 
 from healthflow.api.routes import router
 from healthflow.auth.router import auth_router
+from healthflow.auth.admin_router import admin_router
 from healthflow.api.client_router import client_router
 from healthflow.api.history_router import history_router
 from healthflow.feedback.router import feedback_router
@@ -50,6 +51,7 @@ app.add_middleware(EndpointContextMiddleware)
 
 app.include_router(router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(client_router)
 app.include_router(history_router)
 app.include_router(feedback_router)
