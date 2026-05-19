@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from healthflow.auth.security import (
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     hash_password,
@@ -20,7 +22,10 @@ from healthflow.models.schemas import (
     BrokerProfileUpdate,
     BrokerResponse,
     ChangePasswordRequest,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
+    ResetPasswordRequest,
     TokenResponse,
 )
 
@@ -324,4 +329,152 @@ async def change_password(
         .values(revoked_at=now)
     )
 
+    await db.commit()
+
+
+_FORGOT_PASSWORD_GENERIC_MESSAGE = (
+    "If an account exists for that email, a reset link has been sent."
+)
+_FORGOT_PASSWORD_COOLDOWN_SECONDS = 60
+
+
+def _frontend_base_url() -> str:
+    value = os.getenv("FRONTEND_BASE_URL")
+    if not value:
+        raise RuntimeError(
+            "FRONTEND_BASE_URL is required to build password-reset links"
+        )
+    return value.rstrip("/")
+
+
+@auth_router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ForgotPasswordResponse:
+    """Send a password-reset email. Always returns the same generic 200 message
+    regardless of whether the email exists, the cooldown is active, or the
+    mailer fails. No enumeration; no error oracle.
+    """
+    from healthflow.database.models import PasswordResetToken
+    from healthflow.email.mailer import get_mailer
+    from healthflow.email.templates import render_password_reset
+    from healthflow.logs.audit import AuditLogger
+    import uuid as _uuid
+
+    generic = ForgotPasswordResponse(message=_FORGOT_PASSWORD_GENERIC_MESSAGE)
+
+    result = await db.execute(select(Broker).where(Broker.email == payload.email))
+    broker = result.scalar_one_or_none()
+    if broker is None:
+        return generic
+
+    now = datetime.now(timezone.utc)
+    cooldown_cutoff = now - timedelta(seconds=_FORGOT_PASSWORD_COOLDOWN_SECONDS)
+    cooldown_q = await db.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == broker.id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.created_at > cooldown_cutoff,
+        ).limit(1)
+    )
+    if cooldown_q.scalar_one_or_none() is not None:
+        return generic
+
+    jti = _uuid.uuid4()
+    expires_at = now + timedelta(minutes=60)
+    row = PasswordResetToken(
+        id=jti,
+        broker_id=broker.id,
+        created_at=now,
+        expires_at=expires_at,
+    )
+    db.add(row)
+    # Commit the row BEFORE sending so the cooldown survives a mailer failure
+    # and the audit log entry has a corresponding DB row to reference.
+    await db.commit()
+
+    token = create_password_reset_token(broker.id, jti)
+    reset_url = f"{_frontend_base_url()}/reset-password?token={token}"
+    subject, text_body, html_body = render_password_reset(broker.email, reset_url)
+
+    try:
+        get_mailer().send(broker.email, subject, text_body, html_body)
+    except Exception as e:
+        AuditLogger().log(
+            "password_reset_send_failed",
+            {"broker_id": str(broker.id), "error": repr(e)},
+        )
+
+    return generic
+
+
+@auth_router.post("/reset-password", status_code=204)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Consume a single-use reset token and rotate the password.
+
+    Returns the same generic 401 for: invalid JWT, wrong type claim, unknown jti,
+    used token, expired token, missing/inactive broker. Differentiating helps
+    attackers more than legit users.
+    """
+    from healthflow.database.models import PasswordResetToken, RefreshToken
+    import uuid as _uuid
+
+    generic_401 = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired reset token",
+    )
+
+    try:
+        claims = decode_token(payload.token)
+    except ValueError:
+        raise generic_401
+
+    if claims.get("type") != "reset":
+        raise generic_401
+
+    broker_id_str = claims.get("sub")
+    jti_str = claims.get("jti")
+    if broker_id_str is None or jti_str is None:
+        raise generic_401
+
+    try:
+        broker_id = _uuid.UUID(broker_id_str)
+        jti = _uuid.UUID(jti_str)
+    except ValueError:
+        raise generic_401
+
+    now = datetime.now(timezone.utc)
+
+    row_result = await db.execute(
+        select(PasswordResetToken).where(PasswordResetToken.id == jti)
+    )
+    row = row_result.scalar_one_or_none()
+    if row is None or row.used_at is not None:
+        raise generic_401
+    # SQLite returns naive datetimes; treat them as UTC for comparison.
+    row_expires_at = row.expires_at
+    if row_expires_at.tzinfo is None:
+        row_expires_at = row_expires_at.replace(tzinfo=timezone.utc)
+    if row_expires_at < now:
+        raise generic_401
+
+    broker_result = await db.execute(select(Broker).where(Broker.id == broker_id))
+    broker = broker_result.scalar_one_or_none()
+    if broker is None or not broker.is_active:
+        raise generic_401
+
+    broker.hashed_password = hash_password(payload.new_password)
+    row.used_at = now
+    await db.execute(
+        sa_update(RefreshToken)
+        .where(
+            RefreshToken.broker_id == broker.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .values(revoked_at=now)
+    )
     await db.commit()

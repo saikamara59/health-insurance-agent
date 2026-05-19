@@ -320,3 +320,323 @@ async def test_change_password_does_not_revoke_other_brokers_tokens(client, db_s
         await db_session.refresh(r)
     assert all(r.revoked_at is None for r in b_rows_pre), \
         "Broker B's refresh tokens should NOT be revoked when Broker A changes password"
+
+
+# ── /auth/forgot-password ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_known_email_creates_row_and_sends(client, db_session, caplog):
+    """Known email → 200 generic message; one PasswordResetToken row; one mailer call."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    broker_id, _, _ = await _register_and_login(client, email="alice@example.com")
+
+    with caplog.at_level(logging.INFO, logger="healthflow.email.mailer"):
+        resp = await client.post(
+            "/auth/forgot-password", json={"email": "alice@example.com"}
+        )
+
+    assert resp.status_code == 200
+    assert "if an account exists" in resp.json()["message"].lower()
+
+    rows = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == _uuid.UUID(broker_id)
+        )
+    )).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].used_at is None
+
+    log_messages = [r.getMessage() for r in caplog.records]
+    assert any("to=alice@example.com" in m for m in log_messages)
+    assert any("reset-password?token=" in m for m in log_messages)
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_unknown_email_same_response(client, db_session, caplog):
+    """Unknown email → 200 same message; zero rows; zero mailer calls."""
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    with caplog.at_level(logging.INFO, logger="healthflow.email.mailer"):
+        resp = await client.post(
+            "/auth/forgot-password", json={"email": "ghost@example.com"}
+        )
+
+    assert resp.status_code == 200
+    assert "if an account exists" in resp.json()["message"].lower()
+
+    rows = (await db_session.execute(select(PasswordResetToken))).scalars().all()
+    assert rows == []
+    assert not any("to=ghost@example.com" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_cooldown_swallows_second_request(client, db_session, caplog):
+    """Two requests for the same email within 60s → one row, one mailer call."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    broker_id, _, _ = await _register_and_login(client, email="cool@example.com")
+
+    with caplog.at_level(logging.INFO, logger="healthflow.email.mailer"):
+        r1 = await client.post("/auth/forgot-password", json={"email": "cool@example.com"})
+        r2 = await client.post("/auth/forgot-password", json={"email": "cool@example.com"})
+
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+
+    rows = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == _uuid.UUID(broker_id)
+        )
+    )).scalars().all()
+    assert len(rows) == 1
+    sent_count = sum(
+        1 for r in caplog.records if "to=cool@example.com" in r.getMessage()
+    )
+    assert sent_count == 1
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_after_cooldown_creates_new_row(client, db_session, caplog):
+    """After the 60s window elapses, a second request creates a second row + sends."""
+    import uuid as _uuid
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    broker_id, _, _ = await _register_and_login(client, email="time@example.com")
+
+    r1 = await client.post("/auth/forgot-password", json={"email": "time@example.com"})
+    assert r1.status_code == 200
+
+    # Backdate the existing row's created_at by 2 minutes to simulate the
+    # cooldown window having elapsed. Far simpler than monkeypatching datetime.
+    row = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == _uuid.UUID(broker_id)
+        )
+    )).scalar_one()
+    row.created_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+    await db_session.commit()
+
+    with caplog.at_level(logging.INFO, logger="healthflow.email.mailer"):
+        r2 = await client.post("/auth/forgot-password", json={"email": "time@example.com"})
+    assert r2.status_code == 200
+
+    rows = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == _uuid.UUID(broker_id)
+        )
+    )).scalars().all()
+    assert len(rows) == 2
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_mailer_failure_still_returns_200(client, db_session, caplog, monkeypatch):
+    """Mailer raises → 200 response unchanged; row still committed (cooldown survives);
+    AuditLogger sees password_reset_send_failed."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    broker_id, _, _ = await _register_and_login(client, email="boom@example.com")
+
+    from healthflow.email import mailer as mailer_module
+
+    class FailingMailer:
+        def send(self, *args, **kwargs):
+            raise RuntimeError("SES is down")
+
+    monkeypatch.setattr(mailer_module, "_INSTANCE", FailingMailer())
+
+    with caplog.at_level(logging.INFO, logger="healthflow.audit"):
+        resp = await client.post(
+            "/auth/forgot-password", json={"email": "boom@example.com"}
+        )
+
+    assert resp.status_code == 200
+
+    rows = (await db_session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.broker_id == _uuid.UUID(broker_id)
+        )
+    )).scalars().all()
+    assert len(rows) == 1, "cooldown row must survive a mailer failure"
+
+    assert any(
+        "password_reset_send_failed" in r.getMessage() for r in caplog.records
+    )
+
+
+# ── /auth/reset-password ─────────────────────────────────────────────────────
+
+
+async def _request_reset_token(client, db_session, email):
+    """Helper: trigger forgot-password and return (broker_id, reset_jwt)."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.auth.security import create_password_reset_token
+    from healthflow.database.models import Broker, PasswordResetToken
+
+    resp = await client.post("/auth/forgot-password", json={"email": email})
+    assert resp.status_code == 200
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.email == email)
+    )).scalar_one()
+    row = (await db_session.execute(
+        select(PasswordResetToken).where(PasswordResetToken.broker_id == broker.id)
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(1)
+    )).scalar_one()
+    # Re-mint a JWT for the row's id — the forgot-password router doesn't
+    # expose the JWT to tests; we reconstruct one with the row's jti.
+    token = create_password_reset_token(broker.id, row.id)
+    return str(broker.id), token
+
+
+@pytest.mark.asyncio
+async def test_reset_password_happy_path(client, db_session):
+    """Valid token + valid new password → 204; password rehashed; row marked used."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.auth.security import verify_password
+    from healthflow.database.models import Broker, PasswordResetToken
+
+    await _register_and_login(client, email="reset@example.com")
+    broker_id, token = await _request_reset_token(client, db_session, "reset@example.com")
+
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "Brandnew99$word"},
+    )
+    assert resp.status_code == 204
+
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.id == _uuid.UUID(broker_id))
+    )).scalar_one()
+    assert verify_password("Brandnew99$word", broker.hashed_password)
+
+    row = (await db_session.execute(
+        select(PasswordResetToken).where(PasswordResetToken.broker_id == broker.id)
+    )).scalar_one()
+    assert row.used_at is not None
+
+
+@pytest.mark.asyncio
+async def test_reset_password_invalid_jwt_returns_401(client):
+    """Garbage JWT → 401 generic message."""
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"token": "not-a-jwt", "new_password": "Brandnew99$word"},
+    )
+    assert resp.status_code == 401
+    assert "reset token" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_reset_password_wrong_type_claim_returns_401(client):
+    """A valid JWT signed with the right secret but type='access' is rejected as 401."""
+    from healthflow.auth.security import create_access_token
+    import uuid as _uuid
+
+    # An access token has type='access', not 'reset' — should be rejected.
+    access = create_access_token({"sub": str(_uuid.uuid4()), "role": "broker"})
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"token": access, "new_password": "Brandnew99$word"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_reset_password_expired_token_returns_401(client, db_session):
+    """A token whose DB row's expires_at is in the past → 401."""
+    import uuid as _uuid
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from healthflow.auth.security import create_password_reset_token
+    from healthflow.database.models import Broker, PasswordResetToken
+
+    await _register_and_login(client, email="expired@example.com")
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.email == "expired@example.com")
+    )).scalar_one()
+
+    jti = _uuid.uuid4()
+    row = PasswordResetToken(
+        id=jti,
+        broker_id=broker.id,
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    db_session.add(row)
+    await db_session.commit()
+
+    token = create_password_reset_token(broker.id, jti)
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "Brandnew99$word"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_reset_password_replay_returns_401(client, db_session):
+    """Using a token twice → second call returns 401; password stays the first rotation."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.auth.security import verify_password
+    from healthflow.database.models import Broker
+
+    await _register_and_login(client, email="replay@example.com")
+    _, token = await _request_reset_token(client, db_session, "replay@example.com")
+
+    r1 = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "Firstreset9$word"},
+    )
+    assert r1.status_code == 204
+
+    r2 = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "Secondreset9$word"},
+    )
+    assert r2.status_code == 401
+
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.email == "replay@example.com")
+    )).scalar_one()
+    assert verify_password("Firstreset9$word", broker.hashed_password)
+    assert not verify_password("Secondreset9$word", broker.hashed_password)
+
+
+@pytest.mark.asyncio
+async def test_reset_password_revokes_refresh_tokens(client, db_session):
+    """Successful reset revokes all of the broker's active refresh tokens."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import Broker, RefreshToken
+
+    await _register_and_login(client, email="rrev@example.com")
+    broker_id, token = await _request_reset_token(client, db_session, "rrev@example.com")
+
+    pre = (await db_session.execute(
+        select(RefreshToken).where(RefreshToken.broker_id == _uuid.UUID(broker_id))
+    )).scalars().all()
+    assert len(pre) >= 1
+    assert all(r.revoked_at is None for r in pre)
+
+    resp = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "Brandnew99$word"},
+    )
+    assert resp.status_code == 204
+
+    for r in pre:
+        await db_session.refresh(r)
+    assert all(r.revoked_at is not None for r in pre)
