@@ -142,6 +142,47 @@ presented refresh token (access tokens expire naturally within 60 minutes).
 NOT in `_AUDITED_MODELS` (per-token CRUD would just create audit noise;
 the one notable event goes through `AuditLogger`).
 
+## Account management (PR #14)
+
+- **Admin RBAC.** `Broker.role` is one of `"broker"` or `"admin"`. Use the
+  `require_admin` dependency from `healthflow.auth.dependencies` on any route
+  that must be admin-only — it returns 403 (not 401) when a non-admin is
+  authenticated. Never check `broker.role == "admin"` inline in route bodies;
+  always go through the dependency.
+
+- **Admin bootstrap.** The only path to promote a broker to admin is
+  `python scripts/promote_admin.py --email X`. There is no API endpoint that
+  flips role; do not add one without a brainstorm round.
+
+- **Password change → revoke refresh tokens.** Both `/auth/change-password` and
+  `/auth/reset-password` MUST revoke every active `RefreshToken` row for the
+  broker on success. A password change is a security event; other devices must
+  re-login. Adding a code path that rotates a password without this revocation
+  is a regression.
+
+- **Forgot-password is generic, always.** `POST /auth/forgot-password` MUST
+  return the same 200 response shape regardless of: email known/unknown,
+  cooldown active/inactive, mailer succeeded/failed. Any branch that varies
+  the HTTP response opens an enumeration or error oracle. Mailer failures go
+  to `AuditLogger.log("password_reset_send_failed", ...)`, never to the client.
+
+- **Reset-password is single-use.** The `PasswordResetToken.used_at` column
+  is the authoritative single-use guard. Token replay (`used_at IS NOT NULL`),
+  expiry (`expires_at < now`), and wrong-type-claim all return the same generic
+  401. Differentiating helps attackers.
+
+- **Per-email cooldown.** `/auth/forgot-password` MUST NOT issue a new reset
+  token if there's an unexpired token created within the last 60 seconds for
+  the same broker_id. This is the email-bomb defense; the cooldown row must
+  be committed BEFORE the mailer call so a flaky mailer doesn't drop the
+  cooldown.
+
+- **Mailer selection.** `EMAIL_PROVIDER=console` is the default; `ses` enables
+  AWS SES (BAA-eligible under the standard AWS BAA). Production deployments
+  handling real PHI MUST set `EMAIL_PROVIDER=ses` and have a signed AWS BAA.
+  Other providers (SendGrid, Resend, Postmark, Paubox) are not wired; adding
+  one requires brainstorm + spec.
+
 ## Encryption at rest (enforced)
 
 PHI columns on `Client`, `ActionHistory`, and `Feedback` are stored as
