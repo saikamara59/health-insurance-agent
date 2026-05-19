@@ -164,3 +164,159 @@ async def test_require_admin_raises_403_for_non_admin():
         await require_admin(broker=broker)
     assert exc.value.status_code == 403
     assert "admin" in exc.value.detail.lower()
+
+
+# ── /auth/change-password ────────────────────────────────────────────────────
+
+
+async def _register_and_login(client, email="user@example.com", password="Cromulent42!"):
+    """Helper: register a broker and return (broker_id, access_token, refresh_token)."""
+    reg = await client.post(
+        "/auth/register",
+        json={"email": email, "password": password, "full_name": "Test User"},
+    )
+    assert reg.status_code == 201
+    broker_id = reg.json()["id"]
+    login = await client.post(
+        "/auth/login", json={"email": email, "password": password}
+    )
+    assert login.status_code == 200
+    body = login.json()
+    return broker_id, body["access_token"], body["refresh_token"]
+
+
+@pytest.mark.asyncio
+async def test_change_password_happy_path(client, db_session):
+    """Valid current + valid new password → 204, password rehashed."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.auth.security import verify_password
+    from healthflow.database.models import Broker
+
+    broker_id, access, _ = await _register_and_login(client)
+
+    resp = await client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {access}"},
+        json={"current_password": "Cromulent42!", "new_password": "Newpass99$word"},
+    )
+    assert resp.status_code == 204
+
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.id == _uuid.UUID(broker_id))
+    )).scalar_one()
+    assert verify_password("Newpass99$word", broker.hashed_password)
+    assert not verify_password("Cromulent42!", broker.hashed_password)
+
+
+@pytest.mark.asyncio
+async def test_change_password_wrong_current_returns_401(client, db_session):
+    """Wrong current_password → 401; password unchanged."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.auth.security import verify_password
+    from healthflow.database.models import Broker
+
+    broker_id, access, _ = await _register_and_login(client)
+
+    resp = await client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {access}"},
+        json={"current_password": "WRONGPASSWORD!1", "new_password": "Newpass99$word"},
+    )
+    assert resp.status_code == 401
+    assert "current password" in resp.json()["detail"].lower()
+
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.id == _uuid.UUID(broker_id))
+    )).scalar_one()
+    assert verify_password("Cromulent42!", broker.hashed_password)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_new",
+    [
+        "short",                # too short
+        "alllowercaseletters",  # no digit, no symbol
+        "12345678!2345",        # no letter
+        "password123!",         # in common-password list (lowercased)
+    ],
+)
+async def test_change_password_rejects_weak_new_password(client, bad_new):
+    """Pydantic validator rejects policy violations → 422."""
+    _, access, _ = await _register_and_login(client)
+
+    resp = await client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {access}"},
+        json={"current_password": "Cromulent42!", "new_password": bad_new},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_change_password_requires_bearer(client):
+    """No bearer → 401 from get_current_broker."""
+    resp = await client.post(
+        "/auth/change-password",
+        json={"current_password": "Cromulent42!", "new_password": "Newpass99$word"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_change_password_revokes_own_refresh_tokens(client, db_session):
+    """All of THIS broker's active refresh-token rows get revoked."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import RefreshToken
+
+    broker_id, access, _ = await _register_and_login(client)
+    # The login above already created one RefreshToken row for this broker.
+    pre = (await db_session.execute(
+        select(RefreshToken).where(RefreshToken.broker_id == _uuid.UUID(broker_id))
+    )).scalars().all()
+    assert len(pre) >= 1
+    assert all(r.revoked_at is None for r in pre)
+
+    resp = await client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {access}"},
+        json={"current_password": "Cromulent42!", "new_password": "Newpass99$word"},
+    )
+    assert resp.status_code == 204
+
+    # Expire cached rows so we re-read from the DB after the router committed.
+    for r in pre:
+        await db_session.refresh(r)
+    assert all(r.revoked_at is not None for r in pre)
+
+
+@pytest.mark.asyncio
+async def test_change_password_does_not_revoke_other_brokers_tokens(client, db_session):
+    """Other brokers' refresh tokens remain untouched (isolation regression)."""
+    import uuid as _uuid
+    from sqlalchemy import select
+    from healthflow.database.models import RefreshToken
+
+    # Broker A logs in and changes their password.
+    _, access_a, _ = await _register_and_login(client, email="a@example.com")
+    # Broker B logs in independently.
+    broker_b_id, _, _ = await _register_and_login(client, email="b@example.com")
+    b_rows_pre = (await db_session.execute(
+        select(RefreshToken).where(RefreshToken.broker_id == _uuid.UUID(broker_b_id))
+    )).scalars().all()
+    assert all(r.revoked_at is None for r in b_rows_pre)
+
+    resp = await client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {access_a}"},
+        json={"current_password": "Cromulent42!", "new_password": "Newpass99$word"},
+    )
+    assert resp.status_code == 204
+
+    for r in b_rows_pre:
+        await db_session.refresh(r)
+    assert all(r.revoked_at is None for r in b_rows_pre), \
+        "Broker B's refresh tokens should NOT be revoked when Broker A changes password"

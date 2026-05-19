@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from healthflow.auth.security import (
@@ -19,6 +19,7 @@ from healthflow.models.schemas import (
     BrokerCreate,
     BrokerProfileUpdate,
     BrokerResponse,
+    ChangePasswordRequest,
     LoginRequest,
     TokenResponse,
 )
@@ -290,3 +291,37 @@ async def update_profile(
         is_active=broker.is_active,
         created_at=broker.created_at.isoformat(),
     )
+
+
+@auth_router.post("/change-password", status_code=204)
+async def change_password(
+    payload: ChangePasswordRequest,
+    broker: Broker = Depends(get_current_broker),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Authenticated broker rotates their own password.
+
+    Revokes all of the broker's active refresh tokens on success — a password
+    change is a security event; other devices must re-login.
+    """
+    from healthflow.database.models import RefreshToken
+
+    if not verify_password(payload.current_password, broker.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid current password",
+        )
+
+    broker.hashed_password = hash_password(payload.new_password)
+
+    now = datetime.now(timezone.utc)
+    await db.execute(
+        sa_update(RefreshToken)
+        .where(
+            RefreshToken.broker_id == broker.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .values(revoked_at=now)
+    )
+
+    await db.commit()
