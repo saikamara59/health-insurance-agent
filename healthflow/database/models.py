@@ -205,3 +205,29 @@ class RefreshToken(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), index=True, nullable=True
     )
+
+
+class PasswordResetToken(Base):
+    """One row per password-reset request — single-use via `used_at`.
+
+    System table — not tenant-scoped, not in _AUDITED_MODELS (reset bookkeeping
+    is auth metadata, not patient-data access). The 60-second cooldown is
+    enforced by querying this table; no Redis required.
+    """
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    broker_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

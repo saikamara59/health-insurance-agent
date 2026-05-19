@@ -88,3 +88,51 @@ def test_render_password_reset_returns_subject_text_html():
     assert "https://app.example.com/reset-password?token=abc.def.ghi" in text
     assert "https://app.example.com/reset-password?token=abc.def.ghi" in html
     assert "<a href=" in html
+
+
+# ── PasswordResetToken model + JWT helper ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_password_reset_token_model_persists(db_session):
+    """A PasswordResetToken row inserts with broker_id, created_at, expires_at, used_at=None."""
+    import uuid as _uuid
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from healthflow.database.models import PasswordResetToken
+
+    now = datetime.now(timezone.utc)
+    row = PasswordResetToken(
+        id=_uuid.uuid4(),
+        broker_id=_uuid.uuid4(),
+        expires_at=now + timedelta(hours=1),
+    )
+    db_session.add(row)
+    await db_session.flush()
+
+    fetched = (await db_session.execute(
+        select(PasswordResetToken).where(PasswordResetToken.id == row.id)
+    )).scalar_one()
+    assert fetched.used_at is None
+    assert fetched.broker_id == row.broker_id
+
+
+def test_create_password_reset_token_embeds_jti_and_type():
+    """create_password_reset_token returns a JWT with type='reset' and the given jti."""
+    import uuid as _uuid
+    from jose import jwt
+    from healthflow.auth.security import (
+        JWT_ALGORITHM,
+        JWT_SECRET,
+        create_password_reset_token,
+    )
+
+    broker_id = _uuid.uuid4()
+    jti = _uuid.uuid4()
+    token = create_password_reset_token(broker_id, jti)
+
+    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    assert payload["sub"] == str(broker_id)
+    assert payload["jti"] == str(jti)
+    assert payload["type"] == "reset"
+    assert "exp" in payload
