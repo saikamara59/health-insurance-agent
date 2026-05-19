@@ -31,7 +31,7 @@ HealthFlow enforces **per-broker tenant isolation at the SQLAlchemy layer**: eve
 - **Cross-broker reads** (RLHF analytics, e2e reset) are gated behind `system_context(reason="...")` with WARN-level audit logging. Each call site documents *why* it bypasses isolation.
 - **Test coverage:** `healthflow/tests/tenancy/` proves cross-broker access is impossible across every PHI route, including a concurrent `asyncio.gather` test for ContextVar isolation.
 
-This is the first sub-project of an in-flight HIPAA-readiness foundation. See `docs/superpowers/specs/2026-05-12-multi-tenancy-design.md` and `.claude/skills/healthflow-security/SKILL.md` for the design rationale and the per-rule guidance.
+Tenant isolation is the first piece of a six-part HIPAA-readiness foundation, all shipped: multi-tenancy, PHI redaction, PHI access audit log, auth hardening (lockout + refresh-token rotation + fail-loud `JWT_SECRET`), encryption at rest (AES-256-GCM on 8 PHI columns), and account management (admin RBAC + change/forgot/reset-password). See `docs/superpowers/specs/` for the per-project design rationale and `.claude/skills/healthflow-security/SKILL.md` for the per-rule guidance.
 
 ---
 
@@ -41,7 +41,7 @@ This is the first sub-project of an in-flight HIPAA-readiness foundation. See `d
 
 ```bash
 cp .env.example .env          # Add your ANTHROPIC_API_KEY
-make all                       # Install deps, load data, run 489 tests
+make all                       # Install deps, load data, run 601 tests
 ```
 
 ### Option 2: Step by Step
@@ -204,11 +204,23 @@ LIMIT 20;
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /auth/register` | Create broker account |
-| `POST /auth/login` | Get access + refresh tokens |
-| `POST /auth/refresh` | Refresh expired access token |
+| `POST /auth/register` | Create broker account (enforces password policy: ≥12 chars, letter+digit+symbol, not on common-passwords block-list) |
+| `POST /auth/login` | Get access + refresh tokens (5 failed attempts → 15-minute account lockout) |
+| `POST /auth/refresh` | Rotate refresh token; replaying a revoked token revokes all of the broker's active tokens (theft signal) |
+| `POST /auth/logout` | Revoke the presented refresh token |
 | `GET /auth/profile` | Get broker profile |
 | `PUT /auth/profile` | Update broker profile |
+| `POST /auth/change-password` | Authenticated broker rotates their own password; revokes all of the broker's refresh tokens |
+| `POST /auth/forgot-password` | Request a password-reset email; always returns 200 (no enumeration); 60-second per-email cooldown |
+| `POST /auth/reset-password` | Consume a single-use reset token + set a new password; revokes all of the broker's refresh tokens |
+
+### Admin (RBAC-gated)
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /admin/brokers/{broker_id}/unlock` | Force-unlock a locked broker (clears `failed_login_count` + `locked_until`); audit-logged |
+
+Admins are created via `python scripts/promote_admin.py --email <broker-email>` — no API path flips role.
 
 ### RLHF Feedback System
 
@@ -259,7 +271,7 @@ LIMIT 20;
 ```bash
 make help           # Show all commands
 make install        # Install backend + frontend deps
-make test           # Run all 436 tests (verbose)
+make test           # Run all 601 tests (verbose)
 make test-quick     # Tests with compact output
 make test-cov       # Tests with coverage report
 make lint           # Run ruff linter
@@ -303,7 +315,7 @@ React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → 
 - **Tools** — Real CMS plan database (51 plans), real FDA drug database (90 drugs), plan parser with income-weighted scoring, cost modeler with OOP max cap and deductible tracking, document parser with section matching, denial parser with CARC/RARC extraction, 25 denial codes with CMS rules and appeal arguments, appeal letter template generator, NPI client (live NPPES API), 45 NPPES-verified providers, formulary checker with per-plan drug exclusions, 24h TTL provider cache
 - **Agents** — 5 Claude-powered agents: comparison, translation, cost calculator, appeal, network verification. Each agent builds a structured prompt from data, calls Claude for plain-English analysis, and filters the output through the harness.
 - **Feedback** — RLHF loop: feedback collector (1-5 ratings), reward model (weekly scoring, flags low-quality patterns), prompt updater (few-shot generation from top-rated outputs), A/B testing (traffic-weighted variant routing)
-- **Database** — SQLAlchemy 2.0 async ORM with 6 tables: Broker, Client, ActionHistory, Feedback, PromptVariant, plus the real health data in a separate SQLite file
+- **Database** — SQLAlchemy 2.0 async ORM with 8 tables: Broker, Client, ActionHistory, Feedback, PromptVariant, PhiAccessLog (audit trail), RefreshToken (rotation + revocation), PasswordResetToken (single-use, cooldown-gated), plus the real health data in a separate SQLite file. PHI columns on Client/ActionHistory/Feedback are AES-256-GCM-encrypted via a TypeDecorator (`healthflow/database/encrypted_types.py`).
 - **Auth** — JWT access/refresh tokens (1h/7d), bcrypt passwords, role-based access (broker/admin)
 
 ### Frontend
@@ -323,7 +335,12 @@ React Frontend → Nginx → FastAPI Backend → Harness → Tools + Agents → 
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | (required) | Claude API key for AI recommendations |
 | `DATABASE_URL` | `sqlite+aiosqlite:///healthflow.db` | Database connection string |
-| `JWT_SECRET` | dev default | JWT signing secret (change in production) |
+| `JWT_SECRET` | **(required, fail-loud)** | JWT signing secret. Module-import raises if unset or set to the legacy default. Generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. |
+| `PHI_ENCRYPTION_KEY` | **(required, fail-loud)** | AES-256 key (base64-encoded 32 bytes) for column-level PHI encryption. Generate with `python -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"`. Rotate by adding `PHI_ENCRYPTION_KEY_V2` alongside (new writes use the highest version). |
+| `PHI_ENCRYPTION_ALLOW_PLAINTEXT_READ` | unset | Migration-window escape hatch — lets the app read legacy plaintext rows during the encrypt-existing-phi sweep. **MUST be unset in production.** |
+| `EMAIL_PROVIDER` | `console` | Transactional email backend. `console` logs the body (dev/test, no network). `ses` sends via AWS SES (BAA-eligible under the standard AWS BAA). |
+| `EMAIL_FROM_ADDRESS` | (required when `EMAIL_PROVIDER=ses`) | Verified SES sender address. |
+| `FRONTEND_BASE_URL` | (required for password reset) | Public origin used to build reset links: `${FRONTEND_BASE_URL}/reset-password?token=...`. |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection (optional) |
 | `HEALTHFLOW_TEST_MODE` | unset | **Test-only.** When `1`, registers `/__test/reset` and short-circuits Anthropic calls to deterministic stubs. Never set this in production. |
 
@@ -362,7 +379,7 @@ docker compose down                 # Stop everything
 ## Testing
 
 ```bash
-make test           # ~436 backend tests, ~16 seconds
+make test           # ~601 backend tests, ~40 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
 make check          # Full CI gate: lint + tests + frontend build
@@ -444,7 +461,7 @@ healthflow/
 │   └── router.py              # Feedback API endpoints
 ├── database/                  # Persistence layer
 │   ├── config.py              # SQLAlchemy async engine
-│   └── models.py              # ORM models (6 tables)
+│   └── models.py              # ORM models (8 tables)
 ├── auth/                      # Authentication
 │   ├── router.py              # Auth endpoints
 │   ├── security.py            # JWT + bcrypt
@@ -455,7 +472,7 @@ healthflow/
 │   └── session.py             # Session store (in-memory + Redis)
 ├── logs/
 │   └── audit.py               # Structured JSON logging
-└── tests/                     # 436 tests
+└── tests/                     # 601 tests
 
 frontend/                      # React SPA (18 pages)
 ├── src/
