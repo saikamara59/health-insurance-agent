@@ -803,3 +803,52 @@ async def test_admin_unlock_emits_audit_event(client, db_session, caplog):
     details = unlocks[0]["details"]
     assert details["admin_id"] == str(admin.id)
     assert details["target_broker_id"] == target_id
+
+
+# ── scripts/promote_admin.py ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_promote_admin_script_promotes_known_broker(client, db_session_factory, db_session, caplog):
+    """_promote(email, factory) flips role to admin, returns 0, logs audit event."""
+    import json
+    from sqlalchemy import select
+
+    from healthflow.database.models import Broker
+    from scripts.promote_admin import _promote
+
+    _, _, _ = await _register_and_login(client, email="promo@example.com")
+
+    with caplog.at_level(logging.INFO, logger="healthflow.audit"):
+        exit_code = await _promote("promo@example.com", db_session_factory)
+
+    assert exit_code == 0
+
+    broker = (await db_session.execute(
+        select(Broker).where(Broker.email == "promo@example.com")
+    )).scalar_one()
+    assert broker.role == "admin"
+
+    entries = [
+        json.loads(r.getMessage())
+        for r in caplog.records
+        if r.getMessage().startswith("{")
+    ]
+    assert any(e.get("event_type") == "admin_promoted" for e in entries)
+
+
+@pytest.mark.asyncio
+async def test_promote_admin_script_unknown_email_returns_nonzero(db_session_factory, db_session):
+    """Unknown email → returns 1; no DB writes."""
+    from sqlalchemy import select
+    from healthflow.database.models import Broker
+    from scripts.promote_admin import _promote
+
+    exit_code = await _promote("noone@example.com", db_session_factory)
+    assert exit_code == 1
+
+    # No admin promotion should have occurred.
+    promoted = (await db_session.execute(
+        select(Broker).where(Broker.role == "admin")
+    )).scalars().all()
+    assert promoted == []
