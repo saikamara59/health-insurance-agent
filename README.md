@@ -14,7 +14,7 @@ Health insurance brokers today juggle spreadsheets, PDFs, and phone calls to com
 
 This isn't a demo with fake data. HealthFlow integrates with real public health data sources:
 
-- **51 real Medicare Advantage plans** from CMS (data.cms.gov) with actual premiums, deductibles, and star ratings
+- **51 Medicare Advantage plans** sourced from CMS with actual premiums, deductibles, and star ratings (currently a curated snapshot — CMS retired the Socrata API at `data.cms.gov/resource/` in 2026-05; live refresh is paused pending migration to the CMS quarterly file downloads or a successor API)
 - **90 real medications** from FDA (OpenFDA) with accurate formulary tiers and copays
 - **45 real doctors** with verified NPIs from the NPPES National Provider Registry (live API)
 - **27 zip codes** across 11 major metro areas
@@ -107,17 +107,19 @@ HealthFlow uses real public health data — no mock data in production.
 
 | Source | Data | Count |
 |--------|------|-------|
-| **CMS data.cms.gov** | Medicare Advantage plans (names, premiums, deductibles, star ratings) | 51 plans |
+| **CMS** (curated snapshot¹) | Medicare Advantage plans (names, premiums, deductibles, star ratings) | 51 plans |
 | **FDA OpenFDA** | Drug names, NDC codes, formulary tiers, copays | 90 drugs |
 | **NPPES Registry** | Real doctor NPIs, specialties, locations (live API) | 45 doctors |
 | **Zip Mapping** | Plan availability by zip code | 27 zip codes |
 
 ```bash
 python scripts/refresh_data.py --seed-only   # Load curated seed data
-python scripts/refresh_data.py               # Download latest from CMS + FDA APIs
+python scripts/refresh_data.py               # Download latest from FDA + NPPES (CMS path currently degraded — see Data refresh below)
 ```
 
 Data stored in `healthflow_data.db` (gitignored). Falls back to curated mock data if the file doesn't exist.
+
+¹ CMS Socrata API (`data.cms.gov/resource/`) was retired 2026-05; migration to the [quarterly Plan Landscape downloads](https://www.cms.gov/medicare/health-drug-plans/medicare-advantage-prescription-drug-coverage/plan-information) or a successor REST API is on the roadmap. FDA OpenFDA and NPPES are live.
 
 ---
 
@@ -413,7 +415,7 @@ npm run test:e2e:ui                    # interactive debugger UI
 | Database | SQLite (dev) / PostgreSQL (prod) |
 | Cache | Redis 7 (optional) |
 | Auth | JWT (python-jose), bcrypt (passlib) |
-| Data | CMS data.cms.gov, FDA OpenFDA, NPPES NPI Registry |
+| Data | CMS (curated; Socrata API retired 2026-05), FDA OpenFDA, NPPES NPI Registry |
 | Infrastructure | Docker, Nginx, docker-compose |
 | Testing | pytest, pytest-asyncio, httpx |
 | Code Quality | ruff, vulture |
