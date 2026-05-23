@@ -3,6 +3,9 @@ import re
 from healthflow.logs.audit import AuditLogger
 
 CLAUDE_MODEL = "claude-sonnet-4-6"
+# Smaller/faster model used by classifier-style agents (e.g. Temporal Awareness)
+# where the LLM job is structured-output extraction, not free-form generation.
+CLAUDE_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
 
 
 def extract_text(response) -> str:

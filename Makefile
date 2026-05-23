@@ -32,14 +32,14 @@ data-full: ## Download full CMS/FDA data from public APIs
 # ─── Testing ──────────────────────────────────────────────────────────────────
 
 test: ## Run all backend tests
-	.venv/bin/python -m pytest healthflow/tests/ -v --tb=short
+	.venv/bin/python -m pytest healthflow/tests/ healthflow/agents/temporal_awareness/tests/ -v --tb=short
 
 test-quick: ## Run tests without verbose output
-	.venv/bin/python -m pytest healthflow/tests/ -q --tb=short
+	.venv/bin/python -m pytest healthflow/tests/ healthflow/agents/temporal_awareness/tests/ -q --tb=short
 
 test-cov: ## Run tests with coverage report
 	.venv/bin/pip install coverage -q
-	.venv/bin/python -m coverage run -m pytest healthflow/tests/ -q --tb=short
+	.venv/bin/python -m coverage run -m pytest healthflow/tests/ healthflow/agents/temporal_awareness/tests/ -q --tb=short
 	.venv/bin/python -m coverage report --include="healthflow/**" --omit="healthflow/tests/**"
 
 test-watch: ## Run tests in watch mode (requires pytest-watch)
