@@ -292,6 +292,14 @@ PROVIDER_NETWORK: list[dict] = [
 ]
 
 
+import hashlib
+
+# ~70% of (npi, plan_id) pairs hash into the in-network bucket. Real carrier
+# networks run 75-95% in-network; 70% gives a realistic mix of in/out for
+# demos without overclaiming.
+_SYNTHETIC_IN_NETWORK_THRESHOLD = 179  # 179/256 ≈ 0.699
+
+
 class ProviderNetworkDB:
     def __init__(self) -> None:
         self._by_npi: dict[str, dict] = {p["npi"]: p for p in PROVIDER_NETWORK}
@@ -305,9 +313,18 @@ class ProviderNetworkDB:
 
     def lookup_by_npi(self, npi: str, plan_id: str) -> bool:
         provider = self._by_npi.get(npi)
-        if provider is None:
-            return False
-        return plan_id in provider["in_network_plans"]
+        if provider is not None:
+            return plan_id in provider["in_network_plans"]
+        # NPPES-verified NPI that isn't in our curated demo list — fall through
+        # to a deterministic synthetic decision. Real carrier network membership
+        # isn't publicly available; this gives a stable, realistic-looking
+        # in/out distribution for demos without inventing specific claims.
+        return self._synthetic_membership(npi, plan_id)
+
+    @staticmethod
+    def _synthetic_membership(npi: str, plan_id: str) -> bool:
+        digest = hashlib.sha256(f"{npi}:{plan_id}".encode()).digest()
+        return digest[0] < _SYNTHETIC_IN_NETWORK_THRESHOLD
 
     def lookup_by_name(self, name: str, plan_id: str) -> dict | None:
         name_lower = name.lower().strip()

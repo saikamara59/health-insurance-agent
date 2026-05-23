@@ -50,10 +50,28 @@ def test_lookup_by_npi_out_of_network():
     assert result is False
 
 
-def test_lookup_by_npi_unknown_npi():
+def test_lookup_by_npi_unknown_npi_uses_synthetic_fallback():
+    """NPIs not in the curated demo list (e.g. real NPIs from NPPES) fall
+    through to a deterministic hash-based ~70% in-network decision."""
     db = ProviderNetworkDB()
-    result = db.lookup_by_npi("0000000000", "H3312-034")
-    assert result is False
+    # Same (npi, plan_id) must give the same answer across calls — the
+    # synthetic decision is deterministic, not random.
+    a = db.lookup_by_npi("0000000000", "H3312-034")
+    b = db.lookup_by_npi("0000000000", "H3312-034")
+    assert isinstance(a, bool)
+    assert a == b
+
+
+def test_synthetic_membership_is_about_70_percent():
+    """The synthetic in-network rate should land near 70% across many NPIs."""
+    db = ProviderNetworkDB()
+    plan_id = "H3312-034"
+    # Use 1000 numeric NPIs not in the curated list to estimate the rate.
+    in_network_count = sum(
+        1 for i in range(10000, 11000) if db.lookup_by_npi(str(i), plan_id)
+    )
+    # Expect ~70% (179/256 ≈ 69.9%). Allow ±5pp slack for the small sample.
+    assert 650 <= in_network_count <= 750, f"got {in_network_count}/1000"
 
 
 def test_lookup_by_name_found():
