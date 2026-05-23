@@ -3,6 +3,9 @@ import re
 from healthflow.logs.audit import AuditLogger
 
 CLAUDE_MODEL = "claude-sonnet-4-6"
+# Smaller/faster model used by classifier-style agents (e.g. Temporal Awareness)
+# where the LLM job is structured-output extraction, not free-form generation.
+CLAUDE_CLASSIFIER_MODEL = "claude-haiku-4-5-20251001"
 
 
 def extract_text(response) -> str:
@@ -15,6 +18,27 @@ def extract_text(response) -> str:
         if text:
             return text
     return ""
+
+
+def strip_code_fence(text: str) -> str:
+    """Strip a leading/trailing ```lang ... ``` fence if present.
+
+    Claude sometimes wraps JSON output in a fence despite system-prompt
+    instructions to the contrary. Callers that want to json.loads(...) the
+    text should pass it through this first.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    # Drop the opening fence (and optional language tag) up to the first newline.
+    first_newline = stripped.find("\n")
+    if first_newline == -1:
+        return stripped
+    body = stripped[first_newline + 1 :]
+    # Drop the closing fence.
+    if body.rstrip().endswith("```"):
+        body = body.rstrip()[: -len("```")]
+    return body.strip()
 
 
 class ValidationError(Exception):
