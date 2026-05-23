@@ -46,6 +46,9 @@ test-watch: ## Run tests in watch mode (requires pytest-watch)
 	.venv/bin/pip install pytest-watch -q
 	.venv/bin/ptw healthflow/tests/
 
+smoke-external: ## Run opt-in live smoke tests against RxNav + NPPES (needs internet)
+	LIVE_SMOKE_TESTS=1 .venv/bin/python -m pytest healthflow/tests/integration/ -v
+
 # ─── Linting ──────────────────────────────────────────────────────────────────
 
 lint: ## Run ruff linter
