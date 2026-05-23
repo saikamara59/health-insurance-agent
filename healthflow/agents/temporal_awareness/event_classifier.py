@@ -10,7 +10,7 @@ from datetime import date
 
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_CLASSIFIER_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_CLASSIFIER_MODEL, extract_text, strip_code_fence
 from healthflow.agents.temporal_awareness.schemas import ClassifiedEvent, EventType
 from healthflow.tools.phi_redactor import PHIRedactor
 
@@ -49,7 +49,7 @@ class EventClassifier:
             messages=[{"role": "user", "content": user_message}],
         )
 
-        raw = extract_text(response).strip()
+        raw = strip_code_fence(extract_text(response))
         if not raw:
             raise ValueError("Classifier returned empty text")
 

@@ -19,8 +19,15 @@ your eyes that no patient name or SSN ends up in those entries.
 """
 from datetime import date
 
-from healthflow.agents.temporal_awareness.agent import TemporalAwarenessAgent
-from healthflow.agents.temporal_awareness.schemas import (
+from dotenv import load_dotenv
+
+# Standalone scripts don't go through main.py, so load .env explicitly so
+# ANTHROPIC_API_KEY (and JWT_SECRET / PHI_ENCRYPTION_KEY for transitive imports)
+# are visible. Existing process env wins.
+load_dotenv(override=False)
+
+from healthflow.agents.temporal_awareness.agent import TemporalAwarenessAgent  # noqa: E402
+from healthflow.agents.temporal_awareness.schemas import (  # noqa: E402
     ActionPlan,
     ClassifiedEvent,
     EventType,

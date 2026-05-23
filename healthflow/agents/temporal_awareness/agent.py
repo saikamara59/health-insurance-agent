@@ -18,7 +18,7 @@ from datetime import date
 
 import anthropic
 
-from healthflow.agents.harness import CLAUDE_MODEL, extract_text
+from healthflow.agents.harness import CLAUDE_MODEL, extract_text, strip_code_fence
 from healthflow.agents.temporal_awareness.deadline_engine import (
     DeadlineInfo,
     compute_deadline,
@@ -100,7 +100,7 @@ class TemporalAwarenessAgent:
             messages=[{"role": "user", "content": user_message}],
         )
 
-        raw = extract_text(response).strip()
+        raw = strip_code_fence(extract_text(response))
         if not raw:
             raise ValueError("Action-plan generator returned empty text")
 

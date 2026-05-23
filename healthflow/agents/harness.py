@@ -20,6 +20,27 @@ def extract_text(response) -> str:
     return ""
 
 
+def strip_code_fence(text: str) -> str:
+    """Strip a leading/trailing ```lang ... ``` fence if present.
+
+    Claude sometimes wraps JSON output in a fence despite system-prompt
+    instructions to the contrary. Callers that want to json.loads(...) the
+    text should pass it through this first.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    # Drop the opening fence (and optional language tag) up to the first newline.
+    first_newline = stripped.find("\n")
+    if first_newline == -1:
+        return stripped
+    body = stripped[first_newline + 1 :]
+    # Drop the closing fence.
+    if body.rstrip().endswith("```"):
+        body = body.rstrip()[: -len("```")]
+    return body.strip()
+
+
 class ValidationError(Exception):
     pass
 
