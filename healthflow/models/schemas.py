@@ -564,3 +564,15 @@ class WeeklyReport(BaseModel):
     low_score_count: int
     top_output_ids: list[str]
     bottom_output_ids: list[str]
+
+
+class DrugMatchModel(BaseModel):
+    rxcui: str = Field(..., description="RxNorm canonical drug identifier")
+    name: str = Field(..., description="Human-readable drug name")
+    term_type: str = Field(..., description="RxNorm Term Type (TTY): SBD, SCD, IN, PIN, BN, etc.")
+    is_brand: bool = Field(..., description="True for branded drugs (TTY in {SBD, BN})")
+
+
+class DrugSearchResponse(BaseModel):
+    query: str
+    matches: list[DrugMatchModel]
