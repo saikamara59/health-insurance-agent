@@ -1,12 +1,11 @@
 """RxNavClient unit tests — all HTTP stubbed via httpx.MockTransport,
 no live network calls in CI.
 """
-import json
 import os
 import pytest
 import httpx
 
-from healthflow.tools.rxnav_client import RxNavClient, DrugMatch
+from healthflow.tools.rxnav_client import RxNavClient
 
 
 _METFORMIN_EXACT_PAYLOAD = {
