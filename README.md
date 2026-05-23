@@ -41,7 +41,7 @@ Tenant isolation is the first piece of a six-part HIPAA-readiness foundation, al
 
 ```bash
 cp .env.example .env          # Add your ANTHROPIC_API_KEY
-make all                       # Install deps, load data, run 601 tests
+make all                       # Install deps, load data, run 610 tests
 ```
 
 ### Option 2: Step by Step
@@ -110,6 +110,7 @@ HealthFlow uses real public health data — no mock data in production.
 | **CMS** (curated snapshot¹) | Medicare Advantage plans (names, premiums, deductibles, star ratings) | 51 plans |
 | **FDA OpenFDA** | Drug names, NDC codes, formulary tiers, copays | 90 drugs |
 | **NPPES Registry** | Real doctor NPIs, specialties, locations (live API) | 45 doctors |
+| **NLM RxNorm / RxNav** | Canonical US drug terminology — RxCUI, brand/generic mapping, ingredients (live REST API, no auth) | ~150k drug concepts |
 | **Zip Mapping** | Plan availability by zip code | 27 zip codes |
 
 ```bash
@@ -224,6 +225,12 @@ LIMIT 20;
 
 Admins are created via `python scripts/promote_admin.py --email <broker-email>` — no API path flips role.
 
+### Drug Search (RxNav)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /drugs/search?q=...&limit=...` | Authenticated drug autocomplete backed by NLM's RxNav REST API. Returns up to 50 matches with RxCUI, name, RxNorm Term Type, and a brand/generic flag. Silent-fail: a RxNav outage returns an empty list, not a 500. |
+
 ### RLHF Feedback System
 
 | Endpoint | Description |
@@ -273,7 +280,7 @@ Admins are created via `python scripts/promote_admin.py --email <broker-email>` 
 ```bash
 make help           # Show all commands
 make install        # Install backend + frontend deps
-make test           # Run all 601 tests (verbose)
+make test           # Run all 610 tests (verbose)
 make test-quick     # Tests with compact output
 make test-cov       # Tests with coverage report
 make lint           # Run ruff linter
@@ -381,7 +388,7 @@ docker compose down                 # Stop everything
 ## Testing
 
 ```bash
-make test           # ~601 backend tests, ~40 seconds
+make test           # ~610 backend tests, ~40 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
 make check          # Full CI gate: lint + tests + frontend build
@@ -474,7 +481,7 @@ healthflow/
 │   └── session.py             # Session store (in-memory + Redis)
 ├── logs/
 │   └── audit.py               # Structured JSON logging
-└── tests/                     # 601 tests
+└── tests/                     # 610 tests
 
 frontend/                      # React SPA (18 pages)
 ├── src/
