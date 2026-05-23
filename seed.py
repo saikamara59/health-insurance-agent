@@ -8,7 +8,7 @@ BASE_URL = "http://localhost:8000"
 
 BROKER = {
     "email": "demo@healthflow.com",
-    "password": "healthflow123",
+    "password": "Healthflow123!",
     "full_name": "Dr. Sarah Vance",
 }
 

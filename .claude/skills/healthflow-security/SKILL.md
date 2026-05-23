@@ -266,7 +266,7 @@ sweep covers it.
 
 ## Demo credentials in seed.py
 
-`seed.py` creates `demo@healthflow.com / healthflow123`. This is intentional for local demos.
+`seed.py` creates `demo@healthflow.com / Healthflow123!`. This is intentional for local demos.
 
 **Rule:** Never reuse this credential pattern for staging/prod. If you add a new "demo" account, it must be gated behind an explicit `SEED_DEMO=1` env var, not run on every startup.
 

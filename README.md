@@ -57,7 +57,7 @@ python -m healthflow.main                     # API at http://localhost:8000
 cd frontend && npm install && npm run dev     # Dashboard at http://localhost:5173
 
 # Seed demo data (18 clients with real doctors)
-python seed.py                                # Login: demo@healthflow.com / healthflow123
+python seed.py                                # Login: demo@healthflow.com / Healthflow123!
 ```
 
 ### Option 3: Docker
