@@ -93,7 +93,7 @@ export default function LeadsPage() {
                           <td>
                             <div className="row" style={{ gap: 12 }}>
                               <Avatar name={c.full_name} />
-                              <div>{c.full_name}</div>
+                              <div style={{ fontWeight: 500 }}>{c.full_name}</div>
                             </div>
                           </td>
                           <td>{c.zip_code} · {c.age}</td>
@@ -132,8 +132,8 @@ export default function LeadsPage() {
                   >
                     <div className="between">
                       <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{c.full_name}</div>
-                        <div className="muted" style={{ fontSize: 11.5 }}>Last touch {sinceLabel(c.updated_at)}</div>
+                        <div style={{ fontWeight: 500 }}>{c.full_name}</div>
+                        <div className="muted sub">Last touch {sinceLabel(c.updated_at)}</div>
                       </div>
                       <Chip tone="warn" dot>Reach out</Chip>
                     </div>

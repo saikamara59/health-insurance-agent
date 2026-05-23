@@ -145,7 +145,7 @@ export default function ClientListPage() {
                         <Avatar name={c.full_name} />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.full_name}</div>
-                          <div className="sub mono">#{c.id.slice(0, 8)}</div>
+                          <div className="sub">#{c.id.slice(0, 8)}</div>
                         </div>
                       </div>
                     </td>
@@ -159,7 +159,7 @@ export default function ClientListPage() {
                     <td>
                       <div className="row" style={{ gap: 8 }}>
                         <span className={`risk-dot ${risk}`} />
-                        <span style={{ textTransform: 'capitalize', fontSize: 13 }}>{risk}</span>
+                        <span style={{ textTransform: 'capitalize' }}>{risk}</span>
                       </div>
                     </td>
                     <td className="num">
