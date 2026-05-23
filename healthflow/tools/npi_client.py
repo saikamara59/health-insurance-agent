@@ -2,7 +2,8 @@ import httpx
 
 from healthflow.tools.provider_cache import InMemoryProviderCache
 
-NPPES_BASE_URL = "https://npiregistry.cms.hhs.gov/api/?version=2.1"
+NPPES_BASE_URL = "https://npiregistry.cms.hhs.gov/api/"
+NPPES_API_VERSION = "2.1"
 
 
 class NPIClient:
@@ -31,7 +32,7 @@ class NPIClient:
         try:
             response = self._http.get(
                 NPPES_BASE_URL,
-                params={"number": npi},
+                params={"version": NPPES_API_VERSION, "number": npi},
             )
             response.raise_for_status()
             data = response.json()
@@ -49,6 +50,7 @@ class NPIClient:
         self, first_name: str, last_name: str, state: str | None = None
     ) -> list[dict]:
         params: dict[str, str] = {
+            "version": NPPES_API_VERSION,
             "first_name": first_name,
             "last_name": last_name,
         }
