@@ -183,6 +183,26 @@ the one notable event goes through `AuditLogger`).
   Other providers (SendGrid, Resend, Postmark, Paubox) are not wired; adding
   one requires brainstorm + spec.
 
+## External-API PHI posture: RxNav
+
+- **RxNav (`rxnav.nlm.nih.gov`) is a public, non-PHI terminology service.** Drug
+  names are not PHI on their own, but a *broker's* search history could hint
+  at a client's conditions (e.g. searching "Truvada" suggests HIV PrEP, "Sovaldi"
+  suggests Hep C). Treat search queries as sensitive even though the upstream
+  service is public.
+
+- **Never send broker_id, client_id, or any patient identifier to RxNav.** The
+  URL only contains the drug query string. The cache key is a SHA-256 hash of
+  the query, never the plaintext.
+
+- **Never log RxNav query text.** The `drugs.search` access log records
+  `broker_id`, `query_length`, and `result_count` — never the query itself.
+  Any code path that adds logging in this area MUST follow the same rule.
+
+- **Silent-fail on errors.** A RxNav timeout or 5xx returns an empty matches
+  list with HTTP 200, not a 5xx to the broker. Autocomplete must never crash
+  a request.
+
 ## Encryption at rest (enforced)
 
 PHI columns on `Client`, `ActionHistory`, and `Feedback` are stored as
