@@ -26,7 +26,6 @@ from healthflow.forensics import redaction as redaction_mod
 from healthflow.forensics.schemas import (
     AgentInvocation,
     CaseTimeline,
-    IntegrityCheck,
 )
 
 # Window for joining agent invocations to PHI access records. Empirically,
