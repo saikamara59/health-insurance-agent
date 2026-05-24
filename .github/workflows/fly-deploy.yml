@@ -1,0 +1,35 @@
+name: Fly Deploy
+
+# Auto-deploy the demo to Fly.io on every push to main. Skips paths that
+# can't affect the deployed image (docs, plan/spec markdown, the React e2e
+# tests, the agent test suites — those are CI-only, not bundled).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'frontend/tests/**'
+      - 'healthflow/tests/**'
+      - 'healthflow/forensics/tests/**'
+      - 'healthflow/agents/temporal_awareness/tests/**'
+
+# Only one deploy at a time. Cancels in-progress runs if a newer commit
+# lands — the latest main is the only thing worth deploying.
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --app healthflow-demo
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
