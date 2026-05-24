@@ -4,6 +4,7 @@ import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Chip from '../components/ui/Chip';
 import useLayout from '../components/ui/useLayout';
+import DrugAutocomplete from '../components/ui/DrugAutocomplete';
 
 export default function NetworkVerificationPage() {
   const { openMenu, openNotifications } = useLayout();
@@ -15,7 +16,6 @@ export default function NetworkVerificationPage() {
   const [pName, setPName] = useState('');
   const [pNpi, setPNpi] = useState('');
   const [rx, setRx] = useState([]);
-  const [rxInput, setRxInput] = useState('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -149,33 +149,7 @@ export default function NetworkVerificationPage() {
 
             <div>
               <div className="eyebrow" style={{ marginBottom: 12 }}>Prescriptions</div>
-              <div className="input-group">
-                <input
-                  className="input"
-                  placeholder="Medication name"
-                  value={rxInput}
-                  onChange={(e) => setRxInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
-                    }
-                  }}
-                />
-                <button type="button" className="btn" onClick={() => {
-                  if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
-                }}>Add</button>
-              </div>
-              <div className="row" style={{ gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-                {rx.map((r, i) => (
-                  <span key={i} className="chip">
-                    {r}
-                    <button type="button" onClick={() => setRx(rx.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
-                      <Icon name="x" size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <DrugAutocomplete values={rx} onChange={setRx} placeholder="Medication name" />
             </div>
           </div>
 

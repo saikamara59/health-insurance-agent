@@ -59,6 +59,33 @@ export default function Sidebar({ open, onClose }) {
     return () => { alive = false; };
   }, []);
 
+  // Lightweight backend liveness check — polls /health every 30s. A red dot
+  // makes "is the API up?" visible without opening DevTools.
+  const [apiHealth, setApiHealth] = useState('checking');
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      try {
+        const res = await fetch('/health');
+        if (alive) setApiHealth(res.ok ? 'healthy' : 'down');
+      } catch {
+        if (alive) setApiHealth('down');
+      }
+    };
+    check();
+    const handle = setInterval(check, 30_000);
+    return () => { alive = false; clearInterval(handle); };
+  }, []);
+
+  const healthColor =
+    apiHealth === 'healthy' ? 'var(--pos)' :
+    apiHealth === 'down' ? 'var(--neg)' :
+    'var(--ink-4)';
+  const healthLabel =
+    apiHealth === 'healthy' ? 'API up' :
+    apiHealth === 'down' ? 'API down' :
+    'Checking…';
+
   return (
     <>
       <div className={`side-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
@@ -100,6 +127,20 @@ export default function Sidebar({ open, onClose }) {
         ))}
 
         <div className="bottom">
+          <div
+            className="row"
+            title={`Backend ${healthLabel}`}
+            style={{ gap: 8, padding: '4px 10px 10px', fontSize: 11, color: 'var(--ink-4)' }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: healthColor, flex: '0 0 auto',
+              }}
+            />
+            <span style={{ fontFamily: 'var(--mono)' }}>{healthLabel}</span>
+          </div>
           <div className="user-chip">
             <Avatar name={display} />
             <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1 }}>

@@ -71,7 +71,11 @@ def test_invalid_token_raises():
 
 def test_tampered_token_raises():
     token = create_access_token({"sub": "broker-123", "role": "broker"})
-    # Tamper with the token by changing a character
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Replace the entire signature segment (after the last `.`) with a
+    # syntactically valid but cryptographically invalid one. A single-char
+    # flip in base64url can produce a still-valid signature ~1/256 times,
+    # which made this test flaky on every push.
+    head, _ = token.rsplit(".", 1)
+    tampered = head + ".AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     with pytest.raises(Exception):
         decode_token(tampered)

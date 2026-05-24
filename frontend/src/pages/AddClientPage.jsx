@@ -4,6 +4,7 @@ import api from '../api/client';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import useLayout from '../components/ui/useLayout';
+import DrugAutocomplete from '../components/ui/DrugAutocomplete';
 
 export default function AddClientPage() {
   const navigate = useNavigate();
@@ -16,7 +17,6 @@ export default function AddClientPage() {
     income_level: 'medium',
   });
   const [rx, setRx] = useState([]);
-  const [rxInput, setRxInput] = useState('');
   const [procs, setProcs] = useState([]);
   const [procInput, setProcInput] = useState('');
   const [doctors, setDoctors] = useState([]);
@@ -130,33 +130,7 @@ export default function AddClientPage() {
           <div className="grid-2">
             <div>
               <label className="field-label" style={{ marginBottom: 8 }}>Medications</label>
-              <div className="input-group">
-                <input
-                  className="input"
-                  placeholder="e.g. Metformin 500mg"
-                  value={rxInput}
-                  onChange={(e) => setRxInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
-                    }
-                  }}
-                />
-                <button type="button" className="btn" onClick={() => {
-                  if (rxInput.trim()) { setRx([...rx, rxInput.trim()]); setRxInput(''); }
-                }}>Add</button>
-              </div>
-              <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {rx.map((r, i) => (
-                  <span key={i} className="chip">
-                    {r}
-                    <button type="button" onClick={() => setRx(rx.filter((_, j) => j !== i))} style={{ marginLeft: 4, color: 'var(--ink-4)' }}>
-                      <Icon name="x" size={10} />
-                    </button>
-                  </span>
-                ))}
-              </div>
+              <DrugAutocomplete values={rx} onChange={setRx} placeholder="e.g. Metformin 500mg" />
             </div>
 
             <div>

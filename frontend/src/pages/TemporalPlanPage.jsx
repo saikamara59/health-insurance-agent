@@ -288,8 +288,34 @@ function Timeline({ triggerDate, deadline, actions, today }) {
 
 // ── Action list with local-only completion ─────────────────────────────────
 
+// Persist action-list checkmarks per (event_type, deadline) so a page reload
+// doesn't wipe the broker's progress. Local-only — no server round-trip.
+function checklistStorageKey(actions) {
+  // Use the first action's target_date + length as a stable plan signature.
+  // (event_type + deadline would be cleaner but they're not in scope here.)
+  if (!actions || actions.length === 0) return null;
+  return `hf_temporal_checks_${actions[0].target_date}_${actions.length}`;
+}
+
 function ActionList({ actions, today }) {
-  const [done, setDone] = useState({});
+  const storageKey = checklistStorageKey(actions);
+  const [done, setDone] = useState(() => {
+    if (!storageKey) return {};
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(done));
+    } catch { /* quota or private-mode — checkmarks just don't persist this session */ }
+  }, [done, storageKey]);
+
   const toggle = (step) => setDone((d) => ({ ...d, [step]: !d[step] }));
   const completedCount = Object.values(done).filter(Boolean).length;
 
