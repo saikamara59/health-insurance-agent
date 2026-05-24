@@ -41,7 +41,7 @@ Tenant isolation is the first piece of a six-part HIPAA-readiness foundation, al
 
 ```bash
 cp .env.example .env          # Add your ANTHROPIC_API_KEY
-make all                       # Install deps, load data, run 610 tests
+make all                       # Install deps, load data, run 658 tests
 ```
 
 ### Option 2: Step by Step
@@ -231,6 +231,16 @@ Admins are created via `python scripts/promote_admin.py --email <broker-email>` 
 |----------|-------------|
 | `GET /drugs/search?q=...&limit=...` | Authenticated drug autocomplete backed by NLM's RxNav REST API. Returns up to 50 matches with RxCUI, name, RxNorm Term Type, and a brand/generic flag. Silent-fail: a RxNav outage returns an empty list, not a 500. |
 
+Powers the `DrugAutocomplete` component used in the **Add client** and **Network verify** forms — typeahead with brand/generic badges, arrow-key navigation, typed-fallback for obscure drugs RxNorm doesn't catalog yet. 4-char minimum query (RxNav's own threshold; shown as a "keep typing" hint below).
+
+### Temporal Plan Agent
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /temporal/plan` | Deadline-aware action plan for time-sensitive insurance events (Open Enrollment, Medicare AEP, SEP triggers, PA appeals). Accepts a structured `event` payload OR a natural-language `description`; auth-gated. Returns an `ActionPlan` with `event_type`, `trigger_date`, `deadline`, `days_remaining`, `urgency`, and a list of dated `Action` steps. |
+
+Two-model agent: Claude Haiku classifies natural-language input → pure-function deadline engine → Claude Sonnet generates the action steps. PHI-redacted at the LLM boundary; zero PHI in audit logs. Lives at `healthflow/agents/temporal_awareness/` with a colocated test suite (47 tests, no network). See `healthflow/agents/temporal_awareness/README.md` for endpoint contract + package layout.
+
 ### RLHF Feedback System
 
 | Endpoint | Description |
@@ -255,7 +265,7 @@ Admins are created via `python scripts/promote_admin.py --email <broker-email>` 
 | Page | Route | Description |
 |------|-------|-------------|
 | Login | `/login` | Broker sign-in and registration |
-| Dashboard | `/` | Overview with metrics, activity feed, system status |
+| Dashboard | `/` | Overview with metrics, activity feed, system status. Sidebar shows a live API-health dot (polls `/health` every 30s). |
 | Client Portfolios | `/clients` | Client table with filters, pagination, stats |
 | Add Client | `/clients/new` | Single-form intake with Basics, Medical, and Providers sections |
 | Onboarding Success | `/clients/success` | Post-creation confirmation with quick actions |
@@ -263,6 +273,7 @@ Admins are created via `python scripts/promote_admin.py --email <broker-email>` 
 | Plan Comparison | `/compare` | Side-by-side plan cards with AI recommendation |
 | Network Verification | `/network` | Provider and formulary checker with compatibility scores |
 | Coverage Translator | `/translator` | Document Q&A with conversational follow-up |
+| Temporal Plan | `/plan` | Deadline-aware action plans for SEP / Open Enrollment / PA appeals — structured or natural-language input, horizontal timeline, checkable actions (state persists via localStorage) |
 | Cost Calculator | `/calculator` | Annual cost projections with utilization sliders |
 | Claims Appeal | `/appeals` | Denial letter parser + appeal letter generator |
 | Feedback Dashboard | `/feedback` | RLHF ratings, agent performance, weekly report |
@@ -280,7 +291,7 @@ Admins are created via `python scripts/promote_admin.py --email <broker-email>` 
 ```bash
 make help           # Show all commands
 make install        # Install backend + frontend deps
-make test           # Run all 610 tests (verbose)
+make test           # Run all 658 tests (verbose)
 make test-quick     # Tests with compact output
 make test-cov       # Tests with coverage report
 make lint           # Run ruff linter
@@ -388,7 +399,7 @@ docker compose down                 # Stop everything
 ## Testing
 
 ```bash
-make test           # ~610 backend tests, ~40 seconds
+make test           # ~658 backend tests, ~40 seconds
 make test-cov       # With coverage report
 make lint           # Ruff linter
 make check          # Full CI gate: lint + tests + frontend build
@@ -481,7 +492,7 @@ healthflow/
 │   └── session.py             # Session store (in-memory + Redis)
 ├── logs/
 │   └── audit.py               # Structured JSON logging
-└── tests/                     # 610 tests
+└── tests/                     # 658 tests
 
 frontend/                      # React SPA (18 pages)
 ├── src/
