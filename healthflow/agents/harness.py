@@ -1,6 +1,7 @@
 import re
 
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 
 CLAUDE_MODEL = "claude-sonnet-4-6"
 # Smaller/faster model used by classifier-style agents (e.g. Temporal Awareness)
@@ -112,19 +113,25 @@ class Harness:
             "procedures": procedures,
         }
 
-        self.audit.log("input_validated", validated)
+        with invocation(agent="harness", event_type="input_validated") as inv:
+            self.audit.log("input_validated", validated)
+            inv.details = {"medications": len(medications), "procedures": len(procedures)}
         return validated
 
     def filter_output(self, text: str) -> str:
-        filtered = text
-        for pattern in MEDICAL_ADVICE_PATTERNS:
-            match = pattern.search(filtered)
-            if match:
-                self.audit.log(
-                    "output_filtered",
-                    {"pattern": pattern.pattern, "matched": match.group()},
-                )
-                filtered = pattern.sub("[REDACTED - not medical advice]", filtered)
+        with invocation(agent="harness", event_type="filter_output") as inv:
+            filtered = text
+            matches = 0
+            for pattern in MEDICAL_ADVICE_PATTERNS:
+                match = pattern.search(filtered)
+                if match:
+                    self.audit.log(
+                        "output_filtered",
+                        {"pattern": pattern.pattern, "matched": match.group()},
+                    )
+                    filtered = pattern.sub("[REDACTED - not medical advice]", filtered)
+                    matches += 1
 
-        filtered += DISCLAIMER
-        return filtered
+            filtered += DISCLAIMER
+            inv.details = {"length_in": len(text), "length_out": len(filtered), "redactions": matches}
+            return filtered

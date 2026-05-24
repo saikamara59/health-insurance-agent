@@ -3,6 +3,7 @@ import anthropic
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.agents.prompt_inputs import CostPromptInput
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 from healthflow.models.schemas import PlanCostResult, PlanSummary, UsageInput
 from healthflow.tools.cost_modeler import CostModeler
 
@@ -25,31 +26,33 @@ class CostCalculatorAgent:
         plans: list[PlanSummary],
         usage: UsageInput,
     ) -> tuple[list[PlanCostResult], str]:
-        results = [self.modeler.calculate(plan, usage) for plan in plans]
-        results.sort(key=lambda r: r.total_annual_cost)
+        with invocation(agent="cost_calculator", event_type="calculate", model=CLAUDE_MODEL) as inv:
+            results = [self.modeler.calculate(plan, usage) for plan in plans]
+            results.sort(key=lambda r: r.total_annual_cost)
 
-        prompt_input = CostPromptInput(results=results, usage=usage)
-        user_prompt = self._build_prompt(prompt_input)
+            prompt_input = CostPromptInput(results=results, usage=usage)
+            user_prompt = self._build_prompt(prompt_input)
 
-        self.audit.log(
-            "tool_called",
-            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "calculate"},
-        )
+            self.audit.log(
+                "tool_called",
+                {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "calculate"},
+            )
 
-        response = self.client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
+            response = self.client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
 
-        recommendation = extract_text(response)
-        self.audit.log(
-            "recommendation_generated",
-            {"length": len(recommendation), "task": "calculate"},
-        )
+            recommendation = extract_text(response)
+            self.audit.log(
+                "recommendation_generated",
+                {"length": len(recommendation), "task": "calculate"},
+            )
 
-        return results, recommendation
+            inv.details = {"length": len(recommendation), "plans": len(plans)}
+            return results, recommendation
 
     def _build_prompt(self, prompt_input: CostPromptInput) -> str:
         results = prompt_input.results

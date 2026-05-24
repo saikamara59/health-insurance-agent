@@ -3,6 +3,7 @@ import anthropic
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.agents.prompt_inputs import RedactedSection, TranslationPromptInput
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 from healthflow.models.schemas import DocumentSection
 
 SYSTEM_PROMPT = (
@@ -24,33 +25,35 @@ class TranslationAgent:
         sections: list[DocumentSection],
         question: str,
     ) -> tuple[str, list[str]]:
-        prompt_input = TranslationPromptInput(
-            sections=tuple(
-                RedactedSection(title=s.title, content=s.content) for s in sections
-            ),
-            question=question,
-        )
-        section_titles = [s.title for s in prompt_input.sections]
+        with invocation(agent="translation", event_type="translate", model=CLAUDE_MODEL) as inv:
+            prompt_input = TranslationPromptInput(
+                sections=tuple(
+                    RedactedSection(title=s.title, content=s.content) for s in sections
+                ),
+                question=question,
+            )
+            section_titles = [s.title for s in prompt_input.sections]
 
-        self.audit.log("phi_redacted", prompt_input.redaction_summary)
+            self.audit.log("phi_redacted", prompt_input.redaction_summary)
 
-        user_prompt = self._build_prompt(prompt_input)
+            user_prompt = self._build_prompt(prompt_input)
 
-        self.audit.log(
-            "tool_called",
-            {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "translate"},
-        )
+            self.audit.log(
+                "tool_called",
+                {"tool": "claude_api", "model": CLAUDE_MODEL, "task": "translate"},
+            )
 
-        response = self.client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
+            response = self.client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
 
-        answer = extract_text(response)
-        self.audit.log("recommendation_generated", {"length": len(answer), "task": "translate"})
-        return answer, section_titles
+            answer = extract_text(response)
+            self.audit.log("recommendation_generated", {"length": len(answer), "task": "translate"})
+            inv.details = {"length": len(answer), "section_count": len(section_titles)}
+            return answer, section_titles
 
     def _build_prompt(self, prompt_input: TranslationPromptInput) -> str:
         lines = [

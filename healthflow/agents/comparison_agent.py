@@ -5,6 +5,7 @@ import anthropic
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.agents.prompt_inputs import ComparisonPromptInput
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 from healthflow.models.schemas import PlanSummary
 
 # Deterministic stub for the e2e docker stack, which runs with a fake Anthropic
@@ -37,34 +38,37 @@ class ComparisonAgent:
         medications: list[str] | None = None,
         procedures: list[str] | None = None,
     ) -> str:
-        if os.environ.get("HEALTHFLOW_TEST_MODE") == "1":
-            self.audit.log(
-                "recommendation_generated",
-                {"length": len(_TEST_MODE_RECOMMENDATION), "stubbed": True},
+        with invocation(agent="comparison", event_type="recommend", model=CLAUDE_MODEL) as inv:
+            if os.environ.get("HEALTHFLOW_TEST_MODE") == "1":
+                self.audit.log(
+                    "recommendation_generated",
+                    {"length": len(_TEST_MODE_RECOMMENDATION), "stubbed": True},
+                )
+                inv.details = {"length": len(_TEST_MODE_RECOMMENDATION), "stubbed": True}
+                return _TEST_MODE_RECOMMENDATION
+
+            prompt_input = ComparisonPromptInput(
+                plans=plans,
+                age=age,
+                income_level=income_level,
+                medications=medications or [],
+                procedures=procedures or [],
             )
-            return _TEST_MODE_RECOMMENDATION
+            user_prompt = self._build_prompt(prompt_input)
 
-        prompt_input = ComparisonPromptInput(
-            plans=plans,
-            age=age,
-            income_level=income_level,
-            medications=medications or [],
-            procedures=procedures or [],
-        )
-        user_prompt = self._build_prompt(prompt_input)
+            self.audit.log("tool_called", {"tool": "claude_api", "model": CLAUDE_MODEL})
 
-        self.audit.log("tool_called", {"tool": "claude_api", "model": CLAUDE_MODEL})
+            response = self.client.messages.create(
+                model=CLAUDE_MODEL,
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
 
-        response = self.client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-
-        recommendation = extract_text(response)
-        self.audit.log("recommendation_generated", {"length": len(recommendation)})
-        return recommendation
+            recommendation = extract_text(response)
+            self.audit.log("recommendation_generated", {"length": len(recommendation)})
+            inv.details = {"length": len(recommendation), "plans": len(plans)}
+            return recommendation
 
     def _build_prompt(self, prompt_input: ComparisonPromptInput) -> str:
         plans = prompt_input.plans

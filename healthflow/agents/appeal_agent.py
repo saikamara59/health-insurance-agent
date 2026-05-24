@@ -2,6 +2,7 @@ import anthropic
 
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 from healthflow.models.schemas import CoverageArgument, DenialAnalysis
 from healthflow.tools.appeal_writer import AppealWriter
 from healthflow.tools.denial_codes import DenialCodeDB
@@ -56,6 +57,10 @@ class AppealAgent:
         Returns:
             (analysis, coverage_argument, appeal_letter, refined_recommendation)
         """
+        with invocation(agent="appeal", event_type="process_appeal", model=CLAUDE_MODEL) as inv:
+            return self._process_appeal_inner(inv, denial_text, additional_context)
+
+    def _process_appeal_inner(self, inv, denial_text, additional_context):
         # Step 1: Redact PHI — AppealPromptInput is the single redaction boundary.
         prompt_input = AppealPromptInput(
             denial_text=denial_text,
@@ -112,6 +117,12 @@ class AppealAgent:
             "letter_length": len(appeal_letter),
         })
 
+        inv.details = {
+            "code": analysis.denial_reason_code,
+            "code_found_in_db": code_entry is not None,
+            "letter_length": len(appeal_letter),
+            "refined_length": len(refined_recommendation),
+        }
         return analysis, argument, appeal_letter, refined_recommendation
 
     def _refine_with_claude(

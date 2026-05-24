@@ -231,3 +231,38 @@ class PasswordResetToken(Base):
     used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class AgentInvocationLog(Base):
+    """Structured per-agent-call audit row.
+
+    Sibling of `PhiAccessLog`: system table, not tenant-scoped, not in
+    `_AUDITED_MODELS` (recording an invocation is operational metadata, not
+    patient-data access). Forensics tooling reads this table to reconstruct
+    "what did agents A, B, C do for case X" timelines.
+
+    Writer: `healthflow.logs.invocation.InvocationLogger`. The legacy
+    `AuditLogger` (text log file) keeps running alongside — agents emit BOTH
+    a text-log line and an invocation row, until the text log is retired.
+    """
+    __tablename__ = "agent_invocation_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    case_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), index=True, nullable=True
+    )
+    broker_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), index=True, nullable=True
+    )
+    endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
+    agent: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True, nullable=False
+    )
