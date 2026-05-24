@@ -37,7 +37,10 @@ echo "[entrypoint] seeding demo data (idempotent)"
 python seed.py || echo "[entrypoint] seed.py exited non-zero — broker probably already exists; continuing"
 
 echo "[entrypoint] seeding admin account (idempotent)"
-python scripts/seed_admin.py || echo "[entrypoint] seed_admin.py exited non-zero; continuing"
+# Run as a module so `healthflow.*` and `scripts.promote_admin` resolve against
+# /app on sys.path (Python only adds the script's dir to sys.path when invoked
+# as `python scripts/seed_admin.py`, which is why the previous form 404'd).
+python -m scripts.seed_admin || echo "[entrypoint] seed_admin.py exited non-zero; continuing"
 
 echo "[entrypoint] handing off to uvicorn (pid=$UVICORN_PID)"
 wait "$UVICORN_PID"
