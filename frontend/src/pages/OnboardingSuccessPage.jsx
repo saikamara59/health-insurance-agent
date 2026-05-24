@@ -62,8 +62,8 @@ export default function OnboardingSuccessPage() {
         <div className="grid-3" style={{ maxWidth: 960, margin: '0 auto' }}>
           {[
             { icon: 'compare', label: 'Compare plans', desc: 'Find the best-fit Medicare Advantage plan.', path: '/compare', accent: true },
+            { icon: 'history', label: 'Map their plan', desc: 'Lay out the next 12 months of enrollment windows and renewals.', path: '/plan' },
             { icon: 'translate', label: 'Translate coverage', desc: 'Decode any Summary of Benefits in plain English.', path: '/translator' },
-            { icon: 'network', label: 'Verify network', desc: 'Confirm doctors and pharmacies are in-network.', path: '/network' },
           ].map((t) => (
             <div key={t.path} className="card card-pad" style={{ cursor: 'pointer' }} onClick={() => navigate(t.path)}>
               <div className="row" style={{ gap: 10, marginBottom: 12 }}>

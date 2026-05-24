@@ -9,6 +9,11 @@ const RESOURCES = [
     icon: 'compare',
   },
   {
+    title: 'Temporal plan',
+    desc: 'Map a client\'s next 12 months — enrollment windows, renewal dates, and the SEPs they\'re eligible for.',
+    icon: 'history',
+  },
+  {
     title: 'Coverage translator',
     desc: 'What kinds of documents work best. Citations, formulary tiers, and section-level quoting.',
     icon: 'translate',

@@ -285,6 +285,7 @@ export default function DashboardPage() {
               {[
                 { icon: 'compare', label: 'Plan comparison', path: '/compare' },
                 { icon: 'translate', label: 'Coverage translator', path: '/translator' },
+                { icon: 'history', label: 'Temporal plan', path: '/plan' },
                 { icon: 'network', label: 'Network verify', path: '/network' },
                 { icon: 'calculator', label: 'Cost calculator', path: '/calculator' },
                 { icon: 'appeal', label: 'Claim appeal', path: '/appeals' },

@@ -354,7 +354,11 @@ html[data-mode="dark"] .brand-mark {
   color: var(--ink); vertical-align: middle;
 }
 .tbl tr:last-child td { border-bottom: 0; }
+/* `.row` is `display: flex` globally; force table-row for rows in tables so
+   thead/tbody column widths stay locked together. */
+.tbl tr.row { display: table-row; }
 .tbl tr.row:hover { background: var(--bg-2); cursor: pointer; }
+.tbl tr.row.selected { background: var(--bg-2); }
 .tbl td .sub { color: var(--ink-3); font-size: 12px; }
 
 /* activity */
