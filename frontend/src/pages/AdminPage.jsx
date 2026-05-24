@@ -343,9 +343,29 @@ export default function AdminPage() {
                       <span style={{ fontWeight: 500 }}>{a.broker_email || 'system'}</span>
                       <span className="muted"> {a.event_type}</span>
                     </div>
-                    <div className="muted mono" style={{ fontSize: 11, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>
                       {a.endpoint}
-                      {a.case_id && ` · case ${a.case_id.slice(0, 8)}`}
+                      {a.case_id && (
+                        <>
+                          {' · case '}
+                          <span
+                            onClick={() => {
+                              setReplayCaseId(a.case_id);
+                              document.querySelector('.page.wide')?.scrollTo?.({ top: 0, behavior: 'smooth' });
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            title="Click to copy into the forensics replay input"
+                            style={{
+                              color: 'var(--accent)',
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              userSelect: 'all',
+                            }}
+                          >
+                            {a.case_id}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <span className="muted mono" style={{ fontSize: 11 }}>

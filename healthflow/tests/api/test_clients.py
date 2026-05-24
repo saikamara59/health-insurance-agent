@@ -297,3 +297,113 @@ async def test_create_client_without_auth(client):
         },
     )
     assert response.status_code == 401
+
+
+# ── admin cross-tenant read bypass ───────────────────────────────────────────
+
+
+async def _make_admin(client, db_session, email="admin@example.com"):
+    """Register a broker, promote to admin, return a fresh access token."""
+    from sqlalchemy import update as sa_update
+    from healthflow.database.models import Broker
+
+    token = await _register_and_login(client, email=email)
+    await db_session.execute(
+        sa_update(Broker).where(Broker.email == email).values(role="admin")
+    )
+    await db_session.commit()
+    login = await client.post(
+        "/auth/login", json={"email": email, "password": "securepass123!"}
+    )
+    return login.json()["access_token"]
+
+
+_SAMPLE_CLIENT = {
+    "full_name": "Cross-tenant Visible",
+    "zip_code": "10001",
+    "age": 64,
+    "income_level": "medium",
+    "doctors": [],
+    "prescriptions": [],
+    "procedures": [],
+}
+
+
+@pytest.mark.asyncio
+async def test_admin_list_clients_sees_every_brokers_book(client, db_session):
+    """An admin GET /clients returns clients owned by other brokers."""
+    broker_token = await _register_and_login(client, "owner@example.com")
+    create = await client.post(
+        "/clients",
+        json=_SAMPLE_CLIENT,
+        headers={"Authorization": f"Bearer {broker_token}"},
+    )
+    assert create.status_code == 201
+    owner_client_id = create.json()["id"]
+
+    admin_token = await _make_admin(client, db_session)
+    resp = await client.get(
+        "/clients", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200
+    ids = {c["id"] for c in resp.json()}
+    assert owner_client_id in ids
+
+
+@pytest.mark.asyncio
+async def test_admin_get_client_by_id_works_cross_tenant(client, db_session):
+    """An admin can fetch any client by id, not just their own."""
+    broker_token = await _register_and_login(client, "owner2@example.com")
+    create = await client.post(
+        "/clients",
+        json=_SAMPLE_CLIENT,
+        headers={"Authorization": f"Bearer {broker_token}"},
+    )
+    assert create.status_code == 201
+    target_id = create.json()["id"]
+
+    admin_token = await _make_admin(client, db_session, email="admin2@example.com")
+    resp = await client.get(
+        f"/clients/{target_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["id"] == target_id
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_update_other_brokers_clients(client, db_session):
+    """Write paths stay tenant-scoped — admin's role does not grant edit rights."""
+    broker_token = await _register_and_login(client, "owner3@example.com")
+    create = await client.post(
+        "/clients",
+        json=_SAMPLE_CLIENT,
+        headers={"Authorization": f"Bearer {broker_token}"},
+    )
+    target_id = create.json()["id"]
+
+    admin_token = await _make_admin(client, db_session, email="admin3@example.com")
+    resp = await client.put(
+        f"/clients/{target_id}",
+        json={"full_name": "Hijacked"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    # Tenant filter prunes the SELECT inside the PUT handler → 404 (no row found)
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_plain_broker_still_isolated(client):
+    """Regression: a non-admin broker only sees their own clients."""
+    token_a = await _register_and_login(client, "iso-a@example.com")
+    await client.post(
+        "/clients",
+        json=_SAMPLE_CLIENT,
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+    token_b = await _register_and_login(client, "iso-b@example.com")
+    resp = await client.get(
+        "/clients", headers={"Authorization": f"Bearer {token_b}"}
+    )
+    assert resp.status_code == 200
+    assert resp.json() == []

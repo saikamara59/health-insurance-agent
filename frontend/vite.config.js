@@ -36,6 +36,7 @@ export default defineConfig({
       '/temporal': proxyToBackend,
       '/drugs': proxyToBackend,
       '/admin': proxyToBackend,
+      '/forensics': proxyToBackend,
       '/__test': proxyToBackend,
     }
   }

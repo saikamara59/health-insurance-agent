@@ -4,10 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from contextlib import nullcontext
+
 from healthflow.auth.dependencies import get_current_broker
+from healthflow.auth.tenant_context import system_context
 from healthflow.database.config import get_db
 from healthflow.database.models import Broker, Client
 from healthflow.models.schemas import ClientCreate, ClientResponse, ClientUpdate
+
+
+def _admin_bypass(broker: Broker):
+    """Cross-tenant read bypass for admins.
+
+    Admins use the workspace view to audit, support, and run forensics on
+    any broker's book. Wrapping the SELECT in system_context() suspends
+    the tenant filter for the duration of that read. Writes deliberately
+    stay scoped — admins can see everyone's clients but cannot mutate
+    them through the same endpoint.
+    """
+    if broker.role == "admin":
+        return system_context(f"admin cross-tenant read: {broker.email}")
+    return nullcontext()
 
 client_router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -54,13 +71,15 @@ async def create_client(
 
 @client_router.get("", response_model=list[ClientResponse])
 async def list_clients(
-    _broker: Broker = Depends(get_current_broker),
+    broker: Broker = Depends(get_current_broker),
     db: AsyncSession = Depends(get_db),
 ) -> list[ClientResponse]:
-    """List all clients belonging to the current broker."""
-    # tenant filter auto-injects WHERE Client.broker_id = current_broker_id
-    result = await db.execute(select(Client))
-    clients = result.scalars().all()
+    """List clients. Brokers see their own book; admins see every broker's."""
+    # Brokers: tenant filter auto-injects WHERE Client.broker_id = broker.id.
+    # Admins: _admin_bypass suspends the filter so the workspace view is whole.
+    with _admin_bypass(broker):
+        result = await db.execute(select(Client))
+        clients = result.scalars().all()
     return [_client_to_response(c) for c in clients]
 
 
@@ -70,14 +89,15 @@ async def get_client(
     broker: Broker = Depends(get_current_broker),
     db: AsyncSession = Depends(get_db),
 ) -> ClientResponse:
-    """Get a specific client by ID. Must belong to the current broker."""
+    """Get a specific client by ID. Brokers: own book only. Admins: any."""
     try:
         parsed_id = uuid.UUID(client_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    result = await db.execute(select(Client).where(Client.id == parsed_id))
-    client = result.scalar_one_or_none()
+    with _admin_bypass(broker):
+        result = await db.execute(select(Client).where(Client.id == parsed_id))
+        client = result.scalar_one_or_none()
 
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found")
