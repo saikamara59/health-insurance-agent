@@ -3,7 +3,7 @@
 Uses the `client` fixture from the shared conftest. Auth is admin-only.
 """
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import select, update as sa_update
