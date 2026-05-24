@@ -7,6 +7,23 @@
 
 HealthFlow gives insurance brokers a single platform to manage client portfolios, compare Medicare Advantage plans side-by-side, estimate annual costs, verify provider networks against real NPPES data, translate dense policy documents into plain English, and auto-generate claims appeal letters — all backed by AI that learns from broker feedback to get smarter over time.
 
+---
+
+## For engineers reviewing this
+
+Every non-trivial decision has a written design doc in [`docs/superpowers/specs/`](docs/superpowers/specs/) and an implementation plan in [`docs/superpowers/plans/`](docs/superpowers/plans/), committed alongside the code. Greatest-hits, in shipping order:
+
+- **[Forensics replay tool](docs/superpowers/specs/2026-05-24-forensics-replay-tool-design.md)** — spec'd as one PR, recon surfaced six architectural gaps in the codebase → split into two PRs (foundation table + `case_id` ContextVar propagation first; then the replay tool reads it). Multi-PR ownership of a real compliance feature.
+- **[Multi-tenancy](docs/superpowers/specs/2026-05-12-multi-tenancy-design.md)** — tenant isolation enforced at a SQLAlchemy `do_orm_execute` event listener. Forgetting a `WHERE broker_id = ...` in a route is structurally impossible — the filter is a property of the database session, not of every developer remembering to add it.
+- **[PHI redaction at the LLM boundary](docs/superpowers/specs/2026-05-14-phi-redaction-design.md)** + **[PHI access audit log](docs/superpowers/specs/2026-05-14-phi-access-audit-log-design.md)** — frozen-dataclass `PromptInput` types redact PHI exactly once before any text reaches Claude; every read/write of a PHI table writes one audit row automatically via event listener.
+- **[Encryption at rest](docs/superpowers/specs/2026-05-17-encryption-at-rest-design.md)** — eight PHI columns wrapped in AES-256-GCM via a SQLAlchemy `TypeDecorator`; versioned wire format for key rotation.
+- **[Auth hardening](docs/superpowers/specs/2026-05-16-auth-hardening-design.md)** + **[Account management](docs/superpowers/specs/2026-05-18-account-management-design.md)** — fail-loud `JWT_SECRET`, account lockout, refresh-token rotation with theft-signal mass-revoke, RBAC + change/forgot/reset-password with anti-enumeration + 60-second per-email cooldown.
+- **[RxNav drug autocomplete](docs/superpowers/specs/2026-05-20-rxnav-drug-search-design.md)** — honest pivot after the CMS Socrata API was retired. Spec includes a debrief of what's actually queryable in US health-insurance APIs in 2026.
+
+**Workflow visible in git history:** brainstorm → written spec → step-by-step plan → subagent-driven execution → two-stage review per task → pre-push smoke test against live external APIs. Specs and plans are committed alongside the code they describe, so you can read how each piece was reasoned about before it was built.
+
+---
+
 ### Why This Exists
 
 Health insurance brokers today juggle spreadsheets, PDFs, and phone calls to compare plans for their clients. Denial appeals are manually drafted from scratch. Brokers can't quickly answer "Is my doctor in-network?" or "What will my prescriptions cost under this plan?" without hours of research.
