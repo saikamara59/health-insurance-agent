@@ -20,6 +20,7 @@ const NAV = [
     items: [
       { path: '/compare', label: 'Plan comparison', icon: 'compare' },
       { path: '/translator', label: 'Coverage translator', icon: 'translate' },
+      { path: '/plan', label: 'Temporal plan', icon: 'history' },
       { path: '/network', label: 'Network verify', icon: 'network' },
       { path: '/calculator', label: 'Cost calculator', icon: 'calculator' },
       { path: '/appeals', label: 'Claim appeals', icon: 'appeal' },

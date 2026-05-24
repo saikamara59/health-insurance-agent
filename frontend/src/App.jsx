@@ -17,6 +17,7 @@ import ComparisonHistoryPage from './pages/ComparisonHistoryPage'
 import PlanComparisonPage from './pages/PlanComparisonPage'
 import NetworkVerificationPage from './pages/NetworkVerificationPage'
 import CoverageTranslatorPage from './pages/CoverageTranslatorPage'
+import TemporalPlanPage from './pages/TemporalPlanPage'
 import CostCalculatorPage from './pages/CostCalculatorPage'
 import OnboardingSuccessPage from './pages/OnboardingSuccessPage'
 import FeedbackDashboardPage from './pages/FeedbackDashboardPage'
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="compare" element={<PlanComparisonPage />} />
             <Route path="network" element={<NetworkVerificationPage />} />
             <Route path="translator" element={<CoverageTranslatorPage />} />
+            <Route path="plan" element={<TemporalPlanPage />} />
             <Route path="calculator" element={<CostCalculatorPage />} />
             <Route path="appeals" element={<ClaimsAppealPage />} />
             <Route path="history" element={<ComparisonHistoryPage />} />
