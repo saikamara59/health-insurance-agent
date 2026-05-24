@@ -51,3 +51,21 @@ COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
+
+
+# ── Combined (single-container deploy: Fly.io demo) ──────────────────────────
+# Backend image + built frontend dist served by FastAPI as static files.
+# Entrypoint runs the API and seeds the demo broker + clients on first start
+# (idempotent). Local dev still uses the `backend` + `frontend` stages via
+# docker-compose; this stage is only built for Fly.io.
+FROM backend AS combined
+
+# Frontend dist baked in at /app/frontend/dist — main.py picks it up.
+COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
+
+# Demo entrypoint script (idempotent seed on first start).
+COPY scripts/demo_entrypoint.sh /app/demo_entrypoint.sh
+RUN chmod +x /app/demo_entrypoint.sh
+
+EXPOSE 8000
+ENTRYPOINT ["/app/demo_entrypoint.sh"]

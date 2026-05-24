@@ -1,0 +1,37 @@
+# Fly.io config for the public demo deploy.
+# Local dev still uses docker-compose; this file is only consumed by `fly deploy`.
+
+app = 'healthflow-demo'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+  build-target = 'combined'
+
+[env]
+  # SQLite lives on the persistent volume mounted at /data so broker accounts
+  # + audit logs survive deploys.
+  DATABASE_URL = 'sqlite+aiosqlite:////data/healthflow.db'
+  EMAIL_PROVIDER = 'console'
+  FRONTEND_BASE_URL = 'https://healthflow-demo.fly.dev'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Keep the demo warm so reviewers don't hit a cold start.
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 50
+    soft_limit = 25
+
+[[mounts]]
+  source = 'healthflow_data'
+  destination = '/data'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
