@@ -266,3 +266,26 @@ class AgentInvocationLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, index=True, nullable=False
     )
+
+
+class ForensicsAccessLog(Base):
+    """One row per forensics query — self-audit for admin reads of the audit tables.
+
+    System table — not tenant-scoped (records cross-broker admin activity),
+    not in `_AUDITED_MODELS` (forensics queries are not PHI access).
+    """
+    __tablename__ = "forensics_access_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, default=uuid.uuid4
+    )
+    operator_id: Mapped[uuid.UUID] = mapped_column(GUID(), index=True, nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), index=True, nullable=True)
+    from_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    to_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    result_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True, nullable=False
+    )
