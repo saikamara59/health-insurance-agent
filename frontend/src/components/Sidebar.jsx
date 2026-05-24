@@ -104,27 +104,32 @@ export default function Sidebar({ open, onClose }) {
           <span className="brand-tag">v3</span>
         </div>
 
-        {NAV.map((group) => (
-          <div key={group.group} className="nav-group">
-            <div className="nav-group-label">{group.group}</div>
-            {group.items.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                onClick={onClose}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-              >
-                <span className="nav-dot" />
-                <Icon name={item.icon} className="nav-ic" />
-                <span>{item.label}</span>
-                {item.countKey && counts[item.countKey] != null && (
-                  <span className="nav-count">{counts[item.countKey]}</span>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        {/* Scrollable nav region so the bottom user-chip (with Sign out) stays
+            in the viewport even when nav groups exceed 100vh — caught by an
+            e2e failure after the Tools group grew past 6 items. */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {NAV.map((group) => (
+            <div key={group.group} className="nav-group">
+              <div className="nav-group-label">{group.group}</div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.end}
+                  onClick={onClose}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <span className="nav-dot" />
+                  <Icon name={item.icon} className="nav-ic" />
+                  <span>{item.label}</span>
+                  {item.countKey && counts[item.countKey] != null && (
+                    <span className="nav-count">{counts[item.countKey]}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </div>
 
         <div className="bottom">
           <div className="user-chip">
