@@ -8,10 +8,14 @@ import useLayout from '../components/ui/useLayout';
 
 function sinceLabel(iso) {
   if (!iso) return '—';
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return 'soon';
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  // SQLite + SQLAlchemy `.isoformat()` strips tz info on read; JS would then
+  // parse the naive string as local time and call it "in the future". Append
+  // a Z if the string lacks any explicit timezone suffix so we always treat
+  // backend timestamps as UTC.
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  const ts = new Date(hasTz ? iso : `${iso}Z`).getTime();
+  const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;

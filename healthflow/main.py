@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from healthflow.api.middleware import EndpointContextMiddleware, HTTPLoggingMiddleware
 from healthflow.api.case_middleware import CaseContextMiddleware
+from healthflow.api.optional_broker_middleware import OptionalBrokerContextMiddleware
 
 from healthflow.api.routes import router
 from healthflow.auth.router import auth_router
@@ -53,6 +54,7 @@ app.add_middleware(
 app.add_middleware(HTTPLoggingMiddleware)
 app.add_middleware(EndpointContextMiddleware)
 app.add_middleware(CaseContextMiddleware)
+app.add_middleware(OptionalBrokerContextMiddleware)
 
 app.include_router(router)
 app.include_router(auth_router)
