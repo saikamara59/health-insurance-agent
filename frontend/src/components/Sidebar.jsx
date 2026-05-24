@@ -127,20 +127,6 @@ export default function Sidebar({ open, onClose }) {
         ))}
 
         <div className="bottom">
-          <div
-            className="row"
-            title={`Backend ${healthLabel}`}
-            style={{ gap: 8, padding: '4px 10px 10px', fontSize: 11, color: 'var(--ink-4)' }}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: healthColor, flex: '0 0 auto',
-              }}
-            />
-            <span style={{ fontFamily: 'var(--mono)' }}>{healthLabel}</span>
-          </div>
           <div className="user-chip">
             <Avatar name={display} />
             <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1 }}>
@@ -151,6 +137,14 @@ export default function Sidebar({ open, onClose }) {
                 {user?.email || 'broker@healthflow.com'}
               </div>
             </div>
+            <span
+              aria-hidden="true"
+              title={`Backend ${healthLabel}`}
+              style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: healthColor, flex: '0 0 auto', marginRight: 4,
+              }}
+            />
             <button
               className="btn icon ghost sm"
               onClick={logout}
