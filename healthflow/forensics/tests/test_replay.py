@@ -76,3 +76,117 @@ async def test_replay_case_writes_one_self_audit_row(db_session, db_session_fact
     assert rows[0].tenant_id == tenant
     assert rows[0].result_count == 1
     assert rows[0].operator_id == tenant  # operator defaults to the calling tenant_id
+
+
+@pytest.mark.asyncio
+async def test_replay_member_joins_through_phi_access_log(db_session, db_session_factory):
+    """A member-scope query finds invocations whose ±2s PHI access includes the client_id."""
+    tenant = uuid.uuid4()
+    client = uuid.uuid4()
+    other_client = uuid.uuid4()
+
+    inv = make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0)
+    # PHI access for `client` at the same timestamp — matches.
+    phi_hit = make_phi_access(broker_id=tenant, row_ids=[str(client), str(other_client)], timestamp=_T0)
+    # Unrelated invocation (no PHI access for `client`).
+    unrelated = make_invocation(broker_id=tenant, agent="translation", timestamp=_T0 + timedelta(minutes=10))
+    await _seed(db_session, [inv, phi_hit, unrelated])
+
+    from healthflow.forensics.replay import replay_member
+    timeline = await replay_member(
+        client,
+        time_range=(_T0 - timedelta(seconds=10), _T0 + timedelta(minutes=20)),
+        tenant_id=tenant,
+        session_factory=db_session_factory,
+    )
+
+    assert len(timeline.invocations) == 1
+    assert timeline.invocations[0].agent == "comparison"
+    assert timeline.member_id_hash is not None  # SHA-256 prefix
+    assert str(client) not in timeline.member_id_hash  # never the raw value
+
+
+@pytest.mark.asyncio
+async def test_replay_member_honors_time_range(db_session, db_session_factory):
+    tenant = uuid.uuid4()
+    client = uuid.uuid4()
+    inv_in = make_invocation(broker_id=tenant, timestamp=_T0)
+    phi_in = make_phi_access(broker_id=tenant, row_ids=[str(client)], timestamp=_T0)
+    inv_out = make_invocation(broker_id=tenant, timestamp=_T0 + timedelta(days=5))
+    phi_out = make_phi_access(broker_id=tenant, row_ids=[str(client)], timestamp=_T0 + timedelta(days=5))
+    await _seed(db_session, [inv_in, phi_in, inv_out, phi_out])
+
+    from healthflow.forensics.replay import replay_member
+    timeline = await replay_member(
+        client,
+        time_range=(_T0 - timedelta(hours=1), _T0 + timedelta(hours=1)),
+        tenant_id=tenant,
+        session_factory=db_session_factory,
+    )
+
+    assert len(timeline.invocations) == 1
+    assert timeline.invocations[0].timestamp == _T0
+
+
+@pytest.mark.asyncio
+async def test_replay_agent_filters_by_agent_and_time(db_session, db_session_factory):
+    tenant = uuid.uuid4()
+    await _seed(db_session, [
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0),
+        make_invocation(broker_id=tenant, agent="network", timestamp=_T0 + timedelta(seconds=10)),
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0 + timedelta(seconds=20)),
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0 + timedelta(days=10)),  # out of range
+    ])
+
+    from healthflow.forensics.replay import replay_agent
+    invocations = await replay_agent(
+        "comparison",
+        time_range=(_T0 - timedelta(seconds=1), _T0 + timedelta(hours=1)),
+        tenant_id=tenant,
+        session_factory=db_session_factory,
+    )
+
+    assert len(invocations) == 2
+    assert all(i.agent == "comparison" for i in invocations)
+
+
+@pytest.mark.asyncio
+async def test_replay_agent_returns_chronological_order(db_session, db_session_factory):
+    tenant = uuid.uuid4()
+    await _seed(db_session, [
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0 + timedelta(seconds=30)),
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0),
+        make_invocation(broker_id=tenant, agent="comparison", timestamp=_T0 + timedelta(seconds=15)),
+    ])
+
+    from healthflow.forensics.replay import replay_agent
+    invocations = await replay_agent(
+        "comparison",
+        time_range=(_T0 - timedelta(seconds=1), _T0 + timedelta(hours=1)),
+        tenant_id=tenant,
+        session_factory=db_session_factory,
+    )
+
+    timestamps = [i.timestamp for i in invocations]
+    assert timestamps == sorted(timestamps)
+
+
+@pytest.mark.asyncio
+async def test_all_three_functions_write_one_self_audit_row_each(db_session, db_session_factory):
+    """Sanity check: every replay call writes exactly one ForensicsAccessLog row."""
+    tenant = uuid.uuid4()
+    client = uuid.uuid4()
+    case = uuid.uuid4()
+    await _seed(db_session, [
+        make_invocation(broker_id=tenant, case_id=case, timestamp=_T0),
+        make_phi_access(broker_id=tenant, row_ids=[str(client)], timestamp=_T0),
+    ])
+
+    from healthflow.forensics.replay import replay_case, replay_member, replay_agent
+    await replay_case(case, tenant_id=tenant, session_factory=db_session_factory)
+    await replay_member(client, time_range=(_T0 - timedelta(hours=1), _T0 + timedelta(hours=1)), tenant_id=tenant, session_factory=db_session_factory)
+    await replay_agent("comparison", time_range=(_T0 - timedelta(hours=1), _T0 + timedelta(hours=1)), tenant_id=tenant, session_factory=db_session_factory)
+
+    rows = (await db_session.execute(select(ForensicsAccessLog))).scalars().all()
+    assert {r.mode for r in rows} == {"case", "member", "agent"}
+    assert len(rows) == 3
