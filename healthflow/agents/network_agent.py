@@ -3,6 +3,7 @@ import anthropic
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text
 from healthflow.agents.prompt_inputs import NetworkPromptInput
 from healthflow.logs.audit import AuditLogger
+from healthflow.logs.invocation import invocation
 from healthflow.models.schemas import (
     FormularyResult,
     PlanNetworkResult,
@@ -31,6 +32,20 @@ class NetworkAgent:
         self._formulary_checker = FormularyChecker()
 
     def verify(
+        self,
+        plans: list[PlanSummary],
+        providers: list[ProviderInput],
+        prescriptions: list[str],
+    ) -> tuple[list[PlanNetworkResult], str]:
+        with invocation(agent="network", event_type="verify", model=CLAUDE_MODEL) as inv:
+            inv.details = {
+                "plans": len(plans),
+                "providers": len(providers),
+                "prescriptions": len(prescriptions),
+            }
+            return self._verify_inner(plans, providers, prescriptions)
+
+    def _verify_inner(
         self,
         plans: list[PlanSummary],
         providers: list[ProviderInput],

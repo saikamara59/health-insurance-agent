@@ -19,6 +19,7 @@ from datetime import date
 import anthropic
 
 from healthflow.agents.harness import CLAUDE_MODEL, extract_text, strip_code_fence
+from healthflow.logs.invocation import invocation
 from healthflow.agents.temporal_awareness.deadline_engine import (
     DeadlineInfo,
     compute_deadline,
@@ -57,32 +58,39 @@ class TemporalAwarenessAgent:
         self.audit = AuditLogger()
 
     def generate_plan(self, request: TemporalRequest) -> ActionPlan:
-        today = request.today or date.today()
+        with invocation(agent="temporal_awareness", event_type="generate_plan", model=CLAUDE_MODEL) as inv:
+            today = request.today or date.today()
 
-        if request.event is not None:
-            event = request.event
-        else:
-            assert request.description is not None  # model_validator guarantees this
-            event = self._classifier.classify(request.description, today=today)
+            if request.event is not None:
+                event = request.event
+            else:
+                assert request.description is not None  # model_validator guarantees this
+                event = self._classifier.classify(request.description, today=today)
 
-        info = compute_deadline(
-            event_type=event.event_type,
-            trigger_date=event.trigger_date,
-            today=today,
-            plan_type=event.plan_type,
-        )
-        actions = self._generate_actions(info, today)
+            info = compute_deadline(
+                event_type=event.event_type,
+                trigger_date=event.trigger_date,
+                today=today,
+                plan_type=event.plan_type,
+            )
+            actions = self._generate_actions(info, today)
 
-        plan = ActionPlan(
-            event_type=info.event_type,
-            trigger_date=info.trigger_date,
-            deadline=info.deadline,
-            days_remaining=info.days_remaining,
-            urgency=info.urgency,
-            actions=actions,
-        )
-        self._audit(plan, today, source="structured" if request.event else "natural_language")
-        return plan
+            plan = ActionPlan(
+                event_type=info.event_type,
+                trigger_date=info.trigger_date,
+                deadline=info.deadline,
+                days_remaining=info.days_remaining,
+                urgency=info.urgency,
+                actions=actions,
+            )
+            self._audit(plan, today, source="structured" if request.event else "natural_language")
+            inv.details = {
+                "event_type": plan.event_type.value,
+                "urgency": plan.urgency,
+                "action_count": len(plan.actions),
+                "input_source": "structured" if request.event else "natural_language",
+            }
+            return plan
 
     def _generate_actions(self, info: DeadlineInfo, today: date) -> list[Action]:
         user_message = (
