@@ -68,28 +68,57 @@ def _emit(result_dict, fmt: str) -> None:
     if fmt == "json":
         click.echo(json.dumps(result_dict, default=str, indent=2))
         return
-    # Text format — compact human summary.
+
+    bar = "─" * 72
+
+    def _print_invocation(inv: dict) -> None:
+        phi = ""
+        if inv.get("phi_row_count"):
+            tables = ",".join(inv.get("phi_tables_touched") or [])
+            phi = f"  [PHI {inv['phi_row_count']} rows · {tables}]"
+        err = f"  ERR={inv['error']}" if inv.get("error") else ""
+        click.echo(
+            f"  {inv['timestamp']}  {inv['agent']:<20} {inv['event_type']:<22}"
+            f"  ({inv.get('duration_ms', '?')}ms){phi}{err}"
+        )
+
+    # Text format — human summary with the integrity block + decision chain.
     if "invocations" in result_dict:
-        click.echo(f"Case: {result_dict.get('case_id')}")
-        click.echo(f"Tenant: {result_dict.get('tenant_id')}")
-        click.echo(f"{len(result_dict['invocations'])} invocations")
+        click.echo(bar)
+        click.echo(f"CASE   : {result_dict.get('case_id')}")
+        click.echo(f"TENANT : {result_dict.get('tenant_id')}")
+        if result_dict.get("time_range"):
+            click.echo(f"WINDOW : {result_dict['time_range'][0]} → {result_dict['time_range'][1]}")
+        click.echo(bar)
+
+        click.echo(f"TIMELINE  ({len(result_dict['invocations'])} invocations)")
         for inv in result_dict["invocations"]:
-            click.echo(
-                f"  {inv['timestamp']}  {inv['agent']:>20}  {inv['event_type']:>20}"
-                f"  ({inv.get('duration_ms', '?')}ms)"
-            )
-        if result_dict.get("integrity", {}).get("notes"):
-            click.echo("Notes:")
-            for note in result_dict["integrity"]["notes"]:
-                click.echo(f"  - {note}")
+            _print_invocation(inv)
+
+        chain = result_dict.get("decision_chain") or []
+        if chain:
+            click.echo()
+            click.echo(f"DECISION CHAIN  ({len(chain)} steps)")
+            click.echo("  " + " → ".join(chain))
+
+        integ = result_dict.get("integrity") or {}
+        click.echo()
+        click.echo("INTEGRITY")
+        click.echo(f"  entries_found    : {integ.get('entries_found', '—')}")
+        click.echo(f"  tamper_evidence  : {integ.get('tamper_evidence', '—')}")
+        gaps = integ.get("gaps_detected") or []
+        click.echo(f"  gaps_detected    : {len(gaps)}{' (' + ', '.join(gaps) + ')' if gaps else ''}")
+        for note in integ.get("notes") or []:
+            click.echo(f"  note             : {note}")
+        click.echo(bar)
     else:
         # list[AgentInvocation] from replay_agent
-        click.echo(f"{len(result_dict)} invocations")
+        click.echo(bar)
+        click.echo(f"AGENT TIMELINE  ({len(result_dict)} invocations)")
+        click.echo(bar)
         for inv in result_dict:
-            click.echo(
-                f"  {inv['timestamp']}  {inv['agent']:>20}  {inv['event_type']:>20}"
-                f"  ({inv.get('duration_ms', '?')}ms)"
-            )
+            _print_invocation(inv)
+        click.echo(bar)
 
 
 @replay_group.command("case")
