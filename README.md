@@ -1,7 +1,8 @@
 # HealthFlow
 
 > 🟢 **Live demo:** [healthflow-demo.fly.dev](https://healthflow-demo.fly.dev)
-> Sign in with `demo@healthflow.com` / `Healthflow123!` — 18 demo clients across 11 cities are pre-seeded.
+> Broker login: `demo@healthflow.com` / `Healthflow123!` — 18 demo clients across 11 cities are pre-seeded.
+> Admin login: `admin@healthflow.com` / `Healthflow123!` — opens the `/admin` workspace (team management, forensics replay, audit log).
 
 **An AI-powered health insurance brokerage platform** designed and built by [Saidu Kamara](https://github.com/saikamara59) to solve a real industry problem: health insurance is confusing, comparisons are manual, and brokers waste hours on paperwork that should be automated.
 

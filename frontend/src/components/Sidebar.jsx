@@ -36,6 +36,13 @@ const NAV = [
       { path: '/support', label: 'Support', icon: 'support' },
     ],
   },
+  {
+    group: 'Administration',
+    adminOnly: true,
+    items: [
+      { path: '/admin', label: 'Workspace admin', icon: 'settings' },
+    ],
+  },
 ];
 
 export default function Sidebar({ open, onClose }) {
@@ -108,7 +115,7 @@ export default function Sidebar({ open, onClose }) {
             in the viewport even when nav groups exceed 100vh — caught by an
             e2e failure after the Tools group grew past 6 items. */}
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {NAV.map((group) => (
+          {NAV.filter((group) => !group.adminOnly || user?.role === 'admin').map((group) => (
             <div key={group.group} className="nav-group">
               <div className="nav-group-label">{group.group}</div>
               {group.items.map((item) => (

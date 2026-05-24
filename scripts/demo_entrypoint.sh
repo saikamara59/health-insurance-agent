@@ -36,5 +36,8 @@ fi
 echo "[entrypoint] seeding demo data (idempotent)"
 python seed.py || echo "[entrypoint] seed.py exited non-zero — broker probably already exists; continuing"
 
+echo "[entrypoint] seeding admin account (idempotent)"
+python scripts/seed_admin.py || echo "[entrypoint] seed_admin.py exited non-zero; continuing"
+
 echo "[entrypoint] handing off to uvicorn (pid=$UVICORN_PID)"
 wait "$UVICORN_PID"

@@ -21,6 +21,8 @@ import TemporalPlanPage from './pages/TemporalPlanPage'
 import CostCalculatorPage from './pages/CostCalculatorPage'
 import OnboardingSuccessPage from './pages/OnboardingSuccessPage'
 import FeedbackDashboardPage from './pages/FeedbackDashboardPage'
+import AdminPage from './pages/AdminPage'
+import AdminRoute from './components/AdminRoute'
 
 export default function App() {
   return (
@@ -54,6 +56,14 @@ export default function App() {
             <Route path="activity" element={<ActivityPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="support" element={<SupportPage />} />
+            <Route
+              path="admin"
+              element={
+                <AdminRoute>
+                  <AdminPage />
+                </AdminRoute>
+              }
+            />
           </Route>
         </Routes>
       </AuthProvider>
