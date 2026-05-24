@@ -8,11 +8,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from healthflow.auth.dependencies import require_admin
+from healthflow.auth.tenant_context import system_context
 from healthflow.database.config import async_session_factory
-from healthflow.database.models import Broker
+from healthflow.database.models import AgentInvocationLog, Broker
 from healthflow.forensics.replay import (
     replay_agent,
     replay_case,
@@ -48,7 +50,26 @@ async def replay(
 
     if mode == "case":
         req = ReplayCaseRequest.model_validate(body)
-        return await replay_case(req.case_id, tenant_id=admin.id, session_factory=factory)
+        # Admins can replay any broker's case. Resolve the case's owner from
+        # the invocation log (via system_context — the lookup itself is
+        # cross-tenant). If the case doesn't exist, target stays = admin.id,
+        # which yields the natural empty result without leaking existence.
+        target_tenant = admin.id
+        async with factory() as session:
+            with system_context("admin forensics: resolve case owner"):
+                owner_row = (await session.execute(
+                    select(AgentInvocationLog.broker_id)
+                    .where(AgentInvocationLog.case_id == req.case_id)
+                    .limit(1)
+                )).scalar_one_or_none()
+                if owner_row is not None:
+                    target_tenant = owner_row
+        return await replay_case(
+            req.case_id,
+            tenant_id=target_tenant,
+            operator_id=admin.id,
+            session_factory=factory,
+        )
 
     if mode == "member":
         req = ReplayMemberRequest.model_validate(body)

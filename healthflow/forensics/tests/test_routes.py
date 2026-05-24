@@ -90,9 +90,13 @@ async def test_unauthenticated_gets_401(client):
 
 
 @pytest.mark.asyncio
-async def test_cross_tenant_case_returns_empty_not_404(client, db_session):
-    """A case belonging to a different broker queried as the admin →
-    200 with empty invocations (no info leak)."""
+async def test_admin_can_replay_another_brokers_case(client, db_session):
+    """Admins can replay any broker's case — the route resolves the case's
+    owner and scopes the read to that broker, while the self-audit row
+    records admin.id as operator_id and the owner as tenant_id."""
+    from sqlalchemy import select
+    from healthflow.database.models import ForensicsAccessLog
+
     access, admin_id = await _make_admin(client, db_session)
     case = uuid.uuid4()
     other_broker = uuid.uuid4()
@@ -103,6 +107,28 @@ async def test_cross_tenant_case_returns_empty_not_404(client, db_session):
         "/forensics/replay",
         headers={"Authorization": f"Bearer {access}"},
         json={"mode": "case", "case_id": str(case)},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["invocations"]) == 1
+    assert str(other_broker) == body["tenant_id"]
+
+    audit = (await db_session.execute(
+        select(ForensicsAccessLog).where(ForensicsAccessLog.scope_key == str(case))
+    )).scalar_one()
+    assert audit.operator_id == admin_id
+    assert audit.tenant_id == other_broker
+
+
+@pytest.mark.asyncio
+async def test_admin_replay_of_unknown_case_returns_empty(client, db_session):
+    """Unknown case_id → 200 with empty invocations; target falls back to
+    admin.id and finds nothing. No 404 (don't leak whether a case existed)."""
+    access, _ = await _make_admin(client, db_session)
+    resp = await client.post(
+        "/forensics/replay",
+        headers={"Authorization": f"Bearer {access}"},
+        json={"mode": "case", "case_id": str(uuid.uuid4())},
     )
     assert resp.status_code == 200
     assert resp.json()["invocations"] == []

@@ -40,8 +40,19 @@ async def replay_case(
     case_id: uuid.UUID,
     *,
     tenant_id: uuid.UUID,
+    operator_id: uuid.UUID | None = None,
     session_factory: async_sessionmaker,
 ) -> CaseTimeline:
+    """Reconstruct a single case's timeline.
+
+    `tenant_id` is the broker whose data is being read (the scope filter).
+    `operator_id` is the broker who initiated the read (the actor recorded
+    in the self-audit row). When None, defaults to `tenant_id` — preserves
+    the original single-tenant semantics for existing callers. Admin
+    cross-tenant queries pass both: tenant_id=target_broker, operator_id=admin.
+    """
+    if operator_id is None:
+        operator_id = tenant_id
     async with session_factory() as session:
         rows = (await session.execute(
             select(AgentInvocationLog)
@@ -68,7 +79,7 @@ async def replay_case(
 
         await _write_self_audit(
             session,
-            operator_id=tenant_id,
+            operator_id=operator_id,
             mode="case",
             scope_key=str(case_id),
             tenant_id=tenant_id,
@@ -163,6 +174,7 @@ async def replay_member(
     *,
     time_range: tuple[datetime, datetime],
     tenant_id: uuid.UUID,
+    operator_id: uuid.UUID | None = None,
     session_factory: async_sessionmaker,
 ) -> CaseTimeline:
     """Reconstruct the timeline of agent invocations that accessed this client.
@@ -171,6 +183,8 @@ async def replay_member(
     the time range, then pull agent_invocation_log rows ±PHI_JOIN_WINDOW
     around each PHI access (same broker = tenant_id).
     """
+    if operator_id is None:
+        operator_id = tenant_id
     from_ts, to_ts = time_range
     async with session_factory() as session:
         # Step 1: find PHI accesses that touched this client.
@@ -223,7 +237,7 @@ async def replay_member(
 
         await _write_self_audit(
             session,
-            operator_id=tenant_id,
+            operator_id=operator_id,
             mode="member",
             scope_key=client_id_str,
             tenant_id=tenant_id,
@@ -240,9 +254,12 @@ async def replay_agent(
     *,
     time_range: tuple[datetime, datetime],
     tenant_id: uuid.UUID,
+    operator_id: uuid.UUID | None = None,
     session_factory: async_sessionmaker,
 ) -> list[AgentInvocation]:
     """Invocations of a specific agent within a time range, for one tenant."""
+    if operator_id is None:
+        operator_id = tenant_id
     from_ts, to_ts = time_range
     async with session_factory() as session:
         rows = (await session.execute(
@@ -258,7 +275,7 @@ async def replay_agent(
 
         await _write_self_audit(
             session,
-            operator_id=tenant_id,
+            operator_id=operator_id,
             mode="agent",
             scope_key=agent,
             tenant_id=tenant_id,
