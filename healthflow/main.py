@@ -21,6 +21,7 @@ from healthflow.api.client_router import client_router
 from healthflow.api.history_router import history_router
 from healthflow.feedback.router import feedback_router
 from healthflow.agents.temporal_awareness.routes import temporal_router
+from healthflow.forensics.routes import forensics_router
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.include_router(client_router)
 app.include_router(history_router)
 app.include_router(feedback_router)
 app.include_router(temporal_router)
+app.include_router(forensics_router)
 
 
 if os.getenv("HEALTHFLOW_TEST_MODE") == "1":
