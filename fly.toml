@@ -13,7 +13,7 @@ primary_region = 'iad'
   # + audit logs survive deploys.
   DATABASE_URL = 'sqlite+aiosqlite:////data/healthflow.db'
   EMAIL_PROVIDER = 'console'
-  FRONTEND_BASE_URL = 'https://healthflow-demo.fly.dev'
+  FRONTEND_BASE_URL = 'https://healthflow.work'
 
 [http_service]
   internal_port = 8000

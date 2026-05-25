@@ -1,6 +1,6 @@
 # HealthFlow
 
-> 🟢 **Live demo:** [healthflow-demo.fly.dev](https://healthflow-demo.fly.dev)
+> 🟢 **Live demo:** [healthflow.work](https://healthflow.work)
 > Broker login: `demo@healthflow.com` / `Healthflow123!` — 18 demo clients across 11 cities are pre-seeded.
 > Admin login: `admin@healthflow.com` / `Healthflow123!` — opens the `/admin` workspace (team management, forensics replay, audit log).
 
