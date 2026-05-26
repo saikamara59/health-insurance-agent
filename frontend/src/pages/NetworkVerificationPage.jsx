@@ -3,6 +3,7 @@ import api from '../api/client';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Chip from '../components/ui/Chip';
+import AgentMarkdown from '../components/ui/AgentMarkdown';
 import useLayout from '../components/ui/useLayout';
 import DrugAutocomplete from '../components/ui/DrugAutocomplete';
 
@@ -167,9 +168,9 @@ export default function NetworkVerificationPage() {
             {result.recommendation && (
               <div className="card card-pad" style={{ marginBottom: 28 }}>
                 <div className="eyebrow" style={{ marginBottom: 10 }}>Recommendation</div>
-                <p style={{ fontFamily: 'var(--serif)', fontSize: 20, letterSpacing: '-0.01em', lineHeight: 1.4 }}>
+                <AgentMarkdown style={{ fontSize: 15 }}>
                   {result.recommendation}
-                </p>
+                </AgentMarkdown>
               </div>
             )}
 

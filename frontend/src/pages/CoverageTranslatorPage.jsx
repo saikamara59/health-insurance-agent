@@ -3,6 +3,7 @@ import api from '../api/client';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Chip from '../components/ui/Chip';
+import AgentMarkdown from '../components/ui/AgentMarkdown';
 import useLayout from '../components/ui/useLayout';
 
 const SAMPLE_DOC = `SUMMARY OF BENEFITS — PRIME HMO
@@ -133,8 +134,13 @@ export default function CoverageTranslatorPage() {
                     <div key={i} className={`msg ${m.role}`}>
                       <div>
                         <div className="bub-label">{m.role === 'user' ? 'You asked' : 'Translator'}</div>
-                        <div className="bubble" style={m.error ? { color: 'var(--neg)' } : undefined}>
-                          {m.body}
+                        <div
+                          className="bubble"
+                          style={m.error ? { color: 'var(--neg)' } : undefined}
+                        >
+                          {m.role === 'agent'
+                            ? <AgentMarkdown>{m.body}</AgentMarkdown>
+                            : m.body}
                         </div>
                         {m.cites && m.cites.length > 0 && (
                           <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -151,7 +157,7 @@ export default function CoverageTranslatorPage() {
                   <div className="msg">
                     <div>
                       <div className="bub-label">Translator</div>
-                      <div className="bubble">
+                      <div className="bubble agent-output">
                         <span className="loader" /> thinking…
                       </div>
                     </div>

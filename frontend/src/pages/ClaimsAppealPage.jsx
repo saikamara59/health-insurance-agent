@@ -3,6 +3,7 @@ import api from '../api/client';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Chip from '../components/ui/Chip';
+import AgentMarkdown from '../components/ui/AgentMarkdown';
 import useLayout from '../components/ui/useLayout';
 
 const SAMPLE = `This letter is to inform you that your claim for MRI of the right shoulder
@@ -165,20 +166,10 @@ export default function ClaimsAppealPage() {
                     </button>
                   </div>
                 </div>
-                <div className="card">
-                  <pre
-                    style={{
-                      fontFamily: 'var(--serif)',
-                      fontSize: 14.5,
-                      lineHeight: 1.7,
-                      padding: 24,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      margin: 0,
-                    }}
-                  >
+                <div className="card" style={{ padding: 24 }}>
+                  <AgentMarkdown style={{ fontSize: 14.5 }}>
                     {result.appeal_letter}
-                  </pre>
+                  </AgentMarkdown>
                 </div>
 
                 {result.disclaimer && <div className="notice" style={{ marginTop: 20 }}>{result.disclaimer}</div>}

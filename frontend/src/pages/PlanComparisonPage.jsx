@@ -4,6 +4,7 @@ import api from '../api/client';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Stars from '../components/ui/Stars';
+import AgentMarkdown from '../components/ui/AgentMarkdown';
 import useLayout from '../components/ui/useLayout';
 
 function currency(v) {
@@ -278,23 +279,9 @@ export default function PlanComparisonPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
                   <div style={{ padding: '32px 36px' }}>
                     <div className="eyebrow" style={{ marginBottom: 14 }}>Recommendation</div>
-                    {result.recommendation
-                      .split(/\n\s*\n/)
-                      .map((para, pi) => (
-                        <p
-                          key={pi}
-                          style={{
-                            fontFamily: 'var(--sans)',
-                            fontSize: 14.5,
-                            lineHeight: 1.65,
-                            color: 'var(--ink-2)',
-                            maxWidth: 640,
-                            margin: pi === 0 ? '0 0 12px' : '0 0 12px',
-                          }}
-                        >
-                          {para}
-                        </p>
-                      ))}
+                    <AgentMarkdown style={{ fontSize: 14.5, maxWidth: 760 }}>
+                      {result.recommendation}
+                    </AgentMarkdown>
                   </div>
                   {cheapestIdx >= 0 && (
                     <div style={{ background: 'var(--bg-2)', borderLeft: '1px solid var(--line)', padding: 28 }}>
