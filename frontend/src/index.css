@@ -123,7 +123,13 @@ a { color: inherit; text-decoration: none; }
    so the model's output is visually distinct from the UI chrome around it.
    The element children are emitted by react-markdown — we style them as prose
    so heading/list/table syntax stops leaking through as raw punctuation. */
-.agent-output { font-family: 'Times New Roman', Times, serif; color: var(--ink); }
+.agent-output {
+  font-family: 'Times New Roman', Times, serif;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+  min-width: 0;
+}
 .agent-output > :first-child { margin-top: 0; }
 .agent-output > :last-child { margin-bottom: 0; }
 .agent-output p { margin: 0 0 12px; line-height: 1.6; }
@@ -177,11 +183,30 @@ a { color: inherit; text-decoration: none; }
 .agent-output tr:last-child td { border-bottom: 0; }
 .agent-output th { background: var(--bg-2); font-weight: 600; border-bottom-width: 1px; }
 @media (max-width: 700px) {
-  .agent-output h1 { font-size: 22px; }
-  .agent-output h2 { font-size: 19px; }
-  .agent-output h3 { font-size: 16.5px; }
-  .agent-output table { font-size: 12.5px; }
+  /* Force long unbroken strings (URLs, hashes, IDs) to wrap so they can't
+     push the column past the viewport. min-width:0 on the parent lets the
+     agent-output container actually shrink instead of pinning its
+     intrinsic content width. */
+  .agent-output { font-size: 13.5px; overflow-wrap: anywhere; word-break: break-word; }
+  .agent-output p { line-height: 1.5; }
+  .agent-output h1 { font-size: 21px; }
+  .agent-output h2 { font-size: 18px; }
+  .agent-output h3 { font-size: 16px; }
+  .agent-output h4 { font-size: 15px; }
+  .agent-output table { font-size: 12px; }
   .agent-output th, .agent-output td { padding: 6px 10px; }
+  .agent-output ul, .agent-output ol { padding-left: 18px; }
+}
+
+/* Plan-comparison recommendation card: side-by-side on desktop, stacked
+   on mobile so the cheapest-estimate aside doesn't squeeze the prose. */
+.compare-rec-grid { display: grid; grid-template-columns: 1fr 320px; }
+.compare-rec-main { padding: 32px 36px; min-width: 0; }
+.compare-rec-aside { background: var(--bg-2); border-left: 1px solid var(--line); padding: 28px; }
+@media (max-width: 900px) {
+  .compare-rec-grid { grid-template-columns: 1fr; }
+  .compare-rec-main { padding: 22px 20px; }
+  .compare-rec-aside { border-left: 0; border-top: 1px solid var(--line); padding: 22px 20px; }
 }
 .eyebrow {
   font-family: var(--mono);

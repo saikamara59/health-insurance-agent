@@ -275,16 +275,16 @@ export default function PlanComparisonPage() {
         {step === 'results' && result && (
           <>
             {result.recommendation && (
-              <div className="card" style={{ marginBottom: 28, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px' }}>
-                  <div style={{ padding: '32px 36px' }}>
+              <div className="card compare-rec-card" style={{ marginBottom: 28, overflow: 'hidden' }}>
+                <div className="compare-rec-grid">
+                  <div className="compare-rec-main">
                     <div className="eyebrow" style={{ marginBottom: 14 }}>Recommendation</div>
-                    <AgentMarkdown style={{ fontSize: 14.5, maxWidth: 760 }}>
+                    <AgentMarkdown style={{ maxWidth: 760 }}>
                       {result.recommendation}
                     </AgentMarkdown>
                   </div>
                   {cheapestIdx >= 0 && (
-                    <div style={{ background: 'var(--bg-2)', borderLeft: '1px solid var(--line)', padding: 28 }}>
+                    <div className="compare-rec-aside">
                       <div className="eyebrow" style={{ marginBottom: 14 }}>Cheapest estimate</div>
                       <div style={{ fontFamily: 'var(--serif)', fontSize: 44, letterSpacing: '-0.02em', lineHeight: 1 }}>
                         {currency(annuals[cheapestIdx])}
