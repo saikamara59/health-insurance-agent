@@ -51,6 +51,9 @@ async def _register_and_login(client, email="drugs@example.com", password="Cromu
         json={"email": email, "password": password, "full_name": "Drug Tester"},
     )
     assert reg.status_code == 201
+    # Production /auth/register creates accounts as pending; flip via test router.
+    act = await client.post("/__test/activate-broker", json={"email": email})
+    assert act.status_code == 200, act.text
     login = await client.post(
         "/auth/login", json={"email": email, "password": password}
     )

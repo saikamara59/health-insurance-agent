@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import TopBar from '../components/TopBar';
 import Icon from '../components/ui/Icon';
 import Chip from '../components/ui/Chip';
@@ -27,11 +28,13 @@ function isLocked(broker) {
 }
 
 export default function AdminPage() {
+  const { user } = useAuth();
   const { openMenu, openNotifications } = useLayout();
   const [brokers, setBrokers] = useState([]);
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unlocking, setUnlocking] = useState(null);
+  const [approving, setApproving] = useState(null);
   const [error, setError] = useState(null);
 
   const [replayCaseId, setReplayCaseId] = useState('');
@@ -55,10 +58,11 @@ export default function AdminPage() {
 
   const stats = useMemo(() => {
     const locked = brokers.filter(isLocked).length;
+    const pending = brokers.filter((b) => !b.is_active).length;
     const admins = brokers.filter((b) => b.role === 'admin').length;
     const since = Date.now() - 24 * 3600 * 1000;
     const last24 = audit.filter((a) => new Date(a.created_at).getTime() > since).length;
-    return { total: brokers.length, locked, admins, last24 };
+    return { total: brokers.length, locked, pending, admins, last24 };
   }, [brokers, audit]);
 
   const unlock = async (broker) => {
@@ -70,6 +74,31 @@ export default function AdminPage() {
       setError(`Unlock failed: ${e.message}`);
     } finally {
       setUnlocking(null);
+    }
+  };
+
+  const approve = async (broker) => {
+    setApproving(broker.id);
+    try {
+      await api.post(`/admin/brokers/${broker.id}/approve`);
+      loadAll();
+    } catch (e) {
+      setError(`Approve failed: ${e.message}`);
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  const deactivate = async (broker) => {
+    if (!window.confirm(`Deactivate ${broker.email}? They won't be able to log in until you re-approve.`)) return;
+    setApproving(broker.id);
+    try {
+      await api.post(`/admin/brokers/${broker.id}/deactivate`);
+      loadAll();
+    } catch (e) {
+      setError(`Deactivate failed: ${e.message}`);
+    } finally {
+      setApproving(null);
     }
   };
 
@@ -126,11 +155,13 @@ export default function AdminPage() {
               <div className="delta">{stats.admins} admin · {stats.total - stats.admins} broker</div>
             </div>
             <div className="stat">
-              <div className="label">Locked accounts</div>
-              <div className="value num" style={{ color: stats.locked > 0 ? 'var(--warn)' : undefined }}>
-                {loading ? '—' : stats.locked}
+              <div className="label">Pending approval</div>
+              <div className="value num" style={{ color: stats.pending > 0 ? 'var(--warn)' : undefined }}>
+                {loading ? '—' : stats.pending}
               </div>
-              <div className="delta">awaiting unlock</div>
+              <div className="delta">
+                {stats.locked > 0 ? `${stats.locked} also locked` : 'awaiting your approval'}
+              </div>
             </div>
             <div className="stat">
               <div className="label">Agent invocations (24h)</div>
@@ -185,7 +216,7 @@ export default function AdminPage() {
                     <td>
                       <Chip tone={b.role === 'admin' ? 'accent' : ''}>{b.role}</Chip>
                       {locked && <Chip tone="warn" style={{ marginLeft: 6 }}>Locked</Chip>}
-                      {!b.is_active && <Chip tone="neg" style={{ marginLeft: 6 }}>Inactive</Chip>}
+                      {!b.is_active && <Chip tone="warn" style={{ marginLeft: 6 }}>Pending</Chip>}
                     </td>
                     <td className="num">
                       {b.client_count > 0 ? `${b.client_count} client${b.client_count === 1 ? '' : 's'}` : <span className="muted">—</span>}
@@ -196,7 +227,29 @@ export default function AdminPage() {
                         : <span className="muted">0</span>}
                     </td>
                     <td className="muted">{sinceLabel(b.created_at)}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {!b.is_active ? (
+                        <button
+                          className="btn sm accent"
+                          onClick={() => approve(b)}
+                          disabled={approving === b.id}
+                          title="Approve pending account so they can sign in"
+                        >
+                          {approving === b.id ? 'Approving…' : 'Approve'}
+                        </button>
+                      ) : (
+                        b.id !== user?.id && (
+                          <button
+                            className="btn sm ghost"
+                            onClick={() => deactivate(b)}
+                            disabled={approving === b.id}
+                            style={{ marginRight: 6 }}
+                            title="Revoke this broker's access"
+                          >
+                            Deactivate
+                          </button>
+                        )
+                      )}
                       <button
                         className="btn sm"
                         onClick={() => unlock(b)}

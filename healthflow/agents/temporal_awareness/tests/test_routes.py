@@ -21,6 +21,8 @@ async def _register_and_login(client, email="temporal@example.com", password="Cr
         json={"email": email, "password": password, "full_name": "Temporal Tester"},
     )
     assert reg.status_code == 201
+    # Production /auth/register creates accounts as pending; activate via test router.
+    await client.post("/__test/activate-broker", json={"email": email})
     login = await client.post(
         "/auth/login", json={"email": email, "password": password}
     )

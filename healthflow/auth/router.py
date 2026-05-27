@@ -53,10 +53,15 @@ async def register(
             detail="Email already registered",
         )
 
+    # New accounts land inactive — an admin has to approve them from the
+    # Administration page before the user can log in. Pre-seeded accounts
+    # (demo + admin) are activated by the seed scripts; existing accounts
+    # in the live DB are untouched (their is_active was True at insert).
     broker = Broker(
         email=broker_data.email,
         hashed_password=hash_password(broker_data.password),
         full_name=broker_data.full_name,
+        is_active=False,
     )
     db.add(broker)
     await db.flush()
@@ -110,9 +115,12 @@ async def login(
         raise generic_error
 
     if not broker.is_active:
+        # Same message whether the account is brand-new pending approval or
+        # was previously approved and then deactivated — both flows resolve
+        # the same way (admin re-activates from the Administration page).
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending admin approval",
         )
 
     # Success — reset lockout state.

@@ -29,6 +29,8 @@ async def _make_admin(client, db_session, email="admin@example.com", password="C
         json={"email": email, "password": password, "full_name": "Admin"},
     )
     assert reg.status_code == 201
+    # Production /auth/register creates accounts as pending; activate via test router.
+    await client.post("/__test/activate-broker", json={"email": email})
     await db_session.execute(
         sa_update(Broker).where(Broker.email == email).values(role="admin")
     )
@@ -67,6 +69,7 @@ async def test_non_admin_gets_403(client):
         json={"email": "broker@example.com", "password": "Cromulent42!", "full_name": "Broker"},
     )
     assert reg.status_code == 201
+    await client.post("/__test/activate-broker", json={"email": "broker@example.com"})
     login = await client.post(
         "/auth/login", json={"email": "broker@example.com", "password": "Cromulent42!"}
     )

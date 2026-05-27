@@ -11,6 +11,8 @@ async def _register_and_login(client, email="crud@example.com"):
             "full_name": "CRUD Broker",
         },
     )
+    # Production /auth/register creates accounts as pending; flip via test router.
+    await client.post("/__test/activate-broker", json={"email": email})
     login_resp = await client.post(
         "/auth/login",
         json={"email": email, "password": "securepass123!"},

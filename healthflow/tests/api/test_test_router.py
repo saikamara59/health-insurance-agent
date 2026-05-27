@@ -47,6 +47,7 @@ async def _build_client(db_session_factory):
 @pytest.mark.anyio
 async def test_reset_endpoint_returns_404_when_test_mode_off(monkeypatch, db_session_factory):
     monkeypatch.delenv("HEALTHFLOW_TEST_MODE", raising=False)
+    monkeypatch.delenv("HEALTHFLOW_ENABLE_TEST_ROUTES", raising=False)
     client_, app = await _build_client(db_session_factory)
     try:
         response = await client_.post("/__test/reset", json={"worker_id": "e2e-worker-0"})

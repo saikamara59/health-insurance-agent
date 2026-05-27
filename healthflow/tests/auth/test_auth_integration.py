@@ -21,7 +21,8 @@ async def test_full_broker_workflow(client):
     assert register_resp.status_code == 201
     broker_id = register_resp.json()["id"]
 
-    # Step 2: Login
+    # Step 2: Activate (production registration creates pending accounts) + login
+    await client.post("/__test/activate-broker", json={"email": "e2e@example.com"})
     login_resp = await client.post(
         "/auth/login",
         json={"email": "e2e@example.com", "password": "securepass123!"},
@@ -131,6 +132,7 @@ async def test_multi_broker_isolation(client):
             "full_name": "Broker A",
         },
     )
+    await client.post("/__test/activate-broker", json={"email": "isolation-a@example.com"})
     login_a = await client.post(
         "/auth/login",
         json={"email": "isolation-a@example.com", "password": "securepass123!"},
@@ -147,6 +149,7 @@ async def test_multi_broker_isolation(client):
             "full_name": "Broker B",
         },
     )
+    await client.post("/__test/activate-broker", json={"email": "isolation-b@example.com"})
     login_b = await client.post(
         "/auth/login",
         json={"email": "isolation-b@example.com", "password": "securepass123!"},
@@ -233,6 +236,7 @@ async def test_expired_token_returns_401(client):
             "full_name": "Expired Broker",
         },
     )
+    await client.post("/__test/activate-broker", json={"email": "expired@example.com"})
     login_resp = await client.post(
         "/auth/login",
         json={"email": "expired@example.com", "password": "securepass123!"},

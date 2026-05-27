@@ -21,6 +21,15 @@ os.environ.setdefault(
 os.environ.setdefault("EMAIL_PROVIDER", "console")
 os.environ.setdefault("FRONTEND_BASE_URL", "https://test.example.com")
 
+# Enable the test-only router (mounted under /__test) so helpers can flip
+# is_active=True on freshly registered brokers without going through the
+# admin-approval flow. Production /auth/register creates is_active=False.
+#
+# Deliberately NOT HEALTHFLOW_TEST_MODE — that flag also makes some agents
+# return deterministic stubs (used by e2e Docker), which would break unit
+# tests that mock Anthropic and assert on the mocked response.
+os.environ.setdefault("HEALTHFLOW_ENABLE_TEST_ROUTES", "1")
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport

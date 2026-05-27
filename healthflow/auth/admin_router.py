@@ -99,6 +99,75 @@ async def recent_audit(
     ]
 
 
+@admin_router.post("/brokers/{broker_id}/approve")
+async def approve_broker(
+    broker_id: _uuid.UUID,
+    admin: Broker = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Activate a pending broker account so they can sign in.
+
+    Idempotent — approving an already-active account is a no-op write.
+    Emits `admin_approved_broker` to the audit log with both ids. Admins
+    cannot approve a deleted/missing account (404).
+    """
+    target = (await db.execute(
+        select(Broker).where(Broker.id == broker_id)
+    )).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Broker not found",
+        )
+
+    target.is_active = True
+    await db.commit()
+
+    AuditLogger().log(
+        "admin_approved_broker",
+        {"admin_id": str(admin.id), "target_broker_id": str(broker_id)},
+    )
+
+    return {"approved": True, "broker_id": str(broker_id)}
+
+
+@admin_router.post("/brokers/{broker_id}/deactivate")
+async def deactivate_broker(
+    broker_id: _uuid.UUID,
+    admin: Broker = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Deactivate a broker account so they can no longer sign in.
+
+    Admins cannot deactivate themselves — that's a foot-gun (lockout with
+    no recovery path inside the UI). 403 in that case.
+    """
+    if broker_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot deactivate your own admin account",
+        )
+
+    target = (await db.execute(
+        select(Broker).where(Broker.id == broker_id)
+    )).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Broker not found",
+        )
+
+    target.is_active = False
+    await db.commit()
+
+    AuditLogger().log(
+        "admin_deactivated_broker",
+        {"admin_id": str(admin.id), "target_broker_id": str(broker_id)},
+    )
+
+    return {"deactivated": True, "broker_id": str(broker_id)}
+
+
 @admin_router.post("/brokers/{broker_id}/unlock")
 async def force_unlock_broker(
     broker_id: _uuid.UUID,

@@ -13,25 +13,34 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setInfo('')
     setLoading(true)
 
-    let result
     if (isRegisterMode) {
-      result = await register(email, password, fullName)
+      const result = await register(email, password, fullName)
+      setLoading(false)
       if (result.success) {
-        result = await login(email, password)
+        // New accounts land pending admin approval — don't try to auto-login,
+        // it would fail with the same pending message and confuse the user.
+        setIsRegisterMode(false)
+        setPassword('')
+        setInfo(
+          `Account created for ${email}. An admin will review your registration before you can sign in.`,
+        )
+      } else {
+        setError(result.error || 'Registration failed')
       }
-    } else {
-      result = await login(email, password)
+      return
     }
 
+    const result = await login(email, password)
     setLoading(false)
-
     if (result.success) {
       navigate('/')
     } else {
@@ -104,6 +113,13 @@ export default function LoginPage() {
           {error && (
             <div className="p-4 bg-error-container rounded-xl">
               <p className="text-sm text-on-error-container">{error}</p>
+            </div>
+          )}
+
+          {/* Info (e.g. account-pending-approval after register) */}
+          {info && (
+            <div className="p-4 bg-primary-container rounded-xl">
+              <p className="text-sm text-on-primary-container">{info}</p>
             </div>
           )}
 

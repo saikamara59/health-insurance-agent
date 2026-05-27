@@ -15,6 +15,7 @@ async def test_authenticated_request_sees_broker_in_context_var(client, db_sessi
         },
     )
     assert res.status_code == 201, res.text
+    await client.post("/__test/activate-broker", json={"email": "ctx@healthflow.test"})
 
     res = await client.post(
         "/auth/login",
@@ -49,6 +50,7 @@ async def test_concurrent_authenticated_requests_do_not_leak_data(client, db_ses
             json={"email": email, "password": "Leak123!Pass1", "full_name": label.upper()},
         )
         assert res.status_code == 201, res.text
+        await client.post("/__test/activate-broker", json={"email": email})
 
     async def login(email):
         res = await client.post(

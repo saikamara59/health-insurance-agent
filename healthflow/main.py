@@ -67,7 +67,10 @@ app.include_router(temporal_router)
 app.include_router(forensics_router)
 
 
-if os.getenv("HEALTHFLOW_TEST_MODE") == "1":
+if (
+    os.getenv("HEALTHFLOW_TEST_MODE") == "1"
+    or os.getenv("HEALTHFLOW_ENABLE_TEST_ROUTES") == "1"
+):
     from healthflow.api.test_router import test_router
     app.include_router(test_router)
     logging.warning("⚠️ test reset endpoint enabled — never run in production")
