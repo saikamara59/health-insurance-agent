@@ -181,14 +181,14 @@ export default function AdminPage() {
           <div className="after">Brokers with access to this workspace</div>
         </div>
         <div className="card" style={{ overflow: 'hidden', marginBottom: 36 }}>
-          <table className="tbl">
+          <table className="tbl admin-team-tbl">
             <thead>
               <tr>
                 <th style={{ width: '32%' }}>Member</th>
                 <th>Role</th>
-                <th>Book</th>
-                <th>Failed logins</th>
-                <th>Joined</th>
+                <th className="col-hide-sm">Book</th>
+                <th className="col-hide-sm">Failed logins</th>
+                <th className="col-hide-sm">Joined</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -218,16 +218,16 @@ export default function AdminPage() {
                       {locked && <Chip tone="warn" style={{ marginLeft: 6 }}>Locked</Chip>}
                       {!b.is_active && <Chip tone="warn" style={{ marginLeft: 6 }}>Pending</Chip>}
                     </td>
-                    <td className="num">
+                    <td className="num col-hide-sm">
                       {b.client_count > 0 ? `${b.client_count} client${b.client_count === 1 ? '' : 's'}` : <span className="muted">—</span>}
                     </td>
-                    <td className="num">
+                    <td className="num col-hide-sm">
                       {b.failed_login_count > 0
                         ? <span style={{ color: 'var(--warn)' }}>{b.failed_login_count}</span>
                         : <span className="muted">0</span>}
                     </td>
-                    <td className="muted">{sinceLabel(b.created_at)}</td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td className="muted col-hide-sm">{sinceLabel(b.created_at)}</td>
+                    <td className="admin-actions-cell" style={{ textAlign: 'right' }}>
                       {!b.is_active ? (
                         <button
                           className="btn sm accent"

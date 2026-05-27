@@ -198,6 +198,24 @@ a { color: inherit; text-decoration: none; }
   .agent-output ul, .agent-output ol { padding-left: 18px; }
 }
 
+/* Hide secondary table columns on phones. Tag <th>/<td> with .col-hide-sm
+   to drop them at <=700px without restructuring the rendered DOM. */
+@media (max-width: 700px) {
+  .tbl .col-hide-sm { display: none; }
+  /* Admin team table: stack action buttons + tighten the Member cell so the
+     full email doesn't push the cell wider than the viewport. */
+  .admin-team-tbl td, .admin-team-tbl th { padding: 12px 12px; }
+  .admin-team-tbl .sub.mono {
+    font-size: 11px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 160px;
+  }
+  .admin-actions-cell { white-space: normal !important; }
+  .admin-actions-cell .btn {
+    display: inline-flex; margin: 2px 0 2px 4px;
+  }
+}
+
 /* Plan-comparison recommendation card: side-by-side on desktop, stacked
    on mobile so the cheapest-estimate aside doesn't squeeze the prose. */
 .compare-rec-grid { display: grid; grid-template-columns: 1fr 320px; }
