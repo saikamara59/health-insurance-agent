@@ -286,14 +286,14 @@ export default function AdminPage() {
             tagged to that case and joins it against PHI access events within a configurable window. The
             backend self-audits every replay query into <code>forensics_access_log</code>.
           </p>
-          <div className="row" style={{ gap: 8, marginBottom: 16 }}>
+          <div className="replay-input-row">
             <input
               type="text"
               className="input"
               placeholder="case_id (UUID)"
               value={replayCaseId}
               onChange={(e) => setReplayCaseId(e.target.value)}
-              style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 13 }}
+              style={{ flex: 1, minWidth: 0, fontFamily: 'var(--mono)', fontSize: 13 }}
             />
             <button
               className="btn accent"
@@ -338,24 +338,13 @@ export default function AdminPage() {
               ) : (
                 <div className="card" style={{ background: 'var(--bg-2)' }}>
                   {replayResult.invocations.map((inv) => (
-                    <div
-                      key={inv.invocation_id}
-                      style={{
-                        padding: '12px 16px',
-                        borderBottom: '1px solid var(--line)',
-                        display: 'grid',
-                        gridTemplateColumns: '110px 110px 1fr auto',
-                        gap: 14,
-                        alignItems: 'center',
-                        fontSize: 13,
-                      }}
-                    >
-                      <span className="mono muted">{sinceLabel(inv.timestamp)}</span>
+                    <div key={inv.invocation_id} className="replay-inv-row">
+                      <span className="mono muted ri-time">{sinceLabel(inv.timestamp)}</span>
                       <Chip>{inv.agent}</Chip>
-                      <span className="mono" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span className="mono ri-endpoint">
                         {inv.endpoint} · {inv.event_type}
                       </span>
-                      <span className="muted mono" style={{ fontSize: 11 }}>
+                      <span className="muted mono ri-duration">
                         {inv.duration_ms != null ? `${inv.duration_ms}ms` : '—'}
                         {inv.phi_row_count > 0 && ` · ${inv.phi_row_count} PHI`}
                       </span>
@@ -384,14 +373,8 @@ export default function AdminPage() {
               {audit.map((a, i) => (
                 <div
                   key={a.id}
-                  style={{
-                    padding: '12px 0',
-                    borderBottom: i < audit.length - 1 ? '1px dashed var(--line)' : 0,
-                    display: 'grid',
-                    gridTemplateColumns: '90px 120px 1fr auto',
-                    gap: 14,
-                    alignItems: 'center',
-                  }}
+                  className="audit-log-row"
+                  style={{ borderBottom: i < audit.length - 1 ? '1px dashed var(--line)' : 0 }}
                 >
                   <span className="mono muted" style={{ fontSize: 11 }}>{sinceLabel(a.created_at)}</span>
                   <Chip tone={a.error ? 'neg' : ''}>{a.agent}</Chip>
