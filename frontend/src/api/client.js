@@ -68,7 +68,14 @@ async function request(method, path, body = null) {
 
   if (res.status === 401) {
     clearTokens()
-    throw new Error('Unauthorized')
+    // Try the backend's specific message first (e.g. "Invalid email or
+    // password" on a failed login). Fall back to a friendlier phrasing
+    // than the verbatim HTTP status text.
+    const errorData = await res.json().catch(() => ({}))
+    const error = new Error(errorData.detail || 'Your session ended — please sign in again.')
+    error.status = 401
+    error.data = errorData
+    throw error
   }
 
   if (res.status === 204) {
@@ -77,7 +84,11 @@ async function request(method, path, body = null) {
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    const error = new Error(errorData.detail || `Request failed: ${res.status}`)
+    const fallback =
+      res.status >= 500
+        ? "Our server hit a snag. Try again in a moment."
+        : "Something didn't go through. Try again."
+    const error = new Error(errorData.detail || fallback)
     error.status = res.status
     error.data = errorData
     throw error

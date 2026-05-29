@@ -206,6 +206,18 @@ export default function LoginPage() {
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </div>
+
+                {isRegisterMode && (
+                  <div className="mt-3 ml-1 text-xs text-on-surface-variant">
+                    <p className="mb-1.5 font-medium">Password requirements</p>
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>At least 12 characters long</li>
+                      <li>Mix of letters and at least one number</li>
+                      <li>At least one symbol (e.g. ! ? @ # $)</li>
+                      <li>Not a commonly used password</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 

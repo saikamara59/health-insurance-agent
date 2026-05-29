@@ -538,7 +538,8 @@ async def test_reset_password_invalid_jwt_returns_401(client):
         json={"token": "not-a-jwt", "new_password": "Brandnew99$word"},
     )
     assert resp.status_code == 401
-    assert "reset token" in resp.json()["detail"].lower()
+    # User-facing copy: don't say "reset token" verbatim, mention "reset link"
+    assert "reset link" in resp.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

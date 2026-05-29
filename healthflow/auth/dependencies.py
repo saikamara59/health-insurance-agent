@@ -41,7 +41,7 @@ async def get_current_broker(
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Your session is invalid or expired — please sign in again.",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -88,6 +88,6 @@ async def require_admin(broker: Broker = Depends(get_current_broker)) -> Broker:
     if broker.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required",
+            detail="You need an admin account to view this page.",
         )
     return broker

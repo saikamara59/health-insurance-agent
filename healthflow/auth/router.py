@@ -159,7 +159,7 @@ async def refresh(
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired refresh token",
+        detail="Your session expired — please sign in again.",
     )
 
     try:
@@ -322,7 +322,7 @@ async def change_password(
     if not verify_password(payload.current_password, broker.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid current password",
+            detail="The current password you entered doesn't match our records.",
         )
 
     broker.hashed_password = hash_password(payload.new_password)
@@ -433,7 +433,7 @@ async def reset_password(
 
     generic_401 = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired reset token",
+        detail="This password-reset link expired or was already used. Please request a new one.",
     )
 
     try:
