@@ -198,21 +198,21 @@
 .lp-problem .body p:last-child { margin-bottom: 0; }
 .lp-problem .body strong { color: var(--ink); font-weight: 600; }
 
-.agents-grid { display: grid; grid-template-columns: 320px 1fr; gap: 40px; margin-top: 48px; }
-.agent-tabs { display: flex; flex-direction: column; gap: 4px; }
+.agents-grid { display: grid; grid-template-columns: 340px 1fr; gap: 40px; margin-top: 48px; }
+.agent-tabs { display: flex; flex-direction: column; gap: 6px; }
 .agent-tab {
-  text-align: left; padding: 16px 18px; border-radius: 10px; cursor: pointer;
+  text-align: left; padding: 18px 20px; border-radius: 10px; cursor: pointer;
   border: 1px solid transparent; transition: background 120ms, border-color 120ms;
-  display: flex; gap: 14px; align-items: flex-start;
+  display: flex; gap: 16px; align-items: flex-start;
   background: none; color: inherit; font: inherit;
 }
 .agent-tab:hover { background: var(--bg-2); }
 .agent-tab.on { background: var(--card); border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
 .agent-tab .ti { flex: 0 0 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--bg-2); color: var(--ink-3); }
 .agent-tab.on .ti { background: var(--grad-accent); color: #fff; box-shadow: 0 4px 12px -5px color-mix(in oklch, var(--accent) 70%, transparent); }
-.agent-tab .tt { font-family: var(--display); font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em; }
-.agent-tab .td { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.45; }
-.agent-tab .num { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.agent-tab .tt { display: block; font-family: var(--display); font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em; line-height: 1.25; }
+.agent-tab .td { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 8px; line-height: 1.55; }
+.agent-tab .num { margin-left: auto; padding-top: 4px; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
 
 .agent-panel {
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
