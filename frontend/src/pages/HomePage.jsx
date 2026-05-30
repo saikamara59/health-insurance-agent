@@ -133,7 +133,7 @@ export default function HomePage() {
             <a href="#how" onClick={(e) => smoothScroll(e, 'how')}>How it works</a>
           </div>
           <div className="lp-nav-cta">
-            <Link to="/login">Sign in</Link>
+            <Link className="lp-btn secondary" to="/login">Sign in</Link>
             <Link className="lp-btn" to="/login?mode=register">Request access {ARROW}</Link>
           </div>
         </div>

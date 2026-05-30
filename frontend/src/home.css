@@ -59,8 +59,10 @@
 .lp-navlinks a { font-size: 14px; color: var(--ink-3); cursor: pointer; transition: color 120ms; text-decoration: none; }
 .lp-navlinks a:hover { color: var(--ink); }
 .lp-nav-cta { margin-left: auto; display: flex; align-items: center; gap: 16px; }
-.lp-nav-cta a { font-size: 14px; color: var(--ink-3); cursor: pointer; text-decoration: none; }
-.lp-nav-cta a:hover { color: var(--ink); }
+/* Scope the grey link styling to non-button links so it can't override the
+   white text on .lp-btn (.lp-nav-cta a would otherwise out-specify .lp-btn). */
+.lp-nav-cta a:not(.lp-btn) { font-size: 14px; color: var(--ink-3); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.lp-nav-cta a:not(.lp-btn):hover { color: var(--ink); }
 
 .lp-btn {
   display: inline-flex; align-items: center; gap: 8px;
@@ -84,6 +86,19 @@
 }
 .lp-btn.ghost:hover { filter: none; background: var(--bg-2); border-color: var(--accent-line); color: var(--accent); transform: translateY(-1.5px); }
 .lp-btn.lg { height: 48px; padding: 0 24px; font-size: 15px; border-radius: 10px; }
+/* Solid secondary button: white text on a dark ink fill. Used for "Sign in" so
+   a returning broker gets a readable button, while "Request access" keeps the
+   bright accent gradient as the primary action. Both are solid + white-text. */
+.lp-btn.secondary {
+  background: var(--ink); color: #fff; border-color: transparent;
+  box-shadow: 0 6px 16px -9px color-mix(in oklch, var(--ink) 55%, transparent),
+              inset 0 1px 0 oklch(1 0 0 / 0.12);
+}
+.lp-btn.secondary:hover {
+  filter: brightness(1.22); transform: translateY(-1.5px);
+  box-shadow: 0 12px 24px -10px color-mix(in oklch, var(--ink) 60%, transparent),
+              inset 0 1px 0 oklch(1 0 0 / 0.16);
+}
 
 .lp-hero { padding: 76px 0 90px; }
 .lp-hero-grid {
@@ -347,5 +362,12 @@
   .ap-io .arrow { transform: rotate(90deg); justify-self: center; }
   .lp-footer-base { flex-direction: column; gap: 14px; align-items: flex-start; }
   .lp-hero { padding: 50px 0 60px; }
-  .lp-nav-cta a:not(.lp-btn) { display: none; }
+  /* Keep "Sign in" visible on phones — a returning broker's primary action is
+     to log in, not request access. Tighten the CTA cluster so both fit beside
+     the logo on a ~360px screen: smaller wordmark, tighter gap, compact button
+     with its arrow dropped. */
+  .lp-logo .wm { font-size: 16px; }
+  .lp-nav-cta { gap: 10px; }
+  .lp-nav-cta .lp-btn { height: 34px; padding: 0 12px; font-size: 12.5px; }
+  .lp-nav-cta .lp-btn svg { display: none; }
 }
