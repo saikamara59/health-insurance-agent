@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import HomePage from './pages/HomePage'
 import DashboardPage from './pages/DashboardPage'
 import ClientListPage from './pages/ClientListPage'
 import ClientProfilePage from './pages/ClientProfilePage'
@@ -24,21 +25,29 @@ import FeedbackDashboardPage from './pages/FeedbackDashboardPage'
 import AdminPage from './pages/AdminPage'
 import AdminRoute from './components/AdminRoute'
 
+// At `/`, show the public marketing page to logged-out visitors; redirect
+// authenticated users into their workspace so they don't see a sales pitch
+// every time they hit the root URL.
+function HomeGate() {
+  const { isAuthenticated } = useAuth()
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<HomeGate />} />
           <Route
-            path="/"
             element={
               <ProtectedRoute>
                 <Layout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="clients" element={<ClientListPage />} />
             <Route path="clients/new" element={<AddClientPage />} />
             <Route path="clients/success" element={<OnboardingSuccessPage />} />

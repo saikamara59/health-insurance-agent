@@ -9,7 +9,7 @@ const NAV = [
   {
     group: 'Workspace',
     items: [
-      { path: '/', label: 'Overview', icon: 'dashboard', end: true },
+      { path: '/dashboard', label: 'Overview', icon: 'dashboard', end: true },
       { path: '/clients', label: 'Clients', icon: 'users', countKey: 'clients' },
       { path: '/leads', label: 'Leads', icon: 'leads', countKey: 'leads' },
       { path: '/activity', label: 'Activity', icon: 'history' },
