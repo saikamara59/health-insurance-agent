@@ -141,7 +141,7 @@ export default function HomePage() {
           </div>
           <div className="lp-nav-cta">
             <Link to="/login">Sign in</Link>
-            <Link className="lp-btn" to="/login">Request access {ARROW}</Link>
+            <Link className="lp-btn" to="/login?mode=register">Request access {ARROW}</Link>
           </div>
         </div>
       </nav>
@@ -160,7 +160,7 @@ export default function HomePage() {
                 benefits, and draft appeals — with an attributable, PHI-aware record under every recommendation.
               </p>
               <div className="lp-hero-actions">
-                <Link className="lp-btn lg" to="/login">Request access {ARROW_LG}</Link>
+                <Link className="lp-btn lg" to="/login?mode=register">Request access {ARROW_LG}</Link>
                 <a className="lp-btn ghost lg" href="#system" onClick={(e) => smoothScroll(e, 'system')}>See the system</a>
               </div>
               <div className="lp-hero-stats">
@@ -418,7 +418,7 @@ export default function HomePage() {
           <Reveal as="h2">Give every recommendation a <em>paper trail.</em></Reveal>
           <Reveal as="p" className="sub">Set up your workspace in an afternoon. Bring your book; keep your license clean.</Reveal>
           <Reveal className="actions">
-            <Link className="lp-btn lg" to="/login">Request access {ARROW_LG}</Link>
+            <Link className="lp-btn lg" to="/login?mode=register">Request access {ARROW_LG}</Link>
             <Link className="lp-btn ghost lg" to="/login">Explore the workspace</Link>
           </Reveal>
         </div>

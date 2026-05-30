@@ -1,12 +1,17 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login, register } = useAuth()
+  const [searchParams] = useSearchParams()
 
-  const [isRegisterMode, setIsRegisterMode] = useState(false)
+  // /login?mode=register lands directly in sign-up mode, used by the
+  // landing page's "Request access" CTAs so visitors don't have to toggle.
+  const [isRegisterMode, setIsRegisterMode] = useState(
+    () => searchParams.get('mode') === 'register'
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
