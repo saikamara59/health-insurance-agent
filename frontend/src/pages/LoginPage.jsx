@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import BrandLogo from '../components/ui/BrandLogo'
+import '../home.css'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -68,9 +70,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 max-w-xl">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-              <span className="material-symbols-outlined text-primary text-3xl">medical_services</span>
-            </div>
+            <BrandLogo size={48} />
             <span className="font-logo text-3xl tracking-tighter text-white">HealthFlow</span>
           </div>
 
@@ -99,6 +99,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-12">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-12">
+            <BrandLogo size={32} />
             <span className="font-logo text-2xl tracking-tighter text-primary">HealthFlow</span>
           </div>
 
@@ -240,19 +241,22 @@ export default function LoginPage() {
               </label>
             </div>
 
-            {/* Submit */}
+            {/* Submit — uses the same gradient CTA as the landing page */}
             <div className="space-y-4">
               <button
-                className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary py-4 rounded-xl font-bold text-lg shadow-xl shadow-primary/10 hover:shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="brand-btn brand-btn-lg"
+                style={{ width: '100%', justifyContent: 'center' }}
                 type="submit"
                 disabled={loading}
               >
                 {loading ? (
-                  'Processing...'
+                  'Processing…'
                 ) : (
                   <>
-                    {isRegisterMode ? 'Create Account' : 'Authenticate'}
-                    <span className="material-symbols-outlined text-xl">login</span>
+                    {isRegisterMode ? 'Create account' : 'Sign in'}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M13 5l7 7-7 7" />
+                    </svg>
                   </>
                 )}
               </button>

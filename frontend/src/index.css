@@ -264,6 +264,33 @@ a { color: inherit; text-decoration: none; }
   .audit-log-row > span.muted.mono      { grid-area: duration; justify-self: end; font-size: 11px; }
 }
 
+/* Shared HealthFlow gradient CTA — same look as the landing-page .lp-btn
+   but usable anywhere (login submit, marketing-style CTAs in the app). */
+.brand-btn {
+  --brand-accent: oklch(0.54 0.15 200);
+  --brand-grad: linear-gradient(135deg, oklch(0.7 0.15 185) 0%, oklch(0.54 0.15 200) 55%, oklch(0.46 0.13 215) 100%);
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 18px; border-radius: 9px;
+  font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: -0.005em;
+  border: 1px solid transparent; text-decoration: none;
+  background: var(--brand-grad); color: #fff;
+  box-shadow: 0 6px 18px -7px color-mix(in oklch, var(--brand-accent) 70%, transparent),
+              inset 0 1px 0 oklch(1 0 0 / 0.22);
+  transition: filter 140ms, transform 130ms, box-shadow 140ms;
+  white-space: nowrap;
+}
+.brand-btn:hover:not(:disabled) {
+  filter: brightness(1.07) saturate(1.05);
+  transform: translateY(-1.5px);
+  box-shadow: 0 12px 26px -8px color-mix(in oklch, var(--brand-accent) 78%, transparent),
+              inset 0 1px 0 oklch(1 0 0 / 0.25);
+}
+.brand-btn:active:not(:disabled) { transform: translateY(0); }
+.brand-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.brand-btn svg { transition: transform 160ms; }
+.brand-btn:hover:not(:disabled) svg { transform: translateX(3px); }
+.brand-btn-lg { height: 48px; padding: 0 24px; font-size: 15px; border-radius: 10px; }
+
 /* Hide secondary table columns on phones. Tag <th>/<td> with .col-hide-sm
    to drop them at <=700px without restructuring the rendered DOM. */
 @media (max-width: 700px) {

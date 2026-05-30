@@ -1,6 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import BrandLogo from '../components/ui/BrandLogo';
 import '../home.css';
+
+// Motion presets — reused across sections so the entrance language stays
+// consistent. Honors prefers-reduced-motion via useReducedMotion below.
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 0.61, 0.36, 1] } },
+};
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+};
+const inView = { initial: 'hidden', whileInView: 'show', viewport: { once: true, amount: 0.18 } };
 
 const ARROW = (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -11,24 +25,6 @@ const ARROW_LG = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 12h14M13 5l7 7-7 7" />
   </svg>
-);
-
-const Logo = ({ idSuffix = 'Nav' }) => (
-  <span className="mk" aria-hidden="true">
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <defs>
-        <linearGradient id={`hfLogo${idSuffix}`} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="oklch(0.66 0.14 190)" />
-          <stop offset="1" stopColor="oklch(0.44 0.13 222)" />
-        </linearGradient>
-      </defs>
-      <rect x="1" y="1" width="30" height="30" rx="9" fill={`url(#hfLogo${idSuffix})`} />
-      <path d="M9 7 L9 25" strokeWidth="2.4" stroke="#fff" />
-      <path d="M23 7 L23 25" strokeWidth="2.4" stroke="#fff" />
-      <path d="M9 16 C 13 13, 19 19, 23 16" strokeWidth="2.4" stroke="oklch(0.78 0.18 45)" />
-      <circle cx="23" cy="16" r="2.2" fill="oklch(0.78 0.18 45)" />
-    </svg>
-  </span>
 );
 
 const AGENTS = [
@@ -84,22 +80,28 @@ const AGENTS = [
   },
 ];
 
-function Reveal({ children, as: Tag = 'div', className = '', ...rest }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) { el.classList.add('in'); io.unobserve(el); }
-      });
-    }, { threshold: 0.12 });
-    io.observe(el);
-    // Fallback: if the observer never fires (some browsers), reveal after 1.4s.
-    const fallback = setTimeout(() => el.classList.add('in'), 1400);
-    return () => { io.disconnect(); clearTimeout(fallback); };
-  }, []);
-  return <Tag ref={ref} className={`lp-reveal ${className}`.trim()} {...rest}>{children}</Tag>;
+// Wrapper that fades + slides up the first time it enters the viewport.
+// Replaces the previous IntersectionObserver-based Reveal so we can compose
+// with stagger containers and benefit from framer-motion's reduced-motion
+// handling.
+function Reveal({ children, as = 'div', className = '', ...rest }) {
+  const Tag = motion[as] || motion.div;
+  return (
+    <Tag variants={fadeUp} {...inView} className={className} {...rest}>
+      {children}
+    </Tag>
+  );
+}
+
+// Variant of Reveal that staggers its direct children — used for the
+// stat strip, 3-card regulated section, 4-step "how it works", etc.
+function RevealGroup({ children, as = 'div', className = '', ...rest }) {
+  const Tag = motion[as] || motion.div;
+  return (
+    <Tag variants={stagger} {...inView} className={className} {...rest}>
+      {children}
+    </Tag>
+  );
 }
 
 function smoothScroll(e, id) {
@@ -113,16 +115,7 @@ function smoothScroll(e, id) {
 export default function HomePage() {
   const [active, setActive] = useState('compare');
   const agent = AGENTS.find((a) => a.key === active);
-
-  // Re-trigger the panel fade when the active agent changes
-  const panelRef = useRef(null);
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    el.style.opacity = 0;
-    const t = setTimeout(() => { el.style.opacity = 1; }, 60);
-    return () => clearTimeout(t);
-  }, [active]);
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className="lp">
@@ -130,7 +123,7 @@ export default function HomePage() {
       <nav className="lp-nav">
         <div className="lp-nav-inner">
           <a className="lp-logo" href="#top" onClick={(e) => smoothScroll(e, 'top')}>
-            <Logo idSuffix="Nav" />
+            <BrandLogo size={30} />
             <span className="wm">HealthFlow</span>
           </a>
           <div className="lp-navlinks">
@@ -150,25 +143,27 @@ export default function HomePage() {
       <header className="lp-section lp-hero" id="top">
         <div className="lp-wrap">
           <div className="lp-hero-grid">
-            <div>
-              <span className="lp-eyebrow">
+            <motion.div initial="hidden" animate="show" variants={stagger}>
+              <motion.span className="lp-eyebrow" variants={fadeUp}>
                 <span className="pulse"></span> Multi-agent · regulated by Saidu Kamara
-              </span>
-              <h1 className="lp-h1">Coverage advice you can <em>defend</em> — months later, under audit.</h1>
-              <p className="lp-hero-sub">
+              </motion.span>
+              <motion.h1 className="lp-h1" variants={fadeUp}>
+                Coverage advice you can <em>defend</em> — months later, under audit.
+              </motion.h1>
+              <motion.p className="lp-hero-sub" variants={fadeUp}>
                 HealthFlow is the agent workspace Medicare brokers use to compare plans, translate dense
                 benefits, and draft appeals — with an attributable, PHI-aware record under every recommendation.
-              </p>
-              <div className="lp-hero-actions">
+              </motion.p>
+              <motion.div className="lp-hero-actions" variants={fadeUp}>
                 <Link className="lp-btn lg" to="/login?mode=register">Request access {ARROW_LG}</Link>
                 <a className="lp-btn ghost lg" href="#system" onClick={(e) => smoothScroll(e, 'system')}>See the system</a>
-              </div>
-              <div className="lp-hero-stats">
-                <div className="s"><div className="n">5 agents</div><div className="l">one orchestrated workflow</div></div>
-                <div className="s"><div className="n">100%</div><div className="l">actions logged &amp; attributable</div></div>
-                <div className="s"><div className="n">SOC 2 · HIPAA</div><div className="l">tenant-isolated by default</div></div>
-              </div>
-            </div>
+              </motion.div>
+              <motion.div className="lp-hero-stats" variants={stagger}>
+                <motion.div className="s" variants={fadeUp}><div className="n">5 agents</div><div className="l">one orchestrated workflow</div></motion.div>
+                <motion.div className="s" variants={fadeUp}><div className="n">100%</div><div className="l">actions logged &amp; attributable</div></motion.div>
+                <motion.div className="s" variants={fadeUp}><div className="n">SOC 2 · HIPAA</div><div className="l">tenant-isolated by default</div></motion.div>
+              </motion.div>
+            </motion.div>
 
             {/* agent-flow motif */}
             <Reveal className="flowcard" id="system">
@@ -301,32 +296,42 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
-            <div className="agent-panel" ref={panelRef}>
-              <div className="ap-eyebrow">Agent {agent.n}</div>
-              <div className="ap-title">{agent.title}</div>
-              <div className="ap-desc">{agent.desc}</div>
-              <div className="ap-io">
-                <div className="io-box">
-                  <div className="io-lbl">{agent.inLbl}</div>
-                  {agent.in.map(([k, v], i) => (
-                    <div key={i} className="io-line"><span className="k">{k}</span> {v}</div>
-                  ))}
-                </div>
-                <div className="arrow">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M13 5l7 7-7 7" />
-                  </svg>
-                </div>
-                <div className="io-box">
-                  <div className="io-lbl">{agent.outLbl}</div>
-                  {agent.out.map(([k, v], i) => (
-                    <div key={i} className="io-line"><span className="k">{k}</span> {v}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="ap-foot">
-                {agent.chips.map((c) => <span key={c} className="ap-chip">{c}</span>)}
-              </div>
+            <div className="agent-panel" style={{ overflow: 'hidden' }}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={agent.key}
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28, ease: [0.22, 0.61, 0.36, 1] }}
+                >
+                  <div className="ap-eyebrow">Agent {agent.n}</div>
+                  <div className="ap-title">{agent.title}</div>
+                  <div className="ap-desc">{agent.desc}</div>
+                  <div className="ap-io">
+                    <div className="io-box">
+                      <div className="io-lbl">{agent.inLbl}</div>
+                      {agent.in.map(([k, v], i) => (
+                        <div key={i} className="io-line"><span className="k">{k}</span> {v}</div>
+                      ))}
+                    </div>
+                    <div className="arrow">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M13 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                    <div className="io-box">
+                      <div className="io-lbl">{agent.outLbl}</div>
+                      {agent.out.map(([k, v], i) => (
+                        <div key={i} className="io-line"><span className="k">{k}</span> {v}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="ap-foot">
+                    {agent.chips.map((c) => <span key={c} className="ap-chip">{c}</span>)}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </Reveal>
         </div>
@@ -343,8 +348,8 @@ export default function HomePage() {
             PHI doesn't tolerate "move fast and break things." The architecture is the product: forensic logging, data minimization, and hard tenant boundaries — not features bolted on after a breach.
           </Reveal>
 
-          <div className="reg-grid">
-            <Reveal className="reg-card">
+          <RevealGroup className="reg-grid">
+            <motion.div className="reg-card" variants={fadeUp}>
               <div className="rc-ic">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -358,9 +363,9 @@ export default function HomePage() {
                 <div className="audit-row"><span className="ts">09:42:07</span><span className="ev">formulary@2026.4 pinned</span></div>
                 <div className="audit-row"><span className="ts">09:42:09</span><span className="ev">rec emitted <span className="hash">#b1c… by SK</span></span></div>
               </div>
-            </Reveal>
+            </motion.div>
 
-            <Reveal className="reg-card">
+            <motion.div className="reg-card" variants={fadeUp}>
               <div className="rc-ic">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -374,9 +379,9 @@ export default function HomePage() {
                 <div className="phi-line"><span className="k">medicare_id</span><span className="phi-mask">1EG4-▮▮▮-▮▮72</span></div>
                 <div className="phi-line"><span className="k">conditions</span><span className="ok">visible to agent ✓</span></div>
               </div>
-            </Reveal>
+            </motion.div>
 
-            <Reveal className="reg-card">
+            <motion.div className="reg-card" variants={fadeUp}>
               <div className="rc-ic">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -390,8 +395,8 @@ export default function HomePage() {
                 <div className="tenant-row"><span className="box">tenant: atlas-advisors</span><span className="lock">🔒</span></div>
                 <div className="tenant-row"><span className="box" style={{ opacity: 0.5 }}>cross-tenant read</span><span style={{ color: 'oklch(0.6 0.12 25)' }}>denied</span></div>
               </div>
-            </Reveal>
-          </div>
+            </motion.div>
+          </RevealGroup>
         </div>
       </section>
 
@@ -402,12 +407,12 @@ export default function HomePage() {
             <span className="idx">04</span> <span className="ln"></span> How it works
           </Reveal>
           <Reveal as="h2" className="sec-title">From a client's situation to a recommendation that holds up.</Reveal>
-          <Reveal className="steps">
-            <div className="step"><div className="sn">01</div><div className="st">Intake</div><div className="sd">A client's meds, providers, and budget enter once. PHI is minimized at the door.</div></div>
-            <div className="step"><div className="sn">02</div><div className="st">Orchestrate</div><div className="sd">The orchestrator routes the case to the agents it needs and pins the live data versions.</div></div>
-            <div className="step"><div className="sn">03</div><div className="st">Reason</div><div className="sd">Agents compare plans, translate benefits, and surface deadlines — each output grounded and typed.</div></div>
-            <div className="step"><div className="sn">04</div><div className="st">Record</div><div className="sd">The recommendation and its full lineage are signed into the audit log. Defensible later, by design.</div></div>
-          </Reveal>
+          <RevealGroup className="steps">
+            <motion.div className="step" variants={fadeUp}><div className="sn">01</div><div className="st">Intake</div><div className="sd">A client's meds, providers, and budget enter once. PHI is minimized at the door.</div></motion.div>
+            <motion.div className="step" variants={fadeUp}><div className="sn">02</div><div className="st">Orchestrate</div><div className="sd">The orchestrator routes the case to the agents it needs and pins the live data versions.</div></motion.div>
+            <motion.div className="step" variants={fadeUp}><div className="sn">03</div><div className="st">Reason</div><div className="sd">Agents compare plans, translate benefits, and surface deadlines — each output grounded and typed.</div></motion.div>
+            <motion.div className="step" variants={fadeUp}><div className="sn">04</div><div className="st">Record</div><div className="sd">The recommendation and its full lineage are signed into the audit log. Defensible later, by design.</div></motion.div>
+          </RevealGroup>
         </div>
       </section>
 
@@ -430,7 +435,7 @@ export default function HomePage() {
           <div className="lp-footer-grid">
             <div className="fcol fbrand">
               <div className="lp-logo">
-                <Logo idSuffix="Foot" />
+                <BrandLogo size={28} />
                 <span className="wm">HealthFlow</span>
               </div>
               <p>Multi-agent infrastructure for health coverage decisions that have to hold up later.</p>

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
 import Icon from './ui/Icon';
 import Avatar from './ui/Avatar';
+import BrandLogo from './ui/BrandLogo';
 
 const NAV = [
   {
@@ -98,15 +99,7 @@ export default function Sidebar({ open, onClose }) {
       <div className={`side-backdrop ${open ? 'open' : ''}`} onClick={onClose} />
       <aside className={`side ${open ? 'open' : ''}`}>
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="28" height="28" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="1" y="1" width="30" height="30" rx="9" fill="var(--brand-bg)" stroke="none" />
-              <path d="M9 7 L9 25" strokeWidth="2.4" stroke="var(--brand-ink)" />
-              <path d="M23 7 L23 25" strokeWidth="2.4" stroke="var(--brand-ink)" />
-              <path d="M9 16 C 13 13, 19 19, 23 16" strokeWidth="2.4" stroke="var(--brand-accent)" fill="none" />
-              <circle cx="23" cy="16" r="2" fill="var(--brand-accent)" stroke="none" />
-            </svg>
-          </span>
+          <BrandLogo size={28} />
           <span className="brand-name">HealthFlow</span>
           <span className="brand-tag">v3</span>
         </div>
