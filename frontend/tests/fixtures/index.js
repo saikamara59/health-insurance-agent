@@ -72,8 +72,12 @@ export const test = base.extend({
       await page.goto('/login')
       await page.getByLabel(/work email/i).fill(credsToUse.email)
       await page.getByLabel(/credentials/i).fill(credsToUse.password)
-      await page.getByRole('button', { name: /authenticate/i }).click()
-      await page.waitForURL('/')
+      // Submit label was "Authenticate" — renamed to "Sign in" with the
+      // brand-button refresh. Wait for /dashboard since / now serves the
+      // public landing page when logged out and redirects to the workspace
+      // when logged in.
+      await page.getByRole('button', { name: /^sign in$/i }).click()
+      await page.waitForURL(/\/dashboard$/)
     })
   },
 })
