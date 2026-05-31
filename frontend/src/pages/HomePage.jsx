@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import BrandLogo from '../components/ui/BrandLogo';
@@ -112,6 +112,64 @@ function smoothScroll(e, id) {
   }
 }
 
+// Demo-video frame. The <video> uses preload="none", so nothing is fetched
+// until a visitor clicks play — the placeholder (with drop-in instructions)
+// stays until a real file loads, then hides. The file lives at
+// frontend/public/product-demo.mp4 and is served at /product-demo.mp4.
+// NOTE: the name must NOT start with "health" — vite.config.js proxies the
+// /health prefix to the backend, so /healthflow-*.mp4 would 404 in dev.
+function DemoVideoFrame() {
+  const videoRef = useRef(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const show = () => setReady(true);
+    const hide = () => setReady(false);
+    v.addEventListener('loadeddata', show); // fires only when a decodable file is attached
+    v.addEventListener('error', hide, true); // a missing/invalid source bubbles up
+    if (v.readyState >= 2) show(); // already cached
+    return () => {
+      v.removeEventListener('loadeddata', show);
+      v.removeEventListener('error', hide, true);
+    };
+  }, []);
+
+  const play = () => { videoRef.current?.play().catch(() => {}); };
+
+  return (
+    <Reveal as="figure" className="video-frame">
+      <div className="vf-chrome">
+        <span className="vf-dot"></span><span className="vf-dot"></span><span className="vf-dot"></span>
+        <span className="vf-url">app.healthflow.work — product demo</span>
+      </div>
+      <div className="vf-stage">
+        {/* Demo file lives at frontend/public/product-demo.mp4 (served at /product-demo.mp4). */}
+        <video ref={videoRef} className="vf-video" controls preload="none" playsInline>
+          <source src="/product-demo.mp4" type="video/mp4" />
+          Your browser doesn't support embedded video.
+        </video>
+        <button
+          className={`vf-placeholder${ready ? ' hide' : ''}`}
+          type="button"
+          onClick={play}
+          aria-label="Play demo video"
+        >
+          <span className="vf-play">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          </span>
+          <span className="vf-ph-title">Watch the product demo</span>
+          <span className="vf-ph-desc">
+            Click to play. To swap the clip, replace <code>frontend/public/product-demo.mp4</code> —
+            it appears here automatically. MP4 (H.264) plays everywhere; keep it under ~50&nbsp;MB for fast loading.
+          </span>
+        </button>
+      </div>
+    </Reveal>
+  );
+}
+
 export default function HomePage() {
   const [active, setActive] = useState('compare');
   const agent = AGENTS.find((a) => a.key === active);
@@ -130,6 +188,7 @@ export default function HomePage() {
             <a href="#system" onClick={(e) => smoothScroll(e, 'system')}>System</a>
             <a href="#agents" onClick={(e) => smoothScroll(e, 'agents')}>Agents</a>
             <a href="#regulated" onClick={(e) => smoothScroll(e, 'regulated')}>Compliance</a>
+            <a href="#demo" onClick={(e) => smoothScroll(e, 'demo')}>Demo</a>
             <a href="#how" onClick={(e) => smoothScroll(e, 'how')}>How it works</a>
           </div>
           <div className="lp-nav-cta">
@@ -413,6 +472,21 @@ export default function HomePage() {
             <motion.div className="step" variants={fadeUp}><div className="sn">03</div><div className="st">Reason</div><div className="sd">Agents compare plans, translate benefits, and surface deadlines — each output grounded and typed.</div></motion.div>
             <motion.div className="step" variants={fadeUp}><div className="sn">04</div><div className="st">Record</div><div className="sd">The recommendation and its full lineage are signed into the audit log. Defensible later, by design.</div></motion.div>
           </RevealGroup>
+        </div>
+      </section>
+
+      {/* DEMO VIDEO */}
+      <section className="lp-section lp-demo" id="demo">
+        <div className="lp-wrap">
+          <Reveal className="sec-marker">
+            <span className="idx">05</span> <span className="ln"></span> See it in action
+          </Reveal>
+          <Reveal as="h2" className="sec-title">Watch a recommendation come together.</Reveal>
+          <Reveal as="p" className="sec-lead">
+            A short walkthrough — from a client's intake to a ranked plan, a plain-English benefit answer,
+            and a signed entry in the audit log.
+          </Reveal>
+          <DemoVideoFrame />
         </div>
       </section>
 
