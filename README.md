@@ -209,9 +209,10 @@ The root URL serves a marketing landing page to logged-out visitors (the authent
 app lives behind sign-in). It leads with the broker problem, showcases the five-agent
 system, details the regulated-environment architecture (audit forensics, PHI handling,
 tenant isolation), and closes with a **product walkthrough video** (section `05 — See it
-in action`). The video is `frontend/public/product-demo.mp4`, served at `/product-demo.mp4`
-and lazy-loaded (`preload="none"`) so visitors fetch no video bytes until they press play.
-To swap the clip, see `frontend/public/README-demo-video.md`.
+in action`). The walkthrough streams from **Vimeo** via a click-to-load facade — the
+player iframe loads only when a visitor presses play, so there are zero third-party bytes
+or tracking on page load (`dnt=1` is set). To swap the clip, change `VIMEO_ID` at the top
+of `DemoVideoFrame` in `frontend/src/pages/HomePage.jsx`.
 
 ### AI-Powered Agents (Claude)
 

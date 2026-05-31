@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import BrandLogo from '../components/ui/BrandLogo';
@@ -112,31 +112,16 @@ function smoothScroll(e, id) {
   }
 }
 
-// Demo-video frame. The <video> uses preload="none", so nothing is fetched
-// until a visitor clicks play — the placeholder (with drop-in instructions)
-// stays until a real file loads, then hides. The file lives at
-// frontend/public/product-demo.mp4 and is served at /product-demo.mp4.
-// NOTE: the name must NOT start with "health" — vite.config.js proxies the
-// /health prefix to the backend, so /healthflow-*.mp4 would 404 in dev.
+// Vimeo video ID for the product demo, e.g. '123456789' from vimeo.com/123456789.
+// Leave empty to show the "add your Vimeo link" placeholder.
+const VIMEO_ID = '1197158139';
+
+// Demo-video frame with a click-to-load Vimeo facade: the frame shows a poster +
+// play button and loads NOTHING from Vimeo until a visitor clicks — so there are
+// zero third-party bytes or tracking on page load. dnt=1 asks Vimeo not to track.
 function DemoVideoFrame() {
-  const videoRef = useRef(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const show = () => setReady(true);
-    const hide = () => setReady(false);
-    v.addEventListener('loadeddata', show); // fires only when a decodable file is attached
-    v.addEventListener('error', hide, true); // a missing/invalid source bubbles up
-    if (v.readyState >= 2) show(); // already cached
-    return () => {
-      v.removeEventListener('loadeddata', show);
-      v.removeEventListener('error', hide, true);
-    };
-  }, []);
-
-  const play = () => { videoRef.current?.play().catch(() => {}); };
+  const [playing, setPlaying] = useState(false);
+  const hasVideo = VIMEO_ID.trim() !== '';
 
   return (
     <Reveal as="figure" className="video-frame">
@@ -145,26 +130,40 @@ function DemoVideoFrame() {
         <span className="vf-url">app.healthflow.work — product demo</span>
       </div>
       <div className="vf-stage">
-        {/* Demo file lives at frontend/public/product-demo.mp4 (served at /product-demo.mp4). */}
-        <video ref={videoRef} className="vf-video" controls preload="none" playsInline>
-          <source src="/product-demo.mp4" type="video/mp4" />
-          Your browser doesn't support embedded video.
-        </video>
-        <button
-          className={`vf-placeholder${ready ? ' hide' : ''}`}
-          type="button"
-          onClick={play}
-          aria-label="Play demo video"
-        >
-          <span className="vf-play">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-          </span>
-          <span className="vf-ph-title">Watch the product demo</span>
-          <span className="vf-ph-desc">
-            Click to play. To swap the clip, replace <code>frontend/public/product-demo.mp4</code> —
-            it appears here automatically. MP4 (H.264) plays everywhere; keep it under ~50&nbsp;MB for fast loading.
-          </span>
-        </button>
+        {playing && hasVideo ? (
+          <iframe
+            className="vf-video"
+            src={`https://player.vimeo.com/video/${VIMEO_ID}?autoplay=1&dnt=1&title=0&byline=0&portrait=0`}
+            title="HealthFlow product demo"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <button
+            className="vf-placeholder"
+            type="button"
+            onClick={() => hasVideo && setPlaying(true)}
+            aria-label="Play demo video"
+          >
+            <span className="vf-play">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+            </span>
+            {hasVideo ? (
+              <>
+                <span className="vf-ph-title">Watch the product demo</span>
+                <span className="vf-ph-desc">Click to play — streamed from Vimeo, loaded only on demand.</span>
+              </>
+            ) : (
+              <>
+                <span className="vf-ph-title">Demo video goes here</span>
+                <span className="vf-ph-desc">
+                  Set <code>VIMEO_ID</code> at the top of <code>DemoVideoFrame</code> in HomePage.jsx
+                  to your Vimeo video ID (the number in <code>vimeo.com/123456789</code>).
+                </span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </Reveal>
   );
