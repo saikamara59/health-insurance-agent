@@ -3,6 +3,7 @@
 > 🟢 **Live demo:** [healthflow.work](https://healthflow.work)
 > Broker login: `demo@healthflow.com` / `Healthflow123!` — 18 demo clients across 11 cities are pre-seeded.
 > Admin login: `admin@healthflow.com` / `Healthflow123!` — opens the `/admin` workspace (team management, forensics replay, audit log).
+> Logged-out visitors land on a public marketing page — agent showcase, compliance overview, and a product walkthrough video ("See it in action").
 
 **An AI-powered health insurance brokerage platform** designed and built by [Saidu Kamara](https://github.com/saikamara59) to solve a real industry problem: health insurance is confusing, comparisons are manual, and brokers waste hours on paperwork that should be automated.
 
@@ -201,6 +202,16 @@ LIMIT 20;
 ---
 
 ## Features
+
+### Public Landing Page
+
+The root URL serves a marketing landing page to logged-out visitors (the authenticated
+app lives behind sign-in). It leads with the broker problem, showcases the five-agent
+system, details the regulated-environment architecture (audit forensics, PHI handling,
+tenant isolation), and closes with a **product walkthrough video** (section `05 — See it
+in action`). The video is `frontend/public/product-demo.mp4`, served at `/product-demo.mp4`
+and lazy-loaded (`preload="none"`) so visitors fetch no video bytes until they press play.
+To swap the clip, see `frontend/public/README-demo-video.md`.
 
 ### AI-Powered Agents (Claude)
 
